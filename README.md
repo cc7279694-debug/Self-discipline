@@ -12,3 +12,15 @@
 - [docs/DECISIONS.md](docs/DECISIONS.md)：已经确认的关键产品与技术决策
 - [docs/plans/PHASE_0_1_IMPLEMENTATION.md](docs/plans/PHASE_0_1_IMPLEMENTATION.md)：Phase 0 + Phase 1 实施方案
 - [AGENTS.md](AGENTS.md)：Codex 与工程协作规则
+
+## 本地构建
+
+要求 JDK 17 与 Android SDK API 37。项目通过 Gradle Wrapper 固定 Gradle 版本，不需要单独安装系统 Gradle。
+
+```powershell
+.\gradlew.bat testDebugUnitTest
+.\gradlew.bat lintDebug assembleDebug
+.\gradlew.bat connectedDebugAndroidTest
+```
+
+设备测试需要先连接 Android 真机或启动 API 37 模拟器。机器专属的 SDK 路径保存在被 Git 忽略的 `local.properties` 中。
