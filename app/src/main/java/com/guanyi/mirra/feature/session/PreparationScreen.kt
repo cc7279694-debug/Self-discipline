@@ -1,0 +1,96 @@
+package com.guanyi.mirra.feature.session
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import com.guanyi.mirra.data.local.entity.LearningItemEntity
+import com.guanyi.mirra.data.local.entity.StudyIntentEntity
+import com.guanyi.mirra.data.repository.LearningItemRepository
+import com.guanyi.mirra.data.repository.StudyWorkflowRepository
+import com.guanyi.mirra.domain.SessionManager
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+data class PreparationUiState(
+    val intent: StudyIntentEntity? = null,
+    val item: LearningItemEntity? = null,
+)
+
+class PreparationViewModel(
+    private val intentId: String,
+    private val workflow: StudyWorkflowRepository,
+    private val learningItems: LearningItemRepository,
+    private val sessionManager: SessionManager,
+) : ViewModel() {
+    var error by mutableStateOf<String?>(null)
+        private set
+
+    val uiState = combine(workflow.observeActiveIntent(), learningItems.observeAll()) { intent, items ->
+        val selected = intent?.takeIf { it.id == intentId }
+        PreparationUiState(selected, items.firstOrNull { it.id == selected?.learningItemId })
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PreparationUiState())
+
+    init {
+        viewModelScope.launch { runCatching { workflow.markTransitioned(intentId) } }
+    }
+
+    fun start(onStarted: (String) -> Unit) {
+        val item = uiState.value.item ?: return
+        viewModelScope.launch {
+            runCatching { sessionManager.start(intentId, item.currentPage) }
+                .onSuccess { onStarted(it.id) }
+                .onFailure { error = it.message ?: "无法开始 Session" }
+        }
+    }
+}
+
+@Composable
+fun PreparationScreen(
+    viewModel: PreparationViewModel,
+    onStarted: (String) -> Unit,
+    onBack: () -> Unit,
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val item = state.item
+    Column(
+        Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column {
+            Text("启动准备", style = MaterialTheme.typography.headlineMedium)
+            Spacer(Modifier.height(20.dp))
+            Text("先完成一个具体动作", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(10.dp))
+            Text(item?.firstAction ?: "正在读取…", style = MaterialTheme.typography.titleLarge)
+            viewModel.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        }
+        Column {
+            Button(
+                onClick = { viewModel.start(onStarted) },
+                enabled = item != null,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+            ) { Text("我已拿起书，开始阅读") }
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("稍后再说") }
+        }
+    }
+}

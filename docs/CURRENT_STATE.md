@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 0｜工程基础已完成并通过用户验收；进入 Phase 1 前的路径迁移复验已完成。
+Phase 1｜最小学习闭环已实现并完成验证，等待用户验收；未进入 Phase 2。
 
 ## Verified Completed
 
@@ -20,16 +20,19 @@ Phase 0｜工程基础已完成并通过用户验收；进入 Phase 1 前的路�
 - Debug APK 已生成、安装并完成冷启动；最近一次选择的顶层页面可在进程重启后恢复。
 - 当前正式工作目录已迁移到纯英文路径 `C:\Users\CDD\Documents\ChatGPT\Mirra`；移除 `android.overridePathCheck` 后，完整 Module 0 验证仍通过。
 - `codex/project-foundation` 分支的 Phase 0 提交已推送到 GitHub。
+- 已实现创建 Learning Item、设置唯一主线、Intent、启动准备、Session 计时与页码、四类独立 Note 自动保存、Session 结束、规则式总结和下次继续。
+- Room v1 已建立 `learning_items`、`study_intents`、`study_sessions`、`notes` 四张表及 Schema Export；唯一槽位、外键、索引和事务共同保护核心状态。
+- 新进程启动时会把遗留 Active Session 标记为 `ABNORMAL`，不推进正式阅读进度；真实强停与冷启动恢复已在 API 37 模拟器验证。
 
 ## In Progress
 
-- Module 1｜Phase 1 最小学习闭环。
+- 等待 Module 1 用户验收。
 
 ## Pending
 
 ### Phase 1｜最小学习闭环
 
-- 只实现 PRODUCT_SPEC 与实施方案约束的 Learning Item、Intent、Session、Note 闭环。
+- 已完成；不得在验收前继续 Phase 2。
 
 ## Known Risks / Unknowns
 
@@ -37,14 +40,15 @@ Phase 0｜工程基础已完成并通过用户验收；进入 Phase 1 前的路�
 - 原中文路径副本仍因当前 Codex 桌面会话占用而保留；后续开发与验证仅以英文路径仓库为准。
 - Android Studio 的系统安装流程被 Windows 安装确认阻塞，本阶段改用用户目录下的 JDK 17、Android SDK Command-line Tools、ADB 与 Emulator 完成验证。
 - Android 设备与厂商对 Usage Access、DND、Overlay 的兼容性需要在 Phase 3 通过真实设备验证。
-- Phase 0 没有创建 Room Database、Entity 或业务表；Room Schema Export 会在 Phase 1 首个数据库版本创建时生效。
+- Room 当前为首个 Schema 版本，因此没有历史数据库需要迁移；后续任何 Schema 变更必须提供非破坏性 Migration。
+- Phase 1 不包含 SessionSegment，故只保存和展示 Session 总时长，不计算有效专注时间。
 
 ## Git
 
-- Current branch: codex/project-foundation
+- Current branch: codex/phase-1-learning-loop
 - Base: origin/main
-- Push status: Phase 0 已推送，当前路径迁移收尾待提交
+- Push status: Phase 0 已推送；Module 1 待最终提交与推送
 
 ## Next Recommended Task
 
-按 docs/plans/PHASE_0_1_IMPLEMENTATION.md 完成 Module 1；不得提前进入 Phase 2。
+先完成 Module 1 用户验收。验收通过后再单独规划 Phase 2，不自动开始。

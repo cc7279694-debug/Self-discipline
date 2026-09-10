@@ -1,5 +1,49 @@
 # Decisions
 
+## 2026-09-10 — Phase 1 用数据库唯一槽位和事务保护学习状态
+
+### Decision
+
+Learning Item、Intent 与 Session 分别使用 nullable 唯一槽位表达唯一主线、唯一 Active Intent 和唯一 Active Session；Intent 转 Session，以及 Session 结束、进度推进和 Summary 保存，均由 Room 事务完成。
+
+### Context
+
+Phase 1 的核心状态会经历并发点击、进程回收和重复调用，仅靠 UI 禁用按钮不能保证数据一致性。
+
+### Alternatives
+
+只在 ViewModel 中检查、只使用普通布尔字段，或引入更复杂的事件溯源与多模块状态框架。
+
+### Reason
+
+nullable 唯一槽位能利用 SQLite `UNIQUE` 直接保护全局单例状态，同时保持 Schema 与 Repository 简单；跨表业务变更使用事务可以避免只完成一半。
+
+### Consequences
+
+`mainlineSlot` / `activeSlot` 的值只使用 `1`，非占用状态使用 `NULL`。业务写入只能通过 Repository / SessionManager；UI 不访问 DAO。
+
+## 2026-09-10 — 进程启动时保守关闭遗留 Active Session
+
+### Decision
+
+每个新 App 进程在展示业务 UI 前检查数据库中的 Active Session；若存在，则原子标记为 `ABNORMAL`，保留最后写入页码，但不推进 Learning Item 阅读进度。
+
+### Context
+
+Phase 1 没有后台服务或系统行为信号。若新进程启动时数据库仍有 Active Session，说明前一个进程未正常完成结束事务。
+
+### Alternatives
+
+以固定 12 小时阈值判断、自动当作正常完成，或继续恢复计时。
+
+### Reason
+
+进程边界是本阶段可可靠观测的信号；保守关闭可以释放唯一 Active 槽位，又不会把未经用户确认的页码写成正式阅读进度。
+
+### Consequences
+
+异常 Session 保留 `currentPage` 作为 `endPage` 并排除正常 Summary；不实现 Stable Start 自动判定，也不使用固定时长阈值。
+
 ## 2026-09-10 — 产品正式名称为观已Mirra
 
 ### Decision

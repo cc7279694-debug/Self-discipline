@@ -16,22 +16,25 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val preferencesRepository = (application as MirraApplication).container.appPreferencesRepository
-
-        setContent {
-            val restoredDestination by preferencesRepository.lastDestination.collectAsStateWithLifecycle(
-                initialValue = TopLevelDestination.Start,
-            )
-
-            MirraTheme {
-                MirraApp(
-                    restoredDestination = restoredDestination,
-                    onDestinationChanged = { destination ->
-                        lifecycleScope.launch {
-                            preferencesRepository.setLastDestination(destination)
-                        }
-                    },
+        val container = (application as MirraApplication).container
+        lifecycleScope.launch {
+            container.startup.await()
+            setContent {
+                val restoredDestination by container.appPreferencesRepository.lastDestination.collectAsStateWithLifecycle(
+                    initialValue = TopLevelDestination.Start,
                 )
+
+                MirraTheme {
+                    MirraApp(
+                        container = container,
+                        restoredDestination = restoredDestination,
+                        onDestinationChanged = { destination ->
+                            lifecycleScope.launch {
+                                container.appPreferencesRepository.setLastDestination(destination)
+                            }
+                        },
+                    )
+                }
             }
         }
     }
