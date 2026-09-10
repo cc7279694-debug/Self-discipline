@@ -47,7 +47,7 @@ Phase 1｜最小学习闭环已实现并完成验证，等待用户验收；未�
 
 - Current branch: codex/phase-1-learning-loop
 - Base: origin/main
-- Push status: Phase 0 已推送；Module 1 待最终提交与推送
+- Push status: Phase 0 与 Module 1 功能分支均已推送至 GitHub
 
 ## Next Recommended Task
 
