@@ -27,6 +27,10 @@ import com.guanyi.mirra.feature.knowledge.CreateLearningItemScreen
 import com.guanyi.mirra.feature.knowledge.CreateLearningItemViewModel
 import com.guanyi.mirra.feature.knowledge.KnowledgeScreen
 import com.guanyi.mirra.feature.knowledge.KnowledgeViewModel
+import com.guanyi.mirra.feature.knowledge.ImageListScreen
+import com.guanyi.mirra.feature.knowledge.ImageListViewModel
+import com.guanyi.mirra.feature.knowledge.ImagePreviewScreen
+import com.guanyi.mirra.feature.knowledge.ImagePreviewViewModel
 import com.guanyi.mirra.feature.knowledge.LearningItemDetailScreen
 import com.guanyi.mirra.feature.knowledge.LearningItemDetailViewModel
 import com.guanyi.mirra.feature.knowledge.NoteEditorScreen
@@ -45,6 +49,8 @@ import com.guanyi.mirra.feature.start.StartViewModel
 import com.guanyi.mirra.navigation.CreateLearningItemRoute
 import com.guanyi.mirra.navigation.CreateNoteRoute
 import com.guanyi.mirra.navigation.LearningItemDetailRoute
+import com.guanyi.mirra.navigation.ImageListRoute
+import com.guanyi.mirra.navigation.ImagePreviewRoute
 import com.guanyi.mirra.navigation.NoteDetailRoute
 import com.guanyi.mirra.navigation.NoteListRoute
 import com.guanyi.mirra.navigation.PreparationRoute
@@ -129,6 +135,7 @@ fun MirraApp(
                             onCreateLearningItem = { open(CreateLearningItemRoute) },
                             onCreateNote = { open(CreateNoteRoute()) },
                             onOpenNotes = { open(NoteListRoute()) },
+                            onOpenImages = { open(ImageListRoute) },
                             onOpenItem = { open(LearningItemDetailRoute(it)) },
                         )
                         TopLevelDestination.Profile -> ProfileScreen()
@@ -189,12 +196,14 @@ fun MirraApp(
                                     initialNoteId = null,
                                     initialLearningItemId = route.initialLearningItemId,
                                     notes = container.noteRepository,
+                                    imageRepository = container.imageRepository,
                                     learningItems = container.learningItemRepository,
                                 )
                             },
                         ),
                         onBack = ::back,
                         onDeleted = ::back,
+                        onOpenImage = { noteId, imageId -> open(ImagePreviewRoute(noteId, imageId)) },
                     )
                 }
                 entry<NoteDetailRoute> { route ->
@@ -206,12 +215,35 @@ fun MirraApp(
                                     initialNoteId = route.noteId,
                                     initialLearningItemId = null,
                                     notes = container.noteRepository,
+                                    imageRepository = container.imageRepository,
                                     learningItems = container.learningItemRepository,
                                 )
                             },
                         ),
                         onBack = ::back,
                         onDeleted = ::back,
+                        onOpenImage = { noteId, imageId -> open(ImagePreviewRoute(noteId, imageId)) },
+                    )
+                }
+                entry<ImageListRoute> {
+                    ImageListScreen(
+                        viewModel = viewModel(factory = viewModelFactory {
+                            ImageListViewModel(container.imageRepository)
+                        }),
+                        onOpenImage = { noteId, imageId -> open(ImagePreviewRoute(noteId, imageId)) },
+                        onBack = ::back,
+                    )
+                }
+                entry<ImagePreviewRoute> { route ->
+                    ImagePreviewScreen(
+                        viewModel = viewModel(
+                            key = "image-${route.noteId}-${route.initialImageId}",
+                            factory = viewModelFactory {
+                                ImagePreviewViewModel(route.noteId, route.initialImageId, container.imageRepository)
+                            },
+                        ),
+                        onOpenNote = { open(NoteDetailRoute(it)) },
+                        onBack = ::back,
                     )
                 }
                 entry<PreparationRoute> { route ->
@@ -252,6 +284,7 @@ fun MirraApp(
                             backStack.clear()
                             backStack.add(SessionSummaryRoute(sessionId))
                         },
+                        onOpenNote = { open(NoteDetailRoute(it)) },
                         onBack = { select(TopLevelDestination.Start, persist = true) },
                     )
                 }

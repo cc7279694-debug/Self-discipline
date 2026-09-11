@@ -11,6 +11,7 @@ import com.guanyi.mirra.data.local.entity.SessionEndType
 import com.guanyi.mirra.data.local.entity.StudyIntentEntity
 import com.guanyi.mirra.data.repository.DefaultLearningItemRepository
 import com.guanyi.mirra.data.repository.DefaultNoteRepository
+import com.guanyi.mirra.data.storage.DefaultImageStorageService
 import com.guanyi.mirra.data.repository.DefaultStudyWorkflowRepository
 import com.guanyi.mirra.domain.IntentExpiryPolicy
 import com.guanyi.mirra.domain.RuleBasedSummaryEngine
@@ -43,7 +44,7 @@ class StudyWorkflowRepositoryTest {
             expiryPolicy = IntentExpiryPolicy(),
             clock = { now },
         )
-        notes = DefaultNoteRepository(database, clock = { now })
+        notes = DefaultNoteRepository(database, DefaultImageStorageService(context), clock = { now })
     }
 
     @After

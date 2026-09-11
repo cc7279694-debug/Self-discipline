@@ -8,6 +8,7 @@ import com.guanyi.mirra.data.local.MirraDatabase
 import com.guanyi.mirra.data.local.entity.NoteSemanticType
 import com.guanyi.mirra.data.repository.DefaultLearningItemRepository
 import com.guanyi.mirra.data.repository.DefaultNoteRepository
+import com.guanyi.mirra.data.storage.DefaultImageStorageService
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -38,7 +39,7 @@ class ModuleTwoANoteRepositoryTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         database = Room.inMemoryDatabaseBuilder(context, MirraDatabase::class.java).build()
         learningItems = DefaultLearningItemRepository(database, clock = { now })
-        notes = DefaultNoteRepository(database, clock = { now })
+        notes = DefaultNoteRepository(database, DefaultImageStorageService(context), clock = { now })
     }
 
     @After

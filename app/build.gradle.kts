@@ -5,6 +5,15 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+configurations.matching { it.name.contains("AndroidTest", ignoreCase = true) }.configureEach {
+    resolutionStrategy.force(
+        "org.jetbrains.kotlinx:kotlinx-serialization-core:1.8.1",
+        "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.8.1",
+        "org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1",
+        "org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.8.1",
+    )
+}
+
 android {
     namespace = "com.guanyi.mirra"
     compileSdk = 37
@@ -40,6 +49,8 @@ android {
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+
+    sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
 }
 
 kotlin {
@@ -69,6 +80,8 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.exifinterface)
+    implementation(libs.coil.compose)
     implementation(libs.kotlinx.coroutines.android)
     ksp(libs.androidx.room.compiler)
 

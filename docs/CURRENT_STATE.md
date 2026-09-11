@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 2｜Module 2A 已完成实现、自动化与 API 37 模拟器验收，等待用户正式验收；Module 2B 尚未开始。
+Phase 2｜Module 2A 已正式验收并冻结；Module 2B 图片笔记已完成实现与全量验证，等待用户正式验收。Module 2C 尚未开始。
 
 ## Verified Completed
 
@@ -36,17 +36,23 @@ Phase 2｜Module 2A 已完成实现、自动化与 API 37 模拟器验收，等�
 - Session 外 Note 仅在已选择有效 Learning Item 且正文去空白后非空时首次落库；首次保存后固定 ID，继续使用 500ms 自动保存与后台/离开页面 flush，Note 页码不推进阅读进度。
 - Module 2A 继续使用 Room Schema v1：Entity、Table、Column、Index、数据库版本与 `1.json` 均未改变，不存在 Migration。
 - 冻结的 Phase 1 APK 数据已通过 Module 2A APK 覆盖安装验证：原书籍、110 页进度、Session 总结与旧 Note 均可直接读取；离线学习闭环及 Active Session 强停冷启动恢复通过。
+- Note 已支持从系统 Photo Picker 单次选择最多 20 张图片和通过系统相机拍照；每张图片独立导入，失败不回滚同批次内其他成功图片。
+- 图片导入会复制到临时区，安全解码并处理 EXIF 方向，最长边限制为 2560px，以 JPEG quality 88 写入 App 私有 `images/`；数据库只保存 `images/<uuid>.jpg` 相对路径。
+- 已提供 Caption 自动保存、单图删除、Note 多图删除、全屏缩放/平移、Note 内前后切换，以及知识页“全部图片”列表。
+- Room 已从 Schema v1 非破坏性迁移到 v2，仅新增 `image_assets` 表、`noteId` 外键级联、`noteId` 索引与 `localPath` 唯一索引；真实 v1 Migration 测试确认 Phase 1 / 2A 数据完整保留，`1.json` 未变化。
+- 图片文件删除使用 trash → 数据库事务 → purge / restore 补偿；启动时恢复仍被数据库引用的 trash，并清理超过 24 小时的 import/camera temp、无引用 orphan 与无引用 trash。
+- API 37 模拟器已实际验证系统相册导入、相机取消与成功拍照导入、APK 覆盖安装、完全离线学习闭环、Active Session 强停及冷启动异常恢复。
 
 ## In Progress
 
-- 无业务代码实施中；Module 2A 已停止在验收边界，等待用户验收。
+- Module 2B 已完成实现、验证与 checkpoint，等待用户正式验收；没有 Module 2C 业务代码实施中。
 
 ## Pending
 
 ### Phase 2｜笔记与阅读体验完善
 
-- Module 2A：Learning Item 生命周期与 Note 完整化（已实现，待正式验收）。
-- Module 2B：图片、App-owned Files 与 Schema v1 → v2。
+- Module 2A：Learning Item 生命周期与 Note 完整化（已正式验收并冻结）。
+- Module 2B：图片、App-owned Files 与 Schema v1 → v2 已完成实现与验证，等待正式验收。
 - Module 2C：轻量 Topic、FTS4 搜索与 Schema v2 → v3。
 - Module 2D：阅读分析、剩余阅读时间与自然完成预测。
 
@@ -56,18 +62,20 @@ Phase 2｜Module 2A 已完成实现、自动化与 API 37 模拟器验收，等�
 - 原中文路径副本仍因当前 Codex 桌面会话占用而保留；后续开发与验证仅以英文路径仓库为准。
 - Android Studio 的系统安装流程被 Windows 安装确认阻塞，本阶段改用用户目录下的 JDK 17、Android SDK Command-line Tools、ADB 与 Emulator 完成验证。
 - Android 设备与厂商对 Usage Access、DND、Overlay 的兼容性需要在 Phase 3 通过真实设备验证。
-- Room 当前为首个 Schema 版本，因此没有历史数据库需要迁移；后续任何 Schema 变更必须提供非破坏性 Migration。
+- Room 当前为 Schema v2；v1 → v2 使用显式非破坏性 Migration 并由导出的真实 v1 Schema 验证，后续任何 Schema 变更仍必须提供非破坏性 Migration。
 - Phase 1 不包含 SessionSegment，故只保存和展示 Session 总时长，不计算有效专注时间。
 - Android 在无生命周期回调的瞬时进程终止下无法保证最后不足 500ms 的未落盘输入绝对不丢；当前已覆盖所有可观察的关键生命周期与导航节点。
 - 中文双字 token 的具体生成与 MATCH 查询实现需要在 Module 2C 计划中以设备上的 Room 2.8.x FTS4 测试验证。
 - 自然完成日期的速度变异系数阈值尚未冻结；必须在 Module 2D 实施计划中提出并经工程验收，不得在实现中临时决定。
+- 文件系统与 SQLite 无法形成真正的跨资源原子事务；当前通过 trash、补偿和启动清理实现最终一致。若设备在文件系统持续故障时终止进程，文件会保留供后续启动再次恢复或清理。
+- Android Instrumented 测试为兼容 Room 2.8.5 Migration Schema 验证，在 androidTest 配置中固定 kotlinx-serialization 1.8.1；生产运行时依赖未因此替换。
 
 ## Git
 
-- Current branch: codex/phase-2a-note-lifecycle
+- Current branch: codex/phase-2b-image-notes
 - Base: origin/main
-- Push status: Phase 0、Module 1 与 Phase 2 文档基线已推送；Module 2A 功能分支随本 checkpoint 提交推送
+- Push status: Phase 0、Module 1、Phase 2 文档基线与 Module 2A 已推送；Module 2B 功能分支随本 checkpoint 独立提交并推送
 
 ## Next Recommended Task
 
-验收 Module 2A；未获单独授权前不得规划或实施 Module 2B。
+验收 Module 2B 实现与 `docs/checkpoints/2026-09-11-module-2b.md`；正式验收前不得开始 Module 2C。

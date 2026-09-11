@@ -8,6 +8,8 @@ import kotlinx.serialization.Serializable
 @Serializable data class NoteListRoute(val learningItemId: String? = null) : NavKey
 @Serializable data class CreateNoteRoute(val initialLearningItemId: String? = null) : NavKey
 @Serializable data class NoteDetailRoute(val noteId: String) : NavKey
+@Serializable data object ImageListRoute : NavKey
+@Serializable data class ImagePreviewRoute(val noteId: String, val initialImageId: String) : NavKey
 @Serializable data class PreparationRoute(val intentId: String) : NavKey
 @Serializable data class SessionRoute(val sessionId: String) : NavKey
 @Serializable data class SessionSummaryRoute(val sessionId: String) : NavKey

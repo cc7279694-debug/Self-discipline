@@ -5,8 +5,12 @@ import com.guanyi.mirra.data.local.MirraDatabase
 import com.guanyi.mirra.data.local.entity.NoteEntity
 import com.guanyi.mirra.data.local.entity.NoteSemanticType
 import com.guanyi.mirra.data.local.model.NoteListItem
+import com.guanyi.mirra.data.storage.ImageStorageService
+import com.guanyi.mirra.data.storage.TrashedFile
 import java.util.UUID
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 
 interface NoteRepository {
     fun observeForSession(sessionId: String): Flow<List<NoteEntity>>
@@ -41,6 +45,7 @@ interface NoteRepository {
 
 class DefaultNoteRepository(
     private val database: MirraDatabase,
+    private val storage: ImageStorageService,
     private val clock: () -> Long = System::currentTimeMillis,
     private val newId: () -> String = { UUID.randomUUID().toString() },
 ) : NoteRepository {
@@ -121,9 +126,32 @@ class DefaultNoteRepository(
     }
 
     override suspend fun delete(noteId: String) {
-        database.withTransaction {
-            checkNotNull(dao.get(noteId)) { "Note 不存在" }
-            check(dao.delete(noteId) == 1) { "Note 已被删除" }
+        checkNotNull(dao.get(noteId)) { "Note 不存在" }
+        val images = database.imageAssetDao().listForNote(noteId)
+        val staged = mutableListOf<TrashedFile>()
+        try {
+            images.forEach { image ->
+                storage.moveToTrash(image.localPath)?.let(staged::add)
+            }
+        } catch (failure: Throwable) {
+            withContext(NonCancellable) {
+                staged.asReversed().forEach { runCatching { storage.restoreFromTrash(it) } }
+            }
+            throw failure
         }
+        try {
+            database.withTransaction {
+                checkNotNull(dao.get(noteId)) { "Note 已被删除" }
+                val currentImageIds = database.imageAssetDao().listForNote(noteId).map { it.id }
+                check(currentImageIds == images.map { it.id }) { "图片列表已变化，请重试" }
+                check(dao.delete(noteId) == 1) { "Note 已被删除" }
+            }
+        } catch (failure: Throwable) {
+            withContext(NonCancellable) {
+                staged.asReversed().forEach { runCatching { storage.restoreFromTrash(it) } }
+            }
+            throw failure
+        }
+        staged.forEach { runCatching { storage.purgeTrash(it) } }
     }
 }

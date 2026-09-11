@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -226,6 +227,7 @@ class SessionViewModel(
 fun SessionScreen(
     viewModel: SessionViewModel,
     onFinished: (String) -> Unit,
+    onOpenNote: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     val session by viewModel.session.collectAsStateWithLifecycle()
@@ -299,7 +301,7 @@ fun SessionScreen(
             ) { Text("保存并记下一条") }
         }
         items(notes, key = NoteEntity::id) { note ->
-            Column {
+            Column(Modifier.fillMaxWidth().clickable { onOpenNote(note.id) }) {
                 Text(note.semanticType.label, style = MaterialTheme.typography.labelLarge)
                 Text(note.content)
                 note.pageNumber?.let { Text("第 $it 页", color = MaterialTheme.colorScheme.onSurfaceVariant) }

@@ -49,6 +49,7 @@ fun KnowledgeScreen(
     onCreateLearningItem: () -> Unit,
     onCreateNote: () -> Unit,
     onOpenNotes: () -> Unit,
+    onOpenImages: () -> Unit,
     onOpenItem: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -61,6 +62,7 @@ fun KnowledgeScreen(
         }
         Spacer(Modifier.height(12.dp))
         OutlinedButton(onClick = onOpenNotes, modifier = Modifier.fillMaxWidth()) { Text("全部笔记") }
+        OutlinedButton(onClick = onOpenImages, modifier = Modifier.fillMaxWidth()) { Text("全部图片") }
         Spacer(Modifier.height(20.dp))
         if (learningItems.isEmpty()) {
             Text("还没有学习内容。先创建一本正在读的书。", color = MaterialTheme.colorScheme.onSurfaceVariant)

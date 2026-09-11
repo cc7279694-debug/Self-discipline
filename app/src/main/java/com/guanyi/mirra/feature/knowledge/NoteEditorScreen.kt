@@ -1,5 +1,6 @@
 package com.guanyi.mirra.feature.knowledge
 
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -36,23 +37,32 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.guanyi.mirra.data.local.entity.NoteSemanticType
+import com.guanyi.mirra.data.repository.ImageRepository
+import com.guanyi.mirra.data.repository.ImportBatchResult
 import com.guanyi.mirra.data.repository.LearningItemRepository
 import com.guanyi.mirra.data.repository.NoteRepository
+import com.guanyi.mirra.data.storage.CameraTarget
 import com.guanyi.mirra.domain.RuleBasedNoteTypeSuggester
 import java.util.UUID
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class NoteEditorViewModel(
     initialNoteId: String?,
     initialLearningItemId: String?,
     private val notes: NoteRepository,
+    private val imageRepository: ImageRepository,
     learningItems: LearningItemRepository,
     private val noteTypeSuggester: RuleBasedNoteTypeSuggester = RuleBasedNoteTypeSuggester(),
     newId: () -> String = { UUID.randomUUID().toString() },
@@ -62,6 +72,10 @@ class NoteEditorViewModel(
         SharingStarted.WhileSubscribed(5_000),
         emptyList(),
     )
+    private val noteIdState = MutableStateFlow(initialNoteId)
+    val images = noteIdState.flatMapLatest { noteId ->
+        if (noteId == null) flowOf(emptyList()) else imageRepository.observeForNote(noteId)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     var content by mutableStateOf("")
         private set
     var pageText by mutableStateOf("")
@@ -76,6 +90,10 @@ class NoteEditorViewModel(
         private set
     var isSaving by mutableStateOf(false)
         private set
+    var isImageBusy by mutableStateOf(false)
+        private set
+    var imageMessage by mutableStateOf("")
+        private set
     var canDelete by mutableStateOf(initialNoteId != null)
         private set
     var isLoaded by mutableStateOf(initialNoteId == null)
@@ -89,6 +107,8 @@ class NoteEditorViewModel(
     private var revision = 0
     private var deleted = false
     private val saveMutex = Mutex()
+    private val captionJobs = mutableMapOf<String, Job>()
+    private val pendingCaptions = mutableMapOf<String, String>()
 
     init {
         if (initialNoteId != null) {
@@ -135,6 +155,7 @@ class NoteEditorViewModel(
         if (deleted) return
         saveJob?.cancel()
         viewModelScope.launch {
+            flushCaptionsNow()
             runCatching { saveDraft(requireValid = false) }
                 .onFailure { error = it.message ?: "笔记保存失败" }
         }
@@ -151,7 +172,11 @@ class NoteEditorViewModel(
             return
         }
         viewModelScope.launch {
-            runCatching { saveDraft(requireValid = true) }
+            runCatching {
+                check(!isImageBusy) { "图片正在处理中，请稍候" }
+                flushCaptionsNow()
+                saveDraft(requireValid = true)
+            }
                 .onSuccess { onLeft() }
                 .onFailure { error = it.message ?: "笔记保存失败" }
         }
@@ -160,6 +185,7 @@ class NoteEditorViewModel(
     fun delete(onDeleted: () -> Unit) {
         val id = persistedNoteId ?: return
         saveJob?.cancel()
+        captionJobs.values.forEach(Job::cancel)
         viewModelScope.launch {
             isSaving = true
             error = null
@@ -172,6 +198,84 @@ class NoteEditorViewModel(
             isSaving = false
         }
     }
+
+    fun importGallery(uris: List<Uri>) {
+        val noteId = persistedNoteId ?: return
+        if (isImageBusy) return
+        viewModelScope.launch {
+            isImageBusy = true
+            imageMessage = "正在处理图片…"
+            error = null
+            runCatching { imageRepository.importFromGallery(noteId, uris) }
+                .onSuccess { result ->
+                    imageMessage = imageImportMessage(result)
+                }
+                .onFailure { error = it.message ?: "图片导入失败" }
+            isImageBusy = false
+        }
+    }
+
+    suspend fun createCameraTarget(): CameraTarget? {
+        if (persistedNoteId == null || isImageBusy) return null
+        isImageBusy = true
+        imageMessage = "正在打开相机…"
+        return runCatching { imageRepository.createCameraTarget() }
+            .onFailure {
+                isImageBusy = false
+                error = it.message ?: "无法打开相机"
+            }
+            .getOrNull()
+    }
+
+    fun finishCamera(target: CameraTarget, succeeded: Boolean) {
+        val noteId = persistedNoteId
+        viewModelScope.launch {
+            if (!succeeded || noteId == null) {
+                runCatching { imageRepository.cancelCameraTarget(target) }
+                imageMessage = ""
+                isImageBusy = false
+                return@launch
+            }
+            imageMessage = "正在处理照片…"
+            runCatching { imageRepository.completeCameraImport(noteId, target) }
+                .onSuccess { imageMessage = "照片已添加" }
+                .onFailure { error = it.message ?: "照片处理失败" }
+            isImageBusy = false
+        }
+    }
+
+    fun cameraUnavailable(target: CameraTarget) {
+        viewModelScope.launch {
+            runCatching { imageRepository.cancelCameraTarget(target) }
+            error = "此设备没有可用相机应用"
+            imageMessage = ""
+            isImageBusy = false
+        }
+    }
+
+    fun changeCaption(imageId: String, value: String) {
+        pendingCaptions[imageId] = value
+        captionJobs.remove(imageId)?.cancel()
+        captionJobs[imageId] = viewModelScope.launch {
+            delay(500)
+            saveCaption(imageId)
+        }
+    }
+
+    fun deleteImage(imageId: String) {
+        if (isImageBusy) return
+        captionJobs.remove(imageId)?.cancel()
+        pendingCaptions.remove(imageId)
+        viewModelScope.launch {
+            isImageBusy = true
+            runCatching { imageRepository.deleteImage(imageId) }
+                .onSuccess { imageMessage = "图片已删除" }
+                .onFailure { error = it.message ?: "图片删除失败" }
+            isImageBusy = false
+        }
+    }
+
+    fun imageFile(localPath: String) = imageRepository.displayFile(localPath)
 
     private fun changed() {
         revision += 1
@@ -217,10 +321,30 @@ class NoteEditorViewModel(
             isSaving = false
         }
         persistedNoteId = saved.id
+        noteIdState.value = saved.id
         canDelete = true
         if (savingRevision == revision) savedMessage = "已自动保存"
         true
     }
+
+    private suspend fun saveCaption(imageId: String) {
+        val value = pendingCaptions.remove(imageId) ?: return
+        runCatching { imageRepository.updateCaption(imageId, value) }
+            .onFailure { error = it.message ?: "Caption 保存失败" }
+        captionJobs.remove(imageId)
+    }
+
+    private suspend fun flushCaptionsNow() {
+        captionJobs.values.forEach(Job::cancel)
+        captionJobs.clear()
+        pendingCaptions.keys.toList().forEach { saveCaption(it) }
+    }
+}
+
+internal fun imageImportMessage(result: ImportBatchResult): String = buildString {
+    append("已添加 ${result.added.size} 张")
+    if (result.failedCount > 0) append("，${result.failedCount} 张处理失败")
+    if (result.rejectedCount > 0) append("；单次最多 20 张，已忽略 ${result.rejectedCount} 张")
 }
 
 @Composable
@@ -228,8 +352,10 @@ fun NoteEditorScreen(
     viewModel: NoteEditorViewModel,
     onBack: () -> Unit,
     onDeleted: () -> Unit,
+    onOpenImage: (String, String) -> Unit,
 ) {
     val learningItems by viewModel.learningItems.collectAsStateWithLifecycle()
+    val images by viewModel.images.collectAsStateWithLifecycle()
     var itemMenuExpanded by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val selectedItemName = learningItems.firstOrNull { it.id == viewModel.selectedLearningItemId }?.name
@@ -296,6 +422,23 @@ fun NoteEditorScreen(
             minLines = 6,
             modifier = Modifier.fillMaxWidth(),
         )
+        if (viewModel.canDelete) {
+            NoteImageSection(
+                images = images,
+                imageFile = viewModel::imageFile,
+                isBusy = viewModel.isImageBusy,
+                message = viewModel.imageMessage,
+                onGalleryResult = viewModel::importGallery,
+                onCreateCameraTarget = viewModel::createCameraTarget,
+                onCameraResult = viewModel::finishCamera,
+                onCameraUnavailable = viewModel::cameraUnavailable,
+                onCaptionChanged = viewModel::changeCaption,
+                onDelete = viewModel::deleteImage,
+                onOpen = { image -> onOpenImage(image.noteId, image.id) },
+            )
+        } else if (viewModel.content.isNotBlank()) {
+            Text("笔记首次自动保存后即可添加图片", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         OutlinedTextField(
             value = viewModel.pageText,
             onValueChange = viewModel::changePage,
@@ -308,7 +451,7 @@ fun NoteEditorScreen(
         if (viewModel.canDelete) {
             TextButton(
                 onClick = { confirmDelete = true },
-                enabled = !viewModel.isSaving,
+                enabled = !viewModel.isSaving && !viewModel.isImageBusy,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("删除笔记") }
         }
@@ -319,7 +462,9 @@ fun NoteEditorScreen(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text("删除这条笔记？") },
-            text = { Text("删除后无法恢复。") },
+            text = {
+                Text(if (images.isEmpty()) "删除后无法恢复。" else "删除后无法恢复，并将同时删除 ${images.size} 张图片。")
+            },
             confirmButton = {
                 TextButton(
                     onClick = {

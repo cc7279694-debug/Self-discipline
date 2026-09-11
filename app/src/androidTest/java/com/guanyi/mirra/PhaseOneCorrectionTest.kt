@@ -1,6 +1,8 @@
 package com.guanyi.mirra
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -61,14 +63,15 @@ class PhaseOneCorrectionTest {
     @Test
     fun newDraftInheritsLatestPageAndManualTypeWins() {
         launchAtSession(currentPage = 10)
+        val typeChip = SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected)
 
         composeRule.onNode(hasText("笔记页码（可选）") and hasSetTextAction()).assertTextContains("10")
         composeRule.onNode(hasText("当前页码") and hasSetTextAction()).performTextReplacement("25")
         composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performTextInput("为什么？")
-        composeRule.onNode(hasText("问题") and hasClickAction()).assertIsSelected()
-        composeRule.onNodeWithText("摘录").performClick()
+        composeRule.onNode(hasText("问题") and typeChip).assertIsSelected()
+        composeRule.onNode(hasText("摘录") and typeChip).performClick()
         composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performTextReplacement("改完以后仍是问题？")
-        composeRule.onNode(hasText("摘录") and hasClickAction()).assertIsSelected()
+        composeRule.onNode(hasText("摘录") and typeChip).assertIsSelected()
         composeRule.onNodeWithText("保存并记下一条").performClick()
 
         composeRule.waitUntil(5_000) {

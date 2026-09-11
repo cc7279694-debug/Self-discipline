@@ -4,14 +4,18 @@ import android.content.Context
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import com.guanyi.mirra.data.local.MirraDatabase
+import com.guanyi.mirra.data.local.MIGRATION_1_2
 import com.guanyi.mirra.data.preferences.AppPreferencesRepository
 import com.guanyi.mirra.data.preferences.DefaultAppPreferencesRepository
 import com.guanyi.mirra.data.repository.DefaultLearningItemRepository
+import com.guanyi.mirra.data.repository.DefaultImageRepository
 import com.guanyi.mirra.data.repository.DefaultNoteRepository
 import com.guanyi.mirra.data.repository.DefaultStudyWorkflowRepository
 import com.guanyi.mirra.data.repository.LearningItemRepository
+import com.guanyi.mirra.data.repository.ImageRepository
 import com.guanyi.mirra.data.repository.NoteRepository
 import com.guanyi.mirra.data.repository.StudyWorkflowRepository
+import com.guanyi.mirra.data.storage.DefaultImageStorageService
 import com.guanyi.mirra.domain.DefaultSessionManager
 import com.guanyi.mirra.domain.IntentExpiryPolicy
 import com.guanyi.mirra.domain.RuleBasedSummaryEngine
@@ -29,6 +33,7 @@ interface AppContainer {
     val learningItemRepository: LearningItemRepository
     val studyWorkflowRepository: StudyWorkflowRepository
     val noteRepository: NoteRepository
+    val imageRepository: ImageRepository
     val sessionManager: SessionManager
     val startup: Deferred<Unit>
 }
@@ -39,7 +44,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
         context,
         MirraDatabase::class.java,
         "mirra.db",
-    ).build()
+    ).addMigrations(MIGRATION_1_2).build()
+    private val imageStorage = DefaultImageStorageService(context)
 
     override val appPreferencesRepository: AppPreferencesRepository =
         DefaultAppPreferencesRepository(context.mirraPreferences)
@@ -47,9 +53,11 @@ class DefaultAppContainer(context: Context) : AppContainer {
         DefaultLearningItemRepository(database)
     override val studyWorkflowRepository: StudyWorkflowRepository =
         DefaultStudyWorkflowRepository(database, RuleBasedSummaryEngine(), IntentExpiryPolicy())
-    override val noteRepository: NoteRepository = DefaultNoteRepository(database)
+    override val noteRepository: NoteRepository = DefaultNoteRepository(database, imageStorage)
+    override val imageRepository: ImageRepository = DefaultImageRepository(database, imageStorage)
     override val sessionManager: SessionManager = DefaultSessionManager(studyWorkflowRepository)
     override val startup: Deferred<Unit> = applicationScope.async {
         sessionManager.recoverInterruptedSession()
+        runCatching { imageRepository.reconcileStorage() }
     }
 }
