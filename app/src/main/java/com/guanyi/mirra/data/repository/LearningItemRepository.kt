@@ -14,6 +14,9 @@ interface LearningItemRepository {
     suspend fun get(id: String): LearningItemEntity?
     suspend fun create(name: String, totalPages: Int, currentPage: Int = 1): LearningItemEntity
     suspend fun setMainline(id: String)
+    suspend fun pause(id: String): LearningItemEntity
+    suspend fun resume(id: String): LearningItemEntity
+    suspend fun complete(id: String): LearningItemEntity
 }
 
 class DefaultLearningItemRepository(
@@ -22,6 +25,8 @@ class DefaultLearningItemRepository(
     private val newId: () -> String = { UUID.randomUUID().toString() },
 ) : LearningItemRepository {
     private val dao = database.learningItemDao()
+    private val intentDao = database.intentDao()
+    private val sessionDao = database.sessionDao()
 
     override fun observeAll() = dao.observeAll()
     override fun observe(id: String) = dao.observe(id)
@@ -50,10 +55,41 @@ class DefaultLearningItemRepository(
 
     override suspend fun setMainline(id: String) {
         database.withTransaction {
-            checkNotNull(dao.get(id)) { "Learning Item 不存在" }
+            val item = checkNotNull(dao.get(id)) { "Learning Item 不存在" }
+            check(item.status == LearningItemStatus.IN_PROGRESS) { "只有进行中的内容可以设为主线" }
             val now = clock()
             dao.clearMainline(now)
             check(dao.assignMainline(id, now) == 1) { "设置主线失败" }
         }
+    }
+
+    override suspend fun pause(id: String): LearningItemEntity = database.withTransaction {
+        val item = checkNotNull(dao.get(id)) { "Learning Item 不存在" }
+        check(item.status == LearningItemStatus.IN_PROGRESS) { "只有进行中的内容可以暂停" }
+        ensureNoActiveWorkflow(id)
+        check(dao.markPaused(id, clock()) == 1) { "暂停失败，内容状态已变化" }
+        checkNotNull(dao.get(id))
+    }
+
+    override suspend fun resume(id: String): LearningItemEntity = database.withTransaction {
+        val item = checkNotNull(dao.get(id)) { "Learning Item 不存在" }
+        check(item.status == LearningItemStatus.PAUSED) {
+            if (item.status == LearningItemStatus.COMPLETED) "已完成的内容不能恢复" else "只有暂停的内容可以恢复"
+        }
+        check(dao.markInProgress(id, clock()) == 1) { "恢复失败，内容状态已变化" }
+        checkNotNull(dao.get(id))
+    }
+
+    override suspend fun complete(id: String): LearningItemEntity = database.withTransaction {
+        val item = checkNotNull(dao.get(id)) { "Learning Item 不存在" }
+        check(item.status == LearningItemStatus.IN_PROGRESS) { "只有进行中的内容可以完成" }
+        ensureNoActiveWorkflow(id)
+        check(dao.markCompleted(id, clock()) == 1) { "完成失败，内容状态已变化" }
+        checkNotNull(dao.get(id))
+    }
+
+    private suspend fun ensureNoActiveWorkflow(id: String) {
+        check(sessionDao.getActiveForLearningItem(id) == null) { "请先结束这本书当前的阅读" }
+        check(intentDao.getActiveForLearningItem(id) == null) { "请先取消这本书当前的启动" }
     }
 }

@@ -29,6 +29,10 @@ import com.guanyi.mirra.feature.knowledge.KnowledgeScreen
 import com.guanyi.mirra.feature.knowledge.KnowledgeViewModel
 import com.guanyi.mirra.feature.knowledge.LearningItemDetailScreen
 import com.guanyi.mirra.feature.knowledge.LearningItemDetailViewModel
+import com.guanyi.mirra.feature.knowledge.NoteEditorScreen
+import com.guanyi.mirra.feature.knowledge.NoteEditorViewModel
+import com.guanyi.mirra.feature.knowledge.NoteListScreen
+import com.guanyi.mirra.feature.knowledge.NoteListViewModel
 import com.guanyi.mirra.feature.profile.ProfileScreen
 import com.guanyi.mirra.feature.session.PreparationScreen
 import com.guanyi.mirra.feature.session.PreparationViewModel
@@ -39,7 +43,10 @@ import com.guanyi.mirra.feature.session.SessionViewModel
 import com.guanyi.mirra.feature.start.StartScreen
 import com.guanyi.mirra.feature.start.StartViewModel
 import com.guanyi.mirra.navigation.CreateLearningItemRoute
+import com.guanyi.mirra.navigation.CreateNoteRoute
 import com.guanyi.mirra.navigation.LearningItemDetailRoute
+import com.guanyi.mirra.navigation.NoteDetailRoute
+import com.guanyi.mirra.navigation.NoteListRoute
 import com.guanyi.mirra.navigation.PreparationRoute
 import com.guanyi.mirra.navigation.SessionRoute
 import com.guanyi.mirra.navigation.SessionSummaryRoute
@@ -119,7 +126,9 @@ fun MirraApp(
                             viewModel = viewModel(factory = viewModelFactory {
                                 KnowledgeViewModel(container.learningItemRepository)
                             }),
-                            onCreate = { open(CreateLearningItemRoute) },
+                            onCreateLearningItem = { open(CreateLearningItemRoute) },
+                            onCreateNote = { open(CreateNoteRoute()) },
+                            onOpenNotes = { open(NoteListRoute()) },
                             onOpenItem = { open(LearningItemDetailRoute(it)) },
                         )
                         TopLevelDestination.Profile -> ProfileScreen()
@@ -150,7 +159,59 @@ fun MirraApp(
                             },
                         ),
                         onStart = { open(PreparationRoute(it)) },
+                        onOpenNotes = { open(NoteListRoute(it)) },
                         onBack = ::back,
+                    )
+                }
+                entry<NoteListRoute> { route ->
+                    NoteListScreen(
+                        viewModel = viewModel(
+                            key = "notes-${route.learningItemId.orEmpty()}",
+                            factory = viewModelFactory {
+                                NoteListViewModel(
+                                    route.learningItemId,
+                                    container.noteRepository,
+                                    container.learningItemRepository,
+                                )
+                            },
+                        ),
+                        onCreate = { open(CreateNoteRoute(route.learningItemId)) },
+                        onOpen = { open(NoteDetailRoute(it)) },
+                        onBack = ::back,
+                    )
+                }
+                entry<CreateNoteRoute> { route ->
+                    NoteEditorScreen(
+                        viewModel = viewModel(
+                            key = "create-note-${route.initialLearningItemId.orEmpty()}",
+                            factory = viewModelFactory {
+                                NoteEditorViewModel(
+                                    initialNoteId = null,
+                                    initialLearningItemId = route.initialLearningItemId,
+                                    notes = container.noteRepository,
+                                    learningItems = container.learningItemRepository,
+                                )
+                            },
+                        ),
+                        onBack = ::back,
+                        onDeleted = ::back,
+                    )
+                }
+                entry<NoteDetailRoute> { route ->
+                    NoteEditorScreen(
+                        viewModel = viewModel(
+                            key = "note-${route.noteId}",
+                            factory = viewModelFactory {
+                                NoteEditorViewModel(
+                                    initialNoteId = route.noteId,
+                                    initialLearningItemId = null,
+                                    notes = container.noteRepository,
+                                    learningItems = container.learningItemRepository,
+                                )
+                            },
+                        ),
+                        onBack = ::back,
+                        onDeleted = ::back,
                     )
                 }
                 entry<PreparationRoute> { route ->

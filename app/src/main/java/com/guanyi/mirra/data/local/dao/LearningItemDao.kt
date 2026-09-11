@@ -25,8 +25,29 @@ interface LearningItemDao {
     @Query("UPDATE learning_items SET mainlineSlot = NULL, updatedAt = :updatedAt WHERE mainlineSlot IS NOT NULL")
     suspend fun clearMainline(updatedAt: Long)
 
-    @Query("UPDATE learning_items SET mainlineSlot = 1, updatedAt = :updatedAt WHERE id = :id")
+    @Query("UPDATE learning_items SET mainlineSlot = 1, updatedAt = :updatedAt WHERE id = :id AND status = 'IN_PROGRESS'")
     suspend fun assignMainline(id: String, updatedAt: Long): Int
+
+    @Query("""
+        UPDATE learning_items
+        SET status = 'PAUSED', mainlineSlot = NULL, completedAt = NULL, updatedAt = :updatedAt
+        WHERE id = :id AND status = 'IN_PROGRESS'
+    """)
+    suspend fun markPaused(id: String, updatedAt: Long): Int
+
+    @Query("""
+        UPDATE learning_items
+        SET status = 'IN_PROGRESS', mainlineSlot = NULL, completedAt = NULL, updatedAt = :updatedAt
+        WHERE id = :id AND status = 'PAUSED'
+    """)
+    suspend fun markInProgress(id: String, updatedAt: Long): Int
+
+    @Query("""
+        UPDATE learning_items
+        SET status = 'COMPLETED', mainlineSlot = NULL, completedAt = :completedAt, updatedAt = :completedAt
+        WHERE id = :id AND status = 'IN_PROGRESS'
+    """)
+    suspend fun markCompleted(id: String, completedAt: Long): Int
 
     @Query("UPDATE learning_items SET currentPage = MAX(currentPage, :page), updatedAt = :updatedAt WHERE id = :id")
     suspend fun advanceProgress(id: String, page: Int, updatedAt: Long): Int

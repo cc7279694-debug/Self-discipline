@@ -3,6 +3,7 @@ package com.guanyi.mirra.data.repository
 import androidx.room.withTransaction
 import com.guanyi.mirra.data.local.MirraDatabase
 import com.guanyi.mirra.data.local.entity.IntentOutcome
+import com.guanyi.mirra.data.local.entity.LearningItemStatus
 import com.guanyi.mirra.data.local.entity.SessionEndType
 import com.guanyi.mirra.data.local.entity.StudyIntentEntity
 import com.guanyi.mirra.data.local.entity.StudySessionEntity
@@ -43,7 +44,10 @@ class DefaultStudyWorkflowRepository(
     override fun observeLatestSummaryForItem(learningItemId: String) = sessionDao.observeLatestSummaryForItem(learningItemId)
 
     override suspend fun createIntent(learningItemId: String): StudyIntentEntity = database.withTransaction {
-        checkNotNull(itemDao.get(learningItemId)) { "Learning Item 不存在" }
+        val initialItem = checkNotNull(itemDao.get(learningItemId)) { "Learning Item 不存在" }
+        check(initialItem.status == LearningItemStatus.IN_PROGRESS) {
+            "只有进行中的内容可以开始"
+        }
         check(sessionDao.getActive() == null) { "请先结束当前 Session" }
         val now = clock()
         val active = intentDao.getActive()
@@ -51,6 +55,10 @@ class DefaultStudyWorkflowRepository(
             intentDao.markTimedOut(active.id, now)
         } else if (active != null) {
             return@withTransaction active
+        }
+        val itemBeforeInsert = checkNotNull(itemDao.get(learningItemId)) { "Learning Item 不存在" }
+        check(itemBeforeInsert.status == LearningItemStatus.IN_PROGRESS) {
+            "只有进行中的内容可以开始"
         }
         StudyIntentEntity(
             id = newId(),
@@ -83,6 +91,10 @@ class DefaultStudyWorkflowRepository(
         val session = database.withTransaction<StudySessionEntity?> {
             val intent = checkNotNull(intentDao.get(intentId)) { "Intent 不存在" }
             check(intent.activeSlot == ACTIVE_SLOT && intent.outcome == null) { "Intent 已结束" }
+            val initialItem = checkNotNull(itemDao.get(intent.learningItemId)) { "Learning Item 不存在" }
+            check(initialItem.status == LearningItemStatus.IN_PROGRESS) {
+                "只有进行中的内容可以开始"
+            }
             val now = clock()
             if (expiryPolicy.isExpired(intent.createdAt, now)) {
                 intentDao.markTimedOut(intent.id, now)
@@ -90,6 +102,9 @@ class DefaultStudyWorkflowRepository(
             }
             check(sessionDao.getActive() == null) { "已有进行中的 Session" }
             val item = checkNotNull(itemDao.get(intent.learningItemId)) { "Learning Item 不存在" }
+            check(item.status == LearningItemStatus.IN_PROGRESS) {
+                "只有进行中的内容可以开始"
+            }
             require(startPage in 1..item.totalPages) { "起始页必须在书籍范围内" }
             val session = StudySessionEntity(
                 id = newId(),

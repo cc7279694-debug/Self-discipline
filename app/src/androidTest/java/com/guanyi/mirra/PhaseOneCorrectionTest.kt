@@ -65,10 +65,10 @@ class PhaseOneCorrectionTest {
         composeRule.onNode(hasText("笔记页码（可选）") and hasSetTextAction()).assertTextContains("10")
         composeRule.onNode(hasText("当前页码") and hasSetTextAction()).performTextReplacement("25")
         composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performTextInput("为什么？")
-        composeRule.onNodeWithText("问题").assertIsSelected()
+        composeRule.onNode(hasText("问题") and hasClickAction()).assertIsSelected()
         composeRule.onNodeWithText("摘录").performClick()
         composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performTextReplacement("改完以后仍是问题？")
-        composeRule.onNodeWithText("摘录").assertIsSelected()
+        composeRule.onNode(hasText("摘录") and hasClickAction()).assertIsSelected()
         composeRule.onNodeWithText("保存并记下一条").performClick()
 
         composeRule.waitUntil(5_000) {

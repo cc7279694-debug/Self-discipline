@@ -20,6 +20,9 @@ interface IntentDao {
     @Query("SELECT * FROM study_intents WHERE activeSlot = 1 LIMIT 1")
     fun observeActive(): Flow<StudyIntentEntity?>
 
+    @Query("SELECT * FROM study_intents WHERE learningItemId = :learningItemId AND activeSlot = 1 LIMIT 1")
+    suspend fun getActiveForLearningItem(learningItemId: String): StudyIntentEntity?
+
     @Query("UPDATE study_intents SET transitionedAt = COALESCE(transitionedAt, :at) WHERE id = :id AND activeSlot = 1")
     suspend fun markTransitioned(id: String, at: Long): Int
 

@@ -23,6 +23,9 @@ interface SessionDao {
     @Query("SELECT * FROM study_sessions WHERE activeSlot = 1 LIMIT 1")
     fun observeActive(): Flow<StudySessionEntity?>
 
+    @Query("SELECT * FROM study_sessions WHERE learningItemId = :learningItemId AND activeSlot = 1 LIMIT 1")
+    suspend fun getActiveForLearningItem(learningItemId: String): StudySessionEntity?
+
     @Query("SELECT * FROM study_sessions WHERE learningItemId = :learningItemId AND generatedSummary IS NOT NULL ORDER BY endedAt DESC LIMIT 1")
     fun observeLatestSummaryForItem(learningItemId: String): Flow<StudySessionEntity?>
 
