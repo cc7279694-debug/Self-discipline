@@ -43,6 +43,8 @@ class PreparationViewModel(
 ) : ViewModel() {
     var error by mutableStateOf<String?>(null)
         private set
+    var abandoning by mutableStateOf(false)
+        private set
 
     val uiState = combine(workflow.observeActiveIntent(), learningItems.observeAll()) { intent, items ->
         val selected = intent?.takeIf { it.id == intentId }
@@ -61,12 +63,26 @@ class PreparationViewModel(
                 .onFailure { error = it.message ?: "无法开始 Session" }
         }
     }
+
+    fun abandon(onAbandoned: () -> Unit) {
+        if (abandoning) return
+        abandoning = true
+        viewModelScope.launch {
+            runCatching { workflow.abandonIntent(intentId) }
+                .onSuccess { onAbandoned() }
+                .onFailure {
+                    abandoning = false
+                    error = it.message ?: "无法取消本次启动"
+                }
+        }
+    }
 }
 
 @Composable
 fun PreparationScreen(
     viewModel: PreparationViewModel,
     onStarted: (String) -> Unit,
+    onAbandoned: () -> Unit,
     onBack: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -91,6 +107,12 @@ fun PreparationScreen(
             ) { Text("我已拿起书，开始阅读") }
             Spacer(Modifier.height(10.dp))
             OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("稍后再说") }
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(
+                onClick = { viewModel.abandon(onAbandoned) },
+                enabled = item != null && !viewModel.abandoning,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("取消本次启动") }
         }
     }
 }

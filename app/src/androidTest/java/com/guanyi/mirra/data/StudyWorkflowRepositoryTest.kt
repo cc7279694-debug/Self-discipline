@@ -84,6 +84,23 @@ class StudyWorkflowRepositoryTest {
     }
 
     @Test
+    fun abandoningIntentEndsItAndAllowsAnotherItemToCreateIntent() = runTest {
+        val firstItem = learningItems.create("第一本", 100, 4)
+        val secondItem = learningItems.create("第二本", 100, 7)
+        val firstIntent = workflow.createIntent(firstItem.id)
+        workflow.markTransitioned(firstIntent.id)
+
+        workflow.abandonIntent(firstIntent.id)
+        workflow.abandonIntent(firstIntent.id)
+
+        val abandoned = database.intentDao().get(firstIntent.id)!!
+        assertEquals(IntentOutcome.ABANDONED, abandoned.outcome)
+        assertEquals(now, abandoned.endedAt)
+        assertNull(abandoned.activeSlot)
+        assertEquals(secondItem.id, workflow.createIntent(secondItem.id).learningItemId)
+    }
+
+    @Test
     fun secondActiveSessionIsRejected() = runTest {
         val firstItem = learningItems.create("第一本", 100, 4)
         val secondItem = learningItems.create("第二本", 100, 7)
@@ -109,7 +126,7 @@ class StudyWorkflowRepositoryTest {
     }
 
     @Test
-    fun finishSessionSavesSummaryAndNeverMovesReadingProgressBackward() = runTest {
+    fun sessionAndSummaryProgressNeverMoveBackward() = runTest {
         val item = learningItems.create("书", totalPages = 200, currentPage = 40)
         val intent = workflow.createIntent(item.id)
         val session = workflow.startSession(intent.id, startPage = 40)
@@ -120,8 +137,23 @@ class StudyWorkflowRepositoryTest {
         val completed = workflow.finishSession(session.id, endPage = 35)
 
         assertEquals(SessionEndType.NORMAL, completed.endType)
+        assertEquals(40, completed.currentPage)
+        assertEquals(40, completed.endPage)
         assertEquals(40, learningItems.get(item.id)?.currentPage)
-        assertEquals("本次阅读 40–35 页，用时 45 分钟，共记录 1 条笔记。", completed.generatedSummary)
+        assertEquals("本次阅读第 40 页，用时 45 分钟，共记录 1 条笔记。", completed.generatedSummary)
+    }
+
+    @Test
+    fun oldPageNoteDoesNotChangeSessionOrLearningItemProgress() = runTest {
+        val item = learningItems.create("书", totalPages = 200, currentPage = 40)
+        val session = workflow.startSession(workflow.createIntent(item.id).id, startPage = 40)
+        workflow.updateCurrentPage(session.id, 52)
+
+        val note = notes.save(item.id, session.id, "回看旧页", pageNumber = 12)
+
+        assertEquals(12, note.pageNumber)
+        assertEquals(52, database.sessionDao().get(session.id)?.currentPage)
+        assertEquals(40, learningItems.get(item.id)?.currentPage)
     }
 
     @Test

@@ -50,7 +50,7 @@ class PhaseOneLearningLoopTest {
 
         composeRule.onNodeWithText("摘录").performClick()
         composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performTextInput("损失厌恶比收益更强")
-        composeRule.onNode(hasText("笔记页码（可选）") and hasSetTextAction()).performTextInput("12")
+        composeRule.onNode(hasText("笔记页码（可选）") and hasSetTextAction()).performTextReplacement("12")
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("已自动保存")).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText("保存并记下一条").performClick()
         composeRule.onNodeWithText("问题").performClick()

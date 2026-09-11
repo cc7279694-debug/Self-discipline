@@ -170,6 +170,7 @@ fun MirraApp(
                             backStack.clear()
                             backStack.add(SessionRoute(sessionId))
                         },
+                        onAbandoned = { select(TopLevelDestination.Start, persist = true) },
                         onBack = ::back,
                     )
                 }
@@ -190,6 +191,7 @@ fun MirraApp(
                             backStack.clear()
                             backStack.add(SessionSummaryRoute(sessionId))
                         },
+                        onBack = { select(TopLevelDestination.Start, persist = true) },
                     )
                 }
                 entry<SessionSummaryRoute> { route ->

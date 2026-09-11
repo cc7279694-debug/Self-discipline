@@ -1,5 +1,27 @@
 # Decisions
 
+## 2026-09-11 — 只有进行中的 Learning Item 可以成为主线
+
+### Decision
+
+`PAUSED` 或 `COMPLETED` 的 Learning Item 不能占用 `mainlineSlot`。未来实现暂停或完成状态时，状态变更与主线约束必须同时由 Repository / DAO 层执行并由数据库测试覆盖，不能只依赖 UI 隐藏或禁用。
+
+### Context
+
+Phase 1 已有 `LearningItemStatus`，但尚未实现暂停与完成的状态变更入口。本次 Correction Patch 不应提前扩展这些 Future UI 或 Service。
+
+### Alternatives
+
+现在提前实现完整状态机，或未来只在 Compose 页面阻止用户选择暂停 / 已完成内容。
+
+### Reason
+
+记录数据层不变量可以防止未来入口、并发调用或绕过 UI 时产生非法主线，同时避免当前 Phase 为未开放功能增加实现。
+
+### Consequences
+
+Phase 1 不新增暂停 / 完成 API。未来相关实现必须原子清理或拒绝非法 `mainlineSlot`，并加入 DAO / Repository 数据库测试。
+
 ## 2026-09-10 — Phase 1 用数据库唯一槽位和事务保护学习状态
 
 ### Decision

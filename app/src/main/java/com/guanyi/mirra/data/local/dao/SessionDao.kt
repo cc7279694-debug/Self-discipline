@@ -26,12 +26,13 @@ interface SessionDao {
     @Query("SELECT * FROM study_sessions WHERE learningItemId = :learningItemId AND generatedSummary IS NOT NULL ORDER BY endedAt DESC LIMIT 1")
     fun observeLatestSummaryForItem(learningItemId: String): Flow<StudySessionEntity?>
 
-    @Query("UPDATE study_sessions SET currentPage = :page WHERE id = :id AND activeSlot = 1")
-    suspend fun updateCurrentPage(id: String, page: Int): Int
+    @Query("UPDATE study_sessions SET currentPage = MAX(currentPage, :page) WHERE id = :id AND activeSlot = 1")
+    suspend fun advanceCurrentPage(id: String, page: Int): Int
 
     @Query("""
         UPDATE study_sessions
-        SET endedAt = :endedAt, currentPage = :endPage, endPage = :endPage,
+        SET endedAt = :endedAt, currentPage = MAX(currentPage, :endPage),
+            endPage = MAX(currentPage, :endPage),
             endType = :endType, generatedSummary = :summary, activeSlot = NULL
         WHERE id = :id AND activeSlot = 1
     """)

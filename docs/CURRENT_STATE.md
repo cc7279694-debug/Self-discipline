@@ -1,10 +1,10 @@
 # Current State
 
-更新日期：2026-09-10
+更新日期：2026-09-11
 
 ## Current Stage
 
-Phase 1｜最小学习闭环已实现并完成验证，等待用户验收；未进入 Phase 2。
+Phase 1｜最小学习闭环与 Correction Patch 已实现并完成验证，等待用户验收；未进入 Phase 2。
 
 ## Verified Completed
 
@@ -23,16 +23,20 @@ Phase 1｜最小学习闭环已实现并完成验证，等待用户验收；未�
 - 已实现创建 Learning Item、设置唯一主线、Intent、启动准备、Session 计时与页码、四类独立 Note 自动保存、Session 结束、规则式总结和下次继续。
 - Room v1 已建立 `learning_items`、`study_intents`、`study_sessions`、`notes` 四张表及 Schema Export；唯一槽位、外键、索引和事务共同保护核心状态。
 - 新进程启动时会把遗留 Active Session 标记为 `ABNORMAL`，不推进正式阅读进度；真实强停与冷启动恢复已在 API 37 模拟器验证。
+- Active Intent 可在启动准备页显式放弃；放弃事务写入 `ABANDONED`、`endedAt` 并释放唯一槽位，“稍后再说”仍只返回且保留 Intent。
+- Session 当前页与结束页在 DAO / Repository 层均只允许向前推进，旧页 Note 不会改变 Session 或 Learning Item 阅读进度，Summary 不会生成反向页码范围。
+- Session 内新 Note 默认继承最新阅读页码；问号结尾与明确“总结：”前缀提供本地类型建议，摘录由用户明确选择，手动类型不会再被覆盖。
+- Note 草稿保留 500ms 自动保存，并在 Activity 进入后台、离开 Session、创建下一条与结束 Session 时主动 flush。
 
 ## In Progress
 
-- 等待 Module 1 用户验收。
+- 等待 Phase 1 Correction Patch 用户验收。
 
 ## Pending
 
 ### Phase 1｜最小学习闭环
 
-- 已完成；不得在验收前继续 Phase 2。
+- 主体与 Correction Patch 已完成；不得在验收前继续 Phase 2。
 
 ## Known Risks / Unknowns
 
@@ -42,6 +46,7 @@ Phase 1｜最小学习闭环已实现并完成验证，等待用户验收；未�
 - Android 设备与厂商对 Usage Access、DND、Overlay 的兼容性需要在 Phase 3 通过真实设备验证。
 - Room 当前为首个 Schema 版本，因此没有历史数据库需要迁移；后续任何 Schema 变更必须提供非破坏性 Migration。
 - Phase 1 不包含 SessionSegment，故只保存和展示 Session 总时长，不计算有效专注时间。
+- Android 在无生命周期回调的瞬时进程终止下无法保证最后不足 500ms 的未落盘输入绝对不丢；当前已覆盖所有可观察的关键生命周期与导航节点。
 
 ## Git
 
@@ -51,4 +56,4 @@ Phase 1｜最小学习闭环已实现并完成验证，等待用户验收；未�
 
 ## Next Recommended Task
 
-先完成 Module 1 用户验收。验收通过后再单独规划 Phase 2，不自动开始。
+先完成 Phase 1 Correction Patch 用户验收。验收通过后再单独规划 Phase 2，不自动开始。

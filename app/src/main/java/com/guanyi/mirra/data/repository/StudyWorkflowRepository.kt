@@ -18,6 +18,7 @@ interface StudyWorkflowRepository {
     fun observeLatestSummaryForItem(learningItemId: String): Flow<StudySessionEntity?>
     suspend fun createIntent(learningItemId: String): StudyIntentEntity
     suspend fun markTransitioned(intentId: String)
+    suspend fun abandonIntent(intentId: String)
     suspend fun startSession(intentId: String, startPage: Int): StudySessionEntity
     suspend fun updateCurrentPage(sessionId: String, page: Int)
     suspend fun finishSession(sessionId: String, endPage: Int): StudySessionEntity
@@ -67,6 +68,17 @@ class DefaultStudyWorkflowRepository(
         check(intentDao.markTransitioned(intentId, clock()) == 1) { "Intent 已结束或不存在" }
     }
 
+    override suspend fun abandonIntent(intentId: String) {
+        database.withTransaction {
+            val intent = checkNotNull(intentDao.get(intentId)) { "Intent 不存在" }
+            if (intent.outcome == IntentOutcome.ABANDONED && intent.activeSlot == null) {
+                return@withTransaction
+            }
+            check(intent.outcome == null && intent.activeSlot == ACTIVE_SLOT) { "Intent 已结束" }
+            check(intentDao.complete(intentId, clock(), IntentOutcome.ABANDONED) == 1) { "放弃 Intent 失败" }
+        }
+    }
+
     override suspend fun startSession(intentId: String, startPage: Int): StudySessionEntity {
         val session = database.withTransaction<StudySessionEntity?> {
             val intent = checkNotNull(intentDao.get(intentId)) { "Intent 不存在" }
@@ -101,10 +113,12 @@ class DefaultStudyWorkflowRepository(
     }
 
     override suspend fun updateCurrentPage(sessionId: String, page: Int) {
-        val session = checkNotNull(sessionDao.get(sessionId)) { "Session 不存在" }
-        val item = checkNotNull(itemDao.get(session.learningItemId)) { "Learning Item 不存在" }
-        require(page in 1..item.totalPages) { "页码必须在书籍范围内" }
-        check(sessionDao.updateCurrentPage(sessionId, page) == 1) { "Session 已结束" }
+        database.withTransaction {
+            val session = checkNotNull(sessionDao.get(sessionId)) { "Session 不存在" }
+            val item = checkNotNull(itemDao.get(session.learningItemId)) { "Learning Item 不存在" }
+            require(page in 1..item.totalPages) { "页码必须在书籍范围内" }
+            check(sessionDao.advanceCurrentPage(sessionId, page) == 1) { "Session 已结束" }
+        }
     }
 
     override suspend fun finishSession(sessionId: String, endPage: Int): StudySessionEntity =
@@ -113,18 +127,19 @@ class DefaultStudyWorkflowRepository(
             check(session.activeSlot == ACTIVE_SLOT && session.endType == null) { "Session 已结束" }
             val item = checkNotNull(itemDao.get(session.learningItemId)) { "Learning Item 不存在" }
             require(endPage in 1..item.totalPages) { "结束页必须在书籍范围内" }
+            val finalPage = maxOf(session.currentPage, endPage)
             val now = clock()
             val noteCount = noteDao.countForSession(sessionId)
             val summary = summaryEngine.create(
                 startPage = session.startPage,
-                endPage = endPage,
+                endPage = finalPage,
                 durationMillis = now - session.startedAt,
                 noteCount = noteCount,
             )
-            check(sessionDao.finish(sessionId, now, endPage, SessionEndType.NORMAL, summary) == 1) {
+            check(sessionDao.finish(sessionId, now, finalPage, SessionEndType.NORMAL, summary) == 1) {
                 "结束 Session 失败"
             }
-            check(itemDao.advanceProgress(item.id, endPage, now) == 1) { "保存阅读进度失败" }
+            check(itemDao.advanceProgress(item.id, finalPage, now) == 1) { "保存阅读进度失败" }
             checkNotNull(sessionDao.get(sessionId))
         }
 

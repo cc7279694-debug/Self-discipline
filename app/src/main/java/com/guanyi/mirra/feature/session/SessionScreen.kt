@@ -1,5 +1,6 @@
 package com.guanyi.mirra.feature.session
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,21 +18,25 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.guanyi.mirra.data.local.entity.NoteEntity
 import com.guanyi.mirra.data.local.entity.NoteSemanticType
 import com.guanyi.mirra.data.local.entity.StudySessionEntity
 import com.guanyi.mirra.data.repository.NoteRepository
 import com.guanyi.mirra.data.repository.StudyWorkflowRepository
+import com.guanyi.mirra.domain.RuleBasedNoteTypeSuggester
 import com.guanyi.mirra.domain.SessionManager
 import java.util.UUID
 import kotlinx.coroutines.Job
@@ -41,12 +46,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class SessionViewModel(
     private val sessionId: String,
     workflow: StudyWorkflowRepository,
     private val notesRepository: NoteRepository,
     private val sessionManager: SessionManager,
+    private val noteTypeSuggester: RuleBasedNoteTypeSuggester = RuleBasedNoteTypeSuggester(),
 ) : ViewModel() {
     val session: StateFlow<StudySessionEntity?> = workflow.observeSession(sessionId).stateIn(
         viewModelScope,
@@ -66,12 +74,17 @@ class SessionViewModel(
         private set
     var draftType by mutableStateOf(NoteSemanticType.UNDERSTANDING)
         private set
+    var currentPageText by mutableStateOf("")
+        private set
     var savedMessage by mutableStateOf("")
         private set
     var error by mutableStateOf<String?>(null)
         private set
     private var draftId = UUID.randomUUID().toString()
     private var saveJob: Job? = null
+    private var draftTypeManuallySelected = false
+    private var draftPageManuallyEdited = false
+    private val saveMutex = Mutex()
 
     init {
         viewModelScope.launch {
@@ -84,6 +97,9 @@ class SessionViewModel(
 
     fun changeContent(value: String) {
         draftContent = value
+        if (!draftTypeManuallySelected) {
+            draftType = noteTypeSuggester.suggest(value)
+        }
         savedMessage = ""
         error = null
         scheduleAutoSave()
@@ -91,28 +107,46 @@ class SessionViewModel(
 
     fun changePage(value: String) {
         draftPage = value.filter(Char::isDigit)
+        draftPageManuallyEdited = true
         scheduleAutoSave()
     }
 
     fun changeType(value: NoteSemanticType) {
         draftType = value
+        draftTypeManuallySelected = true
         scheduleAutoSave()
     }
 
+    fun syncCurrentPage(page: Int) {
+        currentPageText = page.toString()
+        if (draftContent.isBlank() && !draftPageManuallyEdited) {
+            draftPage = page.toString()
+        }
+    }
+
     fun saveAndContinue() {
+        saveJob?.cancel()
         viewModelScope.launch {
             runCatching { saveDraft() }
                 .onSuccess {
-                    draftId = UUID.randomUUID().toString()
-                    draftContent = ""
-                    draftPage = session.value?.currentPage?.toString().orEmpty()
+                    resetDraft()
                 }
                 .onFailure { error = it.message ?: "笔记保存失败" }
         }
     }
 
     fun updatePage(value: String) {
-        val page = value.toIntOrNull() ?: return
+        val filtered = value.filter(Char::isDigit)
+        currentPageText = filtered
+        val page = filtered.toIntOrNull() ?: return
+        val persistedPage = session.value?.currentPage ?: return
+        if (page < persistedPage) {
+            currentPageText = persistedPage.toString()
+            return
+        }
+        if (draftContent.isBlank() && !draftPageManuallyEdited) {
+            draftPage = page.toString()
+        }
         viewModelScope.launch {
             runCatching { sessionManager.updatePage(sessionId, page) }
                 .onFailure { error = it.message ?: "页码保存失败" }
@@ -125,8 +159,31 @@ class SessionViewModel(
             runCatching {
                 saveDraft()
                 sessionManager.finish(sessionId, endPage)
-            }.onSuccess { onFinished(it.id) }
+            }.onSuccess {
+                draftContent = ""
+                onFinished(it.id)
+            }
                 .onFailure { error = it.message ?: "Session 结束失败" }
+        }
+    }
+
+    fun flushDraft() {
+        saveJob?.cancel()
+        viewModelScope.launch {
+            runCatching { saveDraft() }
+                .onFailure { error = it.message ?: "笔记保存失败" }
+        }
+    }
+
+    fun leave(onLeft: () -> Unit) {
+        saveJob?.cancel()
+        viewModelScope.launch {
+            runCatching { saveDraft() }
+                .onSuccess {
+                    draftContent = ""
+                    onLeft()
+                }
+                .onFailure { error = it.message ?: "笔记保存失败" }
         }
     }
 
@@ -140,18 +197,28 @@ class SessionViewModel(
         }
     }
 
-    private suspend fun saveDraft() {
-        val currentSession = session.value ?: return
-        if (draftContent.isBlank()) return
+    private suspend fun saveDraft() = saveMutex.withLock {
+        val currentSession = session.value ?: return@withLock
+        val content = draftContent
+        if (content.isBlank()) return@withLock
         notesRepository.save(
             id = draftId,
             learningItemId = currentSession.learningItemId,
             sessionId = currentSession.id,
-            content = draftContent,
+            content = content,
             pageNumber = draftPage.toIntOrNull(),
             semanticType = draftType,
         )
         savedMessage = "已自动保存"
+    }
+
+    private fun resetDraft() {
+        draftId = UUID.randomUUID().toString()
+        draftContent = ""
+        draftPage = currentPageText.ifBlank { session.value?.currentPage?.toString().orEmpty() }
+        draftType = NoteSemanticType.UNDERSTANDING
+        draftTypeManuallySelected = false
+        draftPageManuallyEdited = false
     }
 }
 
@@ -159,16 +226,28 @@ class SessionViewModel(
 fun SessionScreen(
     viewModel: SessionViewModel,
     onFinished: (String) -> Unit,
+    onBack: () -> Unit,
 ) {
     val session by viewModel.session.collectAsStateWithLifecycle()
     val notes by viewModel.notes.collectAsStateWithLifecycle()
-    var currentPageText by remember { mutableStateOf("") }
     val currentSession = session
-    LaunchedEffect(currentSession?.id) {
-        if (currentSession != null && currentPageText.isBlank()) {
-            currentPageText = currentSession.currentPage.toString()
+    LaunchedEffect(currentSession?.currentPage) {
+        if (currentSession != null) {
+            viewModel.syncCurrentPage(currentSession.currentPage)
         }
     }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) viewModel.flushDraft()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.flushDraft()
+        }
+    }
+    BackHandler { viewModel.leave(onBack) }
     val elapsedMinutes = currentSession?.let { ((viewModel.now - it.startedAt).coerceAtLeast(0) / 60_000) } ?: 0
 
     LazyColumn(
@@ -181,8 +260,8 @@ fun SessionScreen(
         }
         item {
             OutlinedTextField(
-                currentPageText,
-                { value -> currentPageText = value.filter(Char::isDigit); viewModel.updatePage(currentPageText) },
+                viewModel.currentPageText,
+                viewModel::updatePage,
                 label = { Text("当前页码") },
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -229,7 +308,7 @@ fun SessionScreen(
         item {
             Spacer(Modifier.height(8.dp))
             Button(
-                onClick = { currentSession?.let { viewModel.finish(currentPageText.toIntOrNull() ?: it.currentPage, onFinished) } },
+                onClick = { currentSession?.let { viewModel.finish(viewModel.currentPageText.toIntOrNull() ?: it.currentPage, onFinished) } },
                 enabled = currentSession != null,
                 modifier = Modifier.fillMaxWidth().height(54.dp),
             ) { Text("结束本次阅读") }
