@@ -1,5 +1,93 @@
 # Decisions
 
+## 2026-09-11 — Phase 2 只使用可观测的整体阅读时间
+
+### Decision
+
+Phase 2 只计算整体阅读速度与预计剩余阅读时间，不计算有效阅读速度或剩余有效阅读时间。有效指标等 Phase 3 引入 SessionSegment 并能区分 Focus、Break 与 Distraction 后再启用。
+
+### Context
+
+产品总规范原先把有效阅读指标列入 Phase 2，但当前数据只有 Session 总时长。用总时长代替有效专注时间会制造虚假数据。
+
+### Alternatives
+
+提前引入 SessionSegment，或暂时把 Session 总时长标记为有效专注时间。
+
+### Reason
+
+统计名称必须与实际数据来源一致，并继续保持 Phase 2 不进入专注干预范围。
+
+### Consequences
+
+Phase 2 展示整体阅读速度、预计剩余阅读时间和符合门槛的自然完成日期；有效阅读指标属于 Phase 3。
+
+## 2026-09-11 — 图片数据库关系与物理文件生命周期分离
+
+### Decision
+
+`ImageAsset.noteId` 使用外键级联删除数据库记录；物理文件删除由 Repository 与 `ImageStorageService` 使用临时回收、事务提交后删除、失败恢复和启动清理共同管理。
+
+### Context
+
+SQLite 外键只能维护数据库记录，不能删除 App 私有目录中的 JPEG 文件。数据库事务与文件系统操作也无法组成同一个原子事务。
+
+### Alternatives
+
+依赖 `ON DELETE CASCADE`、先直接删除正式文件，或增加复杂的持久化文件任务系统。
+
+### Reason
+
+轻量补偿流程可以同时避免数据库残留与文件引用断裂，不需要引入额外后台基础设施。
+
+### Consequences
+
+所有 Note / Image 删除必须经过 Repository 和 `ImageStorageService`；启动恢复会清理过期 temp 与无引用 orphan 文件，`localPath` 保存 App 私有目录下的相对路径。
+
+## 2026-09-11 — Phase 2 中文搜索继续使用 Room 2 FTS4
+
+### Decision
+
+保持 Room 2.8.x，通过 Room FTS4、可重建的 SearchFts 派生索引和中文双字 token 支持中文局部搜索；不为 trigram tokenizer 升级 Room 3。
+
+### Context
+
+Room 2 的常用 FTS3 / FTS4 tokenization 不能直接假定具备 Room 3 / FTS5 的 trigram 能力，而中文连续文本需要可靠的局部命中。
+
+### Alternatives
+
+升级 Room 3、只使用默认 tokenizer，或引入外部搜索服务。
+
+### Reason
+
+预处理中文 token 能在现有稳定数据栈内提供可测试的离线搜索，并避免与 Phase 2 无关的数据库框架迁移。
+
+### Consequences
+
+SearchFts 是派生数据，可从 Learning Item、Note、Image Caption、Topic 和 Session Summary 重建；查询必须转义并按业务对象去重。
+
+## 2026-09-11 — 完成预测同时使用阅读速度与日历推进速度
+
+### Decision
+
+预计剩余阅读时间使用“剩余页数 ÷ 近期整体阅读速度”；预计自然完成日期使用“剩余页数 ÷ 近期日历推进速度”，其中日历推进速度按选定窗口内总推进页数除以窗口自然日数计算。
+
+### Context
+
+只按阅读时速度预测日期会隐含用户每天阅读的错误假设，无法反映真实阅读频率。
+
+### Alternatives
+
+只显示理论连续阅读时间，或要求用户设置目标完成日期。
+
+### Reason
+
+日历推进速度自然合并了阅读频率和每次推进量，更符合“按最近真实节奏自然读完”的产品语义。
+
+### Consequences
+
+完成日期需要至少 5 个合格 Session、3 个阅读日、跨度不少于 7 天，最近 14 天无阅读或波动过大时隐藏；具体变异系数阈值在 Module 2D 实施计划验收时冻结。
+
 ## 2026-09-11 — convertedAt 只表示成功转换为 Session 的时间
 
 ### Decision

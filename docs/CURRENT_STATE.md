@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 1｜最小学习闭环与 Correction Patch 已正式验收完成；未进入 Phase 2。
+Phase 1｜最小学习闭环已冻结；Phase 2 产品设计与模块边界已形成修正版基线，但 Module 2A 尚未开始。
 
 ## Verified Completed
 
@@ -28,16 +28,21 @@ Phase 1｜最小学习闭环与 Correction Patch 已正式验收完成；未进�
 - Session 内新 Note 默认继承最新阅读页码；问号结尾与明确“总结：”前缀提供本地类型建议，摘录由用户明确选择，手动类型不会再被覆盖。
 - Note 草稿保留 500ms 自动保存，并在 Activity 进入后台、离开 Session、创建下一条与结束 Session 时主动 flush。
 - Intent 时间语义已修正：只有 `CONVERTED` 写入 `convertedAt`；`ABANDONED` 与 `TIMEOUT` 的 `convertedAt` 保持为空，三种结束结果均写入 `endedAt` 并释放 `activeSlot`。
+- Phase 2 已冻结总体产品语义：图片文件补偿、Room 2 FTS4 中文双字 token、整体阅读速度与日历推进速度分离，以及 2A→2D 的独立验收边界。
+- Phase 2 总体设计与交付计划已保存到 `docs/plans/PHASE_2_IMPLEMENTATION.md`；该计划不代表 Module 2A 已获实施授权。
 
 ## In Progress
 
-- 无进行中的 Phase 1 工作。
+- 无业务代码实施中；等待 Module 2A 独立工程实施计划与用户验收。
 
 ## Pending
 
-### Phase 1｜最小学习闭环
+### Phase 2｜笔记与阅读体验完善
 
-- Phase 1 主体、Correction Patch 与 Intent 语义收尾均已完成；不得自动进入 Phase 2。
+- Module 2A：Learning Item 生命周期与 Note 完整化。
+- Module 2B：图片、App-owned Files 与 Schema v1 → v2。
+- Module 2C：轻量 Topic、FTS4 搜索与 Schema v2 → v3。
+- Module 2D：阅读分析、剩余阅读时间与自然完成预测。
 
 ## Known Risks / Unknowns
 
@@ -48,6 +53,8 @@ Phase 1｜最小学习闭环与 Correction Patch 已正式验收完成；未进�
 - Room 当前为首个 Schema 版本，因此没有历史数据库需要迁移；后续任何 Schema 变更必须提供非破坏性 Migration。
 - Phase 1 不包含 SessionSegment，故只保存和展示 Session 总时长，不计算有效专注时间。
 - Android 在无生命周期回调的瞬时进程终止下无法保证最后不足 500ms 的未落盘输入绝对不丢；当前已覆盖所有可观察的关键生命周期与导航节点。
+- 中文双字 token 的具体生成与 MATCH 查询实现需要在 Module 2C 计划中以设备上的 Room 2.8.x FTS4 测试验证。
+- 自然完成日期的速度变异系数阈值尚未冻结；必须在 Module 2D 实施计划中提出并经工程验收，不得在实现中临时决定。
 
 ## Git
 
@@ -57,4 +64,4 @@ Phase 1｜最小学习闭环与 Correction Patch 已正式验收完成；未进�
 
 ## Next Recommended Task
 
-等待用户明确授权后再单独规划 Phase 2，不自动开始。
+单独编写 Module 2A 工程实施计划并等待用户验收；不得修改业务代码或自动进入 Module 2A 实施。
