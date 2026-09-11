@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 1｜最小学习闭环与 Correction Patch 已实现并完成验证，等待用户验收；未进入 Phase 2。
+Phase 1｜最小学习闭环与 Correction Patch 已正式验收完成；未进入 Phase 2。
 
 ## Verified Completed
 
@@ -27,16 +27,17 @@ Phase 1｜最小学习闭环与 Correction Patch 已实现并完成验证，等�
 - Session 当前页与结束页在 DAO / Repository 层均只允许向前推进，旧页 Note 不会改变 Session 或 Learning Item 阅读进度，Summary 不会生成反向页码范围。
 - Session 内新 Note 默认继承最新阅读页码；问号结尾与明确“总结：”前缀提供本地类型建议，摘录由用户明确选择，手动类型不会再被覆盖。
 - Note 草稿保留 500ms 自动保存，并在 Activity 进入后台、离开 Session、创建下一条与结束 Session 时主动 flush。
+- Intent 时间语义已修正：只有 `CONVERTED` 写入 `convertedAt`；`ABANDONED` 与 `TIMEOUT` 的 `convertedAt` 保持为空，三种结束结果均写入 `endedAt` 并释放 `activeSlot`。
 
 ## In Progress
 
-- 等待 Phase 1 Correction Patch 用户验收。
+- 无进行中的 Phase 1 工作。
 
 ## Pending
 
 ### Phase 1｜最小学习闭环
 
-- 主体与 Correction Patch 已完成；不得在验收前继续 Phase 2。
+- Phase 1 主体、Correction Patch 与 Intent 语义收尾均已完成；不得自动进入 Phase 2。
 
 ## Known Risks / Unknowns
 
@@ -56,4 +57,4 @@ Phase 1｜最小学习闭环与 Correction Patch 已实现并完成验证，等�
 
 ## Next Recommended Task
 
-先完成 Phase 1 Correction Patch 用户验收。验收通过后再单独规划 Phase 2，不自动开始。
+等待用户明确授权后再单独规划 Phase 2，不自动开始。

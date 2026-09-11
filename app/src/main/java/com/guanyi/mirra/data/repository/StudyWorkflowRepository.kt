@@ -48,7 +48,7 @@ class DefaultStudyWorkflowRepository(
         val now = clock()
         val active = intentDao.getActive()
         if (active != null && expiryPolicy.isExpired(active.createdAt, now)) {
-            intentDao.complete(active.id, now, IntentOutcome.TIMEOUT)
+            intentDao.markTimedOut(active.id, now)
         } else if (active != null) {
             return@withTransaction active
         }
@@ -75,7 +75,7 @@ class DefaultStudyWorkflowRepository(
                 return@withTransaction
             }
             check(intent.outcome == null && intent.activeSlot == ACTIVE_SLOT) { "Intent 已结束" }
-            check(intentDao.complete(intentId, clock(), IntentOutcome.ABANDONED) == 1) { "放弃 Intent 失败" }
+            check(intentDao.markAbandoned(intentId, clock()) == 1) { "放弃 Intent 失败" }
         }
     }
 
@@ -85,7 +85,7 @@ class DefaultStudyWorkflowRepository(
             check(intent.activeSlot == ACTIVE_SLOT && intent.outcome == null) { "Intent 已结束" }
             val now = clock()
             if (expiryPolicy.isExpired(intent.createdAt, now)) {
-                intentDao.complete(intent.id, now, IntentOutcome.TIMEOUT)
+                intentDao.markTimedOut(intent.id, now)
                 return@withTransaction null
             }
             check(sessionDao.getActive() == null) { "已有进行中的 Session" }
@@ -106,7 +106,7 @@ class DefaultStudyWorkflowRepository(
                 activeSlot = ACTIVE_SLOT,
             )
             sessionDao.insert(session)
-            check(intentDao.complete(intent.id, now, IntentOutcome.CONVERTED) == 1) { "Intent 转换失败" }
+            check(intentDao.markConverted(intent.id, now) == 1) { "Intent 转换失败" }
             session
         }
         return session ?: error("Intent 已超时")
@@ -156,7 +156,7 @@ class DefaultStudyWorkflowRepository(
                 )
             }
             intentDao.getActive()?.takeIf { expiryPolicy.isExpired(it.createdAt, now) }?.let { expired ->
-                intentDao.complete(expired.id, now, IntentOutcome.TIMEOUT)
+                intentDao.markTimedOut(expired.id, now)
             }
         }
     }

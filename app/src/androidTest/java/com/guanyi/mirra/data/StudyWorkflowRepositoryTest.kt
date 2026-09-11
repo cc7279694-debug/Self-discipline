@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
@@ -79,8 +80,11 @@ class StudyWorkflowRepositoryTest {
         val session = workflow.startSession(intent.id, startPage = 12)
 
         assertEquals(session.id, workflow.observeActiveSession().first()?.id)
-        assertEquals(IntentOutcome.CONVERTED, database.intentDao().get(intent.id)?.outcome)
-        assertNull(database.intentDao().get(intent.id)?.activeSlot)
+        val converted = database.intentDao().get(intent.id)!!
+        assertEquals(IntentOutcome.CONVERTED, converted.outcome)
+        assertEquals(now, converted.convertedAt)
+        assertEquals(now, converted.endedAt)
+        assertNull(converted.activeSlot)
     }
 
     @Test
@@ -95,6 +99,7 @@ class StudyWorkflowRepositoryTest {
 
         val abandoned = database.intentDao().get(firstIntent.id)!!
         assertEquals(IntentOutcome.ABANDONED, abandoned.outcome)
+        assertNull(abandoned.convertedAt)
         assertEquals(now, abandoned.endedAt)
         assertNull(abandoned.activeSlot)
         assertEquals(secondItem.id, workflow.createIntent(secondItem.id).learningItemId)
@@ -180,8 +185,11 @@ class StudyWorkflowRepositoryTest {
 
         assertSuspendThrows<IllegalStateException> { workflow.startSession(intent.id, 1) }
 
-        assertEquals(IntentOutcome.TIMEOUT, database.intentDao().get(intent.id)?.outcome)
-        assertNull(workflow.observeActiveSession().first())
+        val timedOut = database.intentDao().get(intent.id)!!
+        assertEquals(IntentOutcome.TIMEOUT, timedOut.outcome)
+        assertNull(timedOut.convertedAt)
+        assertNotNull(timedOut.endedAt)
+        assertNull(timedOut.activeSlot)
     }
 
     @Test

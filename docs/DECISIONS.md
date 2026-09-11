@@ -1,5 +1,27 @@
 # Decisions
 
+## 2026-09-11 — convertedAt 只表示成功转换为 Session 的时间
+
+### Decision
+
+Intent 只有在 `CONVERTED` 结果下才写入 `convertedAt`；`ABANDONED` 与 `TIMEOUT` 必须保持 `convertedAt = null`。三种已结束结果都写入 `endedAt` 并清除 `activeSlot`。
+
+### Context
+
+`convertedAt` 用于表达 Intent 是否真正进入 Session，不能被一般的结束操作误写成“转换时间”。
+
+### Alternatives
+
+继续使用接受 outcome 参数的通用完成 SQL，或在 Repository 中写入后再修正字段。
+
+### Reason
+
+拆分为 `markConverted`、`markAbandoned`、`markTimedOut` 三个 DAO 方法，让每个业务语义在 SQL 层直接可见，降低未来误用风险。
+
+### Consequences
+
+Room Schema 不变，不需要 Migration；任何新增 Intent 结束路径都必须选择明确的语义方法，不得恢复通用 `complete()`。
+
 ## 2026-09-11 — 只有进行中的 Learning Item 可以成为主线
 
 ### Decision

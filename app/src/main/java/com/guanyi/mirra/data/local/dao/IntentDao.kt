@@ -23,6 +23,12 @@ interface IntentDao {
     @Query("UPDATE study_intents SET transitionedAt = COALESCE(transitionedAt, :at) WHERE id = :id AND activeSlot = 1")
     suspend fun markTransitioned(id: String, at: Long): Int
 
-    @Query("UPDATE study_intents SET convertedAt = :at, endedAt = :at, outcome = :outcome, activeSlot = NULL WHERE id = :id AND activeSlot = 1")
-    suspend fun complete(id: String, at: Long, outcome: IntentOutcome): Int
+    @Query("UPDATE study_intents SET convertedAt = :at, endedAt = :at, outcome = 'CONVERTED', activeSlot = NULL WHERE id = :id AND activeSlot = 1")
+    suspend fun markConverted(id: String, at: Long): Int
+
+    @Query("UPDATE study_intents SET convertedAt = NULL, endedAt = :at, outcome = 'ABANDONED', activeSlot = NULL WHERE id = :id AND activeSlot = 1")
+    suspend fun markAbandoned(id: String, at: Long): Int
+
+    @Query("UPDATE study_intents SET convertedAt = NULL, endedAt = :at, outcome = 'TIMEOUT', activeSlot = NULL WHERE id = :id AND activeSlot = 1")
+    suspend fun markTimedOut(id: String, at: Long): Int
 }
