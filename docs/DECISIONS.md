@@ -1,5 +1,71 @@
 # Decisions
 
+## 2026-09-11 — Start 是六级状态驱动的行动入口
+
+### Decision
+
+Start 只回答“我现在要怎么开始学习”，按 Active Session → Active Intent → Mainline IN_PROGRESS → 其他 IN_PROGRESS → 只有暂停/完成内容 → 完全无内容的顺序选择唯一主状态和主 CTA。Start 不承担 Learning Item、Note、图片、Topic、搜索或个人统计管理，也不提供全局“+”。
+
+### Context
+
+原 Start 只组合主线、Active Intent 和 Active Session；没有区分“无主线但仍有进行中内容”“只有暂停/完成内容”和“完全无内容”，容易把行动入口退化成创建入口或内容列表。
+
+### Alternatives
+
+在 Start 展示全部内容与多个操作，或继续只处理有主线/无主线两个状态。
+
+### Reason
+
+主线的价值是减少再次选择；状态优先级则保证用户已有 Intent 或 Session 时首先回到正在进行的动作。一个页面只保留一个最强 CTA，可以降低启动成本并保持“Start 管行动、Knowledge 管内容、Mine 管个人记录”的长期边界。
+
+### Consequences
+
+StartViewModel 必须产出明确的六级 sealed content state；无主线时的单次选择不自动设置主线；暂停/完成管理仍留在 Knowledge。Phase 2D 的预测将来只能作为弱信息加入，不能改变主 CTA。
+
+## 2026-09-11 — Start 不改变 currentPage 与异常 Session 语义
+
+### Decision
+
+`currentPage` 继续表示“当前可继续阅读的位置”，Start 和 First Action 均直接使用 X，不自动加 1。同一进程中合法 Active Session 可以从 Start 继续；新进程启动仍先把遗留 Active Session 标记为 `ABNORMAL` 并释放 Active Slot，不恢复为活动状态。
+
+### Context
+
+新版 Start 需要显示“上次停在第 X 页”和“继续学习”，但 UI 文案不能悄然改变 Phase 1 已冻结的页码与进程恢复语义。
+
+### Alternatives
+
+把 `currentPage` 解释成最后完成页并在 UI 加 1，或在冷启动时恢复遗留 Session 继续计时。
+
+### Reason
+
+页码可能停在一页中间，自动加 1 会造成进度跳跃；进程死亡缺少可靠持续计时信号，恢复 Active Session 会把不可确认的时间与状态当成事实。
+
+### Consequences
+
+Start、Preparation 和默认 First Action 使用同一解析规则；相关 UI 和测试必须断言不加 1。现有 `recoverInterruptedSession()` 与启动顺序保持不变。
+
+## 2026-09-11 — 首本书主线必须显式确认并原子创建
+
+### Decision
+
+完全无 Learning Item 的引导创建页提供默认开启的“设为主线”，但最终值由用户明确确认。开启时创建 Learning Item 与设置唯一主线在同一 Room 事务中完成；关闭时只创建，不根据“第一本书”自动设主线。现有非空 `firstAction` 字段继续复用，空值语义由空字符串和应用层 fallback 表达，不修改 Schema。
+
+### Context
+
+首次体验需要尽快回到 Start 并开始学习，同时不能破坏“是否成为主线由用户决定”的原则。当前创建 API 总是写入自动生成的 First Action，并在创建后要求用户另行进入详情设置主线。
+
+### Alternatives
+
+后台自动把第一本书设为主线，或先创建再以第二次独立写操作设置主线。
+
+### Reason
+
+默认开启减少首次操作，但明确复选项保留用户决定权；同一事务避免出现 UI 宣称已设主线而数据库只完成创建的半成功状态。
+
+### Consequences
+
+LearningItemRepository 创建 API 增加 `firstAction` 与 `setAsMainline` 参数并在事务内写入；创建页区分从 Start 进入和从 Knowledge 进入的返回路径。自定义 First Action 优先，未填写或旧版自动生成格式使用当前 `currentPage` 的动态 fallback；编辑入口位于 Learning Item 详情，并在存在 Active Intent/Session 时拒绝修改。
+
 ## 2026-09-11 — Phase 2 只使用可观测的整体阅读时间
 
 ### Decision

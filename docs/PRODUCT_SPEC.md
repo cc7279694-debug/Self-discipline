@@ -75,6 +75,14 @@ V1 的 Learning Item 主要就是：
 
 暂停内容默认不出现在主要开始入口。
 
+`currentPage` 的正式语义是：
+
+> 当前可继续阅读的位置。
+
+所有页面统一使用“上次停在第 X 页”“翻到第 X 页”等表达，不对 `currentPage` 自动加 1，也不通过 UI 重新解释或改写已有页码。
+
+完全没有 Learning Item 时，Start 可以引导添加第一本书。创建页提供“设为主线”，默认开启，但必须由用户明确确认。开启时，创建 Learning Item 与设置 `mainlineSlot` 在同一数据库事务内完成；关闭时只创建 Learning Item。系统不得因为“这是第一本书”在后台自动设置主线。
+
 ---
 
 ### 1.3 阅读进度
@@ -524,6 +532,12 @@ Step 类型可支持：
 
 用户可以修改。
 
+创建 Learning Item 时允许填写 First Action。未填写时使用当前名称和 `currentPage` 动态生成：
+
+> 拿起《Learning Item 名称》，翻到第 currentPage 页。
+
+动态默认值同样不得使用 `currentPage + 1`。现有 Schema 中 `firstAction` 为非空字段，不新增字段；空字符串或旧版自动生成格式由应用层解析为动态默认值。用户明确填写的自定义动作优先展示。First Action 的编辑属于 Learning Item 内容管理入口，不放到 Start 页面；存在该 Learning Item 的 Active Intent 或 Active Session 时，不允许改变当前启动所依赖的动作。
+
 这才是“开始”的核心。
 
 ---
@@ -967,32 +981,58 @@ V1 优先显示原始指标和趋势。
 
 ## 开始
 
-不是传统 Dashboard。
+Start 不是传统 Dashboard、Learning Item 列表或内容管理页。它是状态感知的行动首页，只回答：
 
-它是：
+> 我现在要怎么开始学习？
 
-> 状态感知的行动首页。
+三个一级入口的职责固定为：
 
-普通状态：
+- Start 管行动；
+- Knowledge 管内容；
+- Mine 管个人记录。
 
-突出主线 Learning Item。
+Start 不提供 Note、图片、Topic、搜索或 Learning Item 完整管理，不放全局“+”，不展示图表、周报、连续天数或自律分数。页面始终只有一个最强主操作。
 
-如果有 Active Intent：
+Start 状态优先级严格为：
 
-优先继续 Intent。
+```text
+1. Active Session → 继续学习
+2. Active Intent → 继续准备
+3. Mainline + IN_PROGRESS → 开始学习
+4. 无 Mainline，但存在 IN_PROGRESS → 选择一本继续
+5. 无 IN_PROGRESS，但存在 PAUSED / COMPLETED → 查看学习内容
+6. 完全没有 Learning Item → 添加第一本书
+```
 
-如果有 Active Session：
+### Active Session
 
-直接进入当前 Session 页面。
+同一 App 进程内仍合法存在 Active Session 时，显示“正在学习”、对应 Learning Item、当前页、已进行时间和唯一主按钮“继续学习”。点击返回现有 Session，不创建新的 Intent 或 Session。
 
-如果启动风险高：
+新 App 进程启动时继续先执行已冻结的 bootstrap recovery：遗留 Active Session 标记为 `ABNORMAL` 并释放 Active Slot。冷启动后的 Start 不得把它恢复成 Active Session。
 
-突出：
+### Active Intent
 
-> 当前状态：高启动风险  
-> 先切换状态，再开始
+显示“准备开始”、对应 Learning Item、First Action 和唯一主按钮“继续准备”。提供弱操作“取消本次启动”，复用现有 `ABANDONED` 流程；不得重复创建 Intent。
 
-不要在“开始”首页放全局“+”。
+### Mainline + IN_PROGRESS
+
+突出主线名称、`currentPage / totalPages`、弱化进度、最近一次正常阅读摘要、First Action 和唯一主按钮“开始学习”。点击仍走 `Intent → Preparation → Session`，不能直接开始计时。
+
+最近阅读只取当前显示 Learning Item 最近一次 `endType = NORMAL` 且已结束的 Session，可显示“上次阅读 42 分钟 · 3 条笔记”等一行信息。`ABNORMAL`、未结束或其他 Learning Item 的 Session 不参与。它只是上下文提示，不是 Analytics。
+
+### 无 Mainline但有 IN_PROGRESS
+
+只展示轻量的进行中内容选择。选择某项只表示“本次学习它”，不得自动改变主线；用户可以明确勾选弱选项“设为主线”。选中后唯一主按钮为“开始学习”，并继续走 Intent 流程。
+
+### 没有 IN_PROGRESS但有其他内容
+
+显示“暂无正在学习的内容”，唯一主按钮“查看学习内容”跳转 Knowledge。暂停、恢复和完成管理仍在 Knowledge / Learning Item 详情中完成。
+
+### 完全没有 Learning Item
+
+显示“开始你的第一次学习”和唯一主按钮“添加第一本书”。创建完成后返回 Start；若用户确认“设为主线”，进入正常主线状态，否则进入“选择一本继续”状态。
+
+视觉层级固定为：主 CTA → Learning Item 名称 → First Action → 当前进度/上次阅读 → 最近阅读辅助信息。整体保持克制、安静、大面积留白、少装饰与少卡片，不能逐渐演变成学习 Dashboard。
 
 ---
 
