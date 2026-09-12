@@ -83,7 +83,7 @@ Phase 2｜Module 2A 与 Module 2B 已正式验收并冻结；Start Experience Co
 
 - Current branch: codex/start-experience-correction
 - Base: origin/main
-- Push status: Phase 0、Module 1、Phase 2 文档基线、Module 2A 与 Module 2B 已推送；Start Experience Correction 待本 checkpoint 提交并推送
+- Push status: Phase 0、Module 1、Phase 2 文档基线、Module 2A、Module 2B 与 Start Experience Correction 均已推送；当前分支跟踪 `origin/codex/start-experience-correction`
 
 ## Next Recommended Task
 
