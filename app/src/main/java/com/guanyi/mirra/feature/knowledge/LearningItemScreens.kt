@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -31,6 +32,7 @@ import com.guanyi.mirra.data.local.entity.LearningItemEntity
 import com.guanyi.mirra.data.local.entity.LearningItemStatus
 import com.guanyi.mirra.data.repository.LearningItemRepository
 import com.guanyi.mirra.data.repository.StudyWorkflowRepository
+import com.guanyi.mirra.domain.FirstActionResolver
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -40,10 +42,23 @@ class CreateLearningItemViewModel(private val repository: LearningItemRepository
     var error by mutableStateOf<String?>(null)
         private set
 
-    fun create(name: String, totalPages: String, currentPage: String, onCreated: (String) -> Unit) {
+    fun create(
+        name: String,
+        totalPages: String,
+        currentPage: String,
+        firstAction: String,
+        setAsMainline: Boolean,
+        onCreated: (String) -> Unit,
+    ) {
         viewModelScope.launch {
             runCatching {
-                repository.create(name, totalPages.toInt(), currentPage.toInt())
+                repository.create(
+                    name = name,
+                    totalPages = totalPages.toInt(),
+                    currentPage = currentPage.toInt(),
+                    firstAction = firstAction,
+                    setAsMainline = setAsMainline,
+                )
             }.onSuccess { onCreated(it.id) }
                 .onFailure { error = it.message ?: "无法创建" }
         }
@@ -55,18 +70,35 @@ fun CreateLearningItemScreen(
     viewModel: CreateLearningItemViewModel,
     onCreated: (String) -> Unit,
     onBack: () -> Unit,
+    showMainlineOption: Boolean = false,
+    defaultSetAsMainline: Boolean = false,
 ) {
     var name by remember { mutableStateOf("") }
     var totalPages by remember { mutableStateOf("") }
     var currentPage by remember { mutableStateOf("1") }
+    var firstAction by remember { mutableStateOf("") }
+    var setAsMainline by remember { mutableStateOf(defaultSetAsMainline) }
     Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("创建学习内容", style = MaterialTheme.typography.headlineMedium)
         OutlinedTextField(name, { name = it }, label = { Text("书名") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(totalPages, { totalPages = it.filter(Char::isDigit) }, label = { Text("总页数") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(currentPage, { currentPage = it.filter(Char::isDigit) }, label = { Text("当前页") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            firstAction,
+            { firstAction = it },
+            label = { Text("起步动作（选填）") },
+            supportingText = { Text("未填写时使用“拿起书，翻到当前页”") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (showMainlineOption) {
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Checkbox(checked = setAsMainline, onCheckedChange = { setAsMainline = it })
+                Text("设为主线")
+            }
+        }
         viewModel.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(
-            onClick = { viewModel.create(name, totalPages, currentPage, onCreated) },
+            onClick = { viewModel.create(name, totalPages, currentPage, firstAction, setAsMainline, onCreated) },
             enabled = name.isNotBlank() && totalPages.isNotBlank() && currentPage.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
         ) { Text("创建") }
@@ -99,6 +131,10 @@ class LearningItemDetailViewModel(
     fun resume() = perform { learningItems.resume(it.id) }
 
     fun complete() = perform { learningItems.complete(it.id) }
+
+    fun updateFirstAction(firstAction: String) = perform {
+        learningItems.updateFirstAction(it.id, firstAction)
+    }
 
     fun begin(onIntentReady: (String) -> Unit) = viewModelScope.launch {
         val item = uiState.value.item ?: return@launch
@@ -135,6 +171,7 @@ fun LearningItemDetailScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val item = state.item
     var confirmComplete by remember { mutableStateOf(false) }
+    var firstActionEditor by remember { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp)) {
         item?.let {
             Text(it.name, style = MaterialTheme.typography.headlineMedium)
@@ -142,6 +179,8 @@ fun LearningItemDetailScreen(
             Text("状态：${it.status.displayName}")
             Text("当前第 ${it.currentPage} 页，共 ${it.totalPages} 页")
             Text("进度 ${(it.currentPage * 100 / it.totalPages)}%", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("起步动作：${FirstActionResolver.resolve(it)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = { firstActionEditor = it.firstAction }) { Text("编辑起步动作") }
             state.lastSummary?.let { summary ->
                 Spacer(Modifier.height(10.dp))
                 Text("上次总结：$summary", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -208,6 +247,28 @@ fun LearningItemDetailScreen(
             dismissButton = {
                 TextButton(onClick = { confirmComplete = false }) { Text("取消") }
             },
+        )
+    }
+    firstActionEditor?.let { initial ->
+        var edited by remember(initial) { mutableStateOf(initial) }
+        AlertDialog(
+            onDismissRequest = { firstActionEditor = null },
+            title = { Text("编辑起步动作") },
+            text = {
+                OutlinedTextField(
+                    value = edited,
+                    onValueChange = { edited = it },
+                    label = { Text("起步动作") },
+                    supportingText = { Text("留空会使用当前阅读页生成默认动作") },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.updateFirstAction(edited)
+                    firstActionEditor = null
+                }) { Text("保存") }
+            },
+            dismissButton = { TextButton(onClick = { firstActionEditor = null }) { Text("取消") } },
         )
     }
 }

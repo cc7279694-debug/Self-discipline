@@ -4,6 +4,7 @@ import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
 
 @Serializable data object CreateLearningItemRoute : NavKey
+@Serializable data object CreateFirstLearningItemRoute : NavKey
 @Serializable data class LearningItemDetailRoute(val itemId: String) : NavKey
 @Serializable data class NoteListRoute(val learningItemId: String? = null) : NavKey
 @Serializable data class CreateNoteRoute(val initialLearningItemId: String? = null) : NavKey

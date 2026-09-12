@@ -47,6 +47,7 @@ import com.guanyi.mirra.feature.session.SessionViewModel
 import com.guanyi.mirra.feature.start.StartScreen
 import com.guanyi.mirra.feature.start.StartViewModel
 import com.guanyi.mirra.navigation.CreateLearningItemRoute
+import com.guanyi.mirra.navigation.CreateFirstLearningItemRoute
 import com.guanyi.mirra.navigation.CreateNoteRoute
 import com.guanyi.mirra.navigation.LearningItemDetailRoute
 import com.guanyi.mirra.navigation.ImageListRoute
@@ -126,7 +127,8 @@ fun MirraApp(
                             }),
                             onOpenIntent = { open(PreparationRoute(it)) },
                             onOpenSession = { open(SessionRoute(it)) },
-                            onCreateLearningItem = { open(CreateLearningItemRoute) },
+                            onCreateFirstLearningItem = { open(CreateFirstLearningItemRoute) },
+                            onOpenKnowledge = { select(TopLevelDestination.Knowledge, persist = true) },
                         )
                         TopLevelDestination.Knowledge -> KnowledgeScreen(
                             viewModel = viewModel(factory = viewModelFactory {
@@ -151,6 +153,20 @@ fun MirraApp(
                             open(LearningItemDetailRoute(itemId))
                         },
                         onBack = ::back,
+                    )
+                }
+                entry<CreateFirstLearningItemRoute> {
+                    CreateLearningItemScreen(
+                        viewModel = viewModel(
+                            key = "create-first-learning-item",
+                            factory = viewModelFactory {
+                                CreateLearningItemViewModel(container.learningItemRepository)
+                            },
+                        ),
+                        onCreated = { select(TopLevelDestination.Start, persist = true) },
+                        onBack = ::back,
+                        showMainlineOption = true,
+                        defaultSetAsMainline = true,
                     )
                 }
                 entry<LearningItemDetailRoute> { route ->

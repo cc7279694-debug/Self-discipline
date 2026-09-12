@@ -25,6 +25,7 @@ import com.guanyi.mirra.data.local.entity.StudyIntentEntity
 import com.guanyi.mirra.data.repository.LearningItemRepository
 import com.guanyi.mirra.data.repository.StudyWorkflowRepository
 import com.guanyi.mirra.domain.SessionManager
+import com.guanyi.mirra.domain.FirstActionResolver
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -96,7 +97,7 @@ fun PreparationScreen(
             Spacer(Modifier.height(20.dp))
             Text("先完成一个具体动作", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(10.dp))
-            Text(item?.firstAction ?: "正在读取…", style = MaterialTheme.typography.titleLarge)
+            Text(item?.let(FirstActionResolver::resolve) ?: "正在读取…", style = MaterialTheme.typography.titleLarge)
             viewModel.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
         Column {

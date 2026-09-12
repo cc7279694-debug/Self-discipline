@@ -7,6 +7,7 @@ import com.guanyi.mirra.data.local.entity.LearningItemStatus
 import com.guanyi.mirra.data.local.entity.SessionEndType
 import com.guanyi.mirra.data.local.entity.StudyIntentEntity
 import com.guanyi.mirra.data.local.entity.StudySessionEntity
+import com.guanyi.mirra.data.local.model.RecentReadingSnapshot
 import com.guanyi.mirra.domain.IntentExpiryPolicy
 import com.guanyi.mirra.domain.SummaryEngine
 import java.util.UUID
@@ -17,7 +18,8 @@ interface StudyWorkflowRepository {
     fun observeActiveSession(): Flow<StudySessionEntity?>
     fun observeSession(id: String): Flow<StudySessionEntity?>
     fun observeLatestSummaryForItem(learningItemId: String): Flow<StudySessionEntity?>
-    suspend fun createIntent(learningItemId: String): StudyIntentEntity
+    fun observeLatestNormalReading(learningItemId: String): Flow<RecentReadingSnapshot?>
+    suspend fun createIntent(learningItemId: String, setAsMainline: Boolean = false): StudyIntentEntity
     suspend fun markTransitioned(intentId: String)
     suspend fun abandonIntent(intentId: String)
     suspend fun startSession(intentId: String, startPage: Int): StudySessionEntity
@@ -42,8 +44,12 @@ class DefaultStudyWorkflowRepository(
     override fun observeActiveSession() = sessionDao.observeActive()
     override fun observeSession(id: String) = sessionDao.observe(id)
     override fun observeLatestSummaryForItem(learningItemId: String) = sessionDao.observeLatestSummaryForItem(learningItemId)
+    override fun observeLatestNormalReading(learningItemId: String) = sessionDao.observeLatestNormalReading(learningItemId)
 
-    override suspend fun createIntent(learningItemId: String): StudyIntentEntity = database.withTransaction {
+    override suspend fun createIntent(
+        learningItemId: String,
+        setAsMainline: Boolean,
+    ): StudyIntentEntity = database.withTransaction {
         val initialItem = checkNotNull(itemDao.get(learningItemId)) { "Learning Item 不存在" }
         check(initialItem.status == LearningItemStatus.IN_PROGRESS) {
             "只有进行中的内容可以开始"
@@ -59,6 +65,10 @@ class DefaultStudyWorkflowRepository(
         val itemBeforeInsert = checkNotNull(itemDao.get(learningItemId)) { "Learning Item 不存在" }
         check(itemBeforeInsert.status == LearningItemStatus.IN_PROGRESS) {
             "只有进行中的内容可以开始"
+        }
+        if (setAsMainline) {
+            itemDao.clearMainline(now)
+            check(itemDao.assignMainline(learningItemId, now) == 1) { "设置主线失败" }
         }
         StudyIntentEntity(
             id = newId(),

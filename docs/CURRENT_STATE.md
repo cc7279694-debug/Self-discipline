@@ -1,10 +1,10 @@
 # Current State
 
-更新日期：2026-09-11
+更新日期：2026-09-12
 
 ## Current Stage
 
-Phase 2｜Module 2A 已正式验收并冻结；Module 2B 图片笔记已完成实现与全量验证，等待用户正式验收。Module 2C 尚未开始。
+Phase 2｜Module 2A 与 Module 2B 已正式验收并冻结；Start Experience Correction 已完成实现与验证，等待用户正式验收；Module 2C 计划已完成但继续暂停。
 
 ## Verified Completed
 
@@ -42,19 +42,28 @@ Phase 2｜Module 2A 已正式验收并冻结；Module 2B 图片笔记已完成�
 - Room 已从 Schema v1 非破坏性迁移到 v2，仅新增 `image_assets` 表、`noteId` 外键级联、`noteId` 索引与 `localPath` 唯一索引；真实 v1 Migration 测试确认 Phase 1 / 2A 数据完整保留，`1.json` 未变化。
 - 图片文件删除使用 trash → 数据库事务 → purge / restore 补偿；启动时恢复仍被数据库引用的 trash，并清理超过 24 小时的 import/camera temp、无引用 orphan 与无引用 trash。
 - API 37 模拟器已实际验证系统相册导入、相机取消与成功拍照导入、APK 覆盖安装、完全离线学习闭环、Active Session 强停及冷启动异常恢复。
+- Start Experience Correction 已冻结产品语义：Start 只管行动、六级状态优先级、`currentPage` 不加 1、首本书主线显式确认并原子创建，以及冷启动遗留 Session 继续按 `ABNORMAL` 恢复。
+- Start Experience Correction 详细工程计划已保存到 `docs/plans/START_EXPERIENCE_CORRECTION.md`；规划冻结回合未修改业务代码、Room Schema 或 Migration。
+- Start 已重构为六级互斥行动状态：同进程 Active Session、Active Intent、合法主线、无主线进行中选择、仅暂停/完成内容、完全空库，并严格按安全优先级展示唯一主行动。
+- 首本书创建提供默认开启但可显式关闭的“设为主线”；创建与主线写入在同一 Room 事务完成。无主线选择某本书只表示本次学习，默认不改变主线；勾选后主线写入与 Intent 创建同事务完成。
+- Start 与 Preparation 统一通过 First Action resolver 展示动态 fallback；旧版自动生成文案会按最新 `currentPage` 重算，自定义内容优先，Learning Item 详情支持编辑或清空恢复默认。
+- Start 的最近阅读只投影当前内容最近一次 NORMAL Session 的时长和 Note 数量，ABNORMAL Session 不参与；未建立 Analytics 层。
+- Start Experience Correction 保持 Room Schema v2、`1.json`、`2.json` 与既有 Migration 不变；API 37 完整 Instrumented/Compose 回归、JVM、lint、assemble、离线覆盖安装及强停冷启动均已通过。
 
 ## In Progress
 
-- Module 2B 已完成实现、验证与 checkpoint，等待用户正式验收；没有 Module 2C 业务代码实施中。
+- Start Experience Correction 已完成，等待用户正式验收与冻结。
+- Module 2C 的 `docs/plans/MODULE_2C_IMPLEMENTATION.md` 已完成但按用户要求暂停；没有 Module 2C 业务代码、Schema v3 或 Migration 实施中。
 
 ## Pending
 
 ### Phase 2｜笔记与阅读体验完善
 
 - Module 2A：Learning Item 生命周期与 Note 完整化（已正式验收并冻结）。
-- Module 2B：图片、App-owned Files 与 Schema v1 → v2 已完成实现与验证，等待正式验收。
-- Module 2C：轻量 Topic、FTS4 搜索与 Schema v2 → v3。
+- Module 2B：图片、App-owned Files 与 Schema v1 → v2 已正式验收并冻结。
+- Module 2C：轻量 Topic、FTS4 搜索与 Schema v2 → v3（详细计划已完成，等待计划验收）。
 - Module 2D：阅读分析、剩余阅读时间与自然完成预测。
+- Start Experience Correction：六级行动首页、首次创建主线事务与 First Action 补齐（已实现并验证，等待正式验收）。
 
 ## Known Risks / Unknowns
 
@@ -72,10 +81,10 @@ Phase 2｜Module 2A 已正式验收并冻结；Module 2B 图片笔记已完成�
 
 ## Git
 
-- Current branch: codex/phase-2b-image-notes
+- Current branch: codex/start-experience-correction
 - Base: origin/main
-- Push status: Phase 0、Module 1、Phase 2 文档基线与 Module 2A 已推送；Module 2B 功能分支随本 checkpoint 独立提交并推送
+- Push status: Phase 0、Module 1、Phase 2 文档基线、Module 2A 与 Module 2B 已推送；Start Experience Correction 待本 checkpoint 提交并推送
 
 ## Next Recommended Task
 
-验收 Module 2B 实现与 `docs/checkpoints/2026-09-11-module-2b.md`；正式验收前不得开始 Module 2C。
+正式验收并冻结 Start Experience Correction。之后如需推进 Module 2C，应先单独验收其计划并授权；本任务未进入 Topic/Search 实现。

@@ -49,6 +49,9 @@ interface LearningItemDao {
     """)
     suspend fun markCompleted(id: String, completedAt: Long): Int
 
+    @Query("UPDATE learning_items SET firstAction = :firstAction, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateFirstAction(id: String, firstAction: String, updatedAt: Long): Int
+
     @Query("UPDATE learning_items SET currentPage = MAX(currentPage, :page), updatedAt = :updatedAt WHERE id = :id")
     suspend fun advanceProgress(id: String, page: Int, updatedAt: Long): Int
 }

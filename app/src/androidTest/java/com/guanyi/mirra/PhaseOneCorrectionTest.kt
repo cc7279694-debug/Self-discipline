@@ -49,8 +49,7 @@ class PhaseOneCorrectionTest {
         val kept = runBlocking { container.studyWorkflowRepository.observeActiveIntent().first() }
         assertEquals(null, kept?.outcome)
 
-        composeRule.onNodeWithText("返回").performClick()
-        composeRule.onNodeWithText("继续启动").performClick()
+        composeRule.onNodeWithText("继续准备").performClick()
         composeRule.onNodeWithText("取消本次启动").performClick()
         composeRule.waitUntil(5_000) {
             runBlocking { container.studyWorkflowRepository.observeActiveIntent().first() } == null
@@ -109,7 +108,7 @@ class PhaseOneCorrectionTest {
         composeRule.activity.onBackPressedDispatcher.onBackPressed()
 
         composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(hasText("继续当前阅读")).fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(hasText("继续学习")).fetchSemanticsNodes().isNotEmpty()
         }
         val note = runBlocking { container.noteRepository.observeForSession(sessionId).first().single() }
         assertEquals("离开页面前保存", note.content)
@@ -141,15 +140,15 @@ class PhaseOneCorrectionTest {
     }
 
     private fun createBookAndOpenPreparation(currentPage: Int = 10) {
-        composeRule.onNodeWithText("创建第一本书").performClick()
+        composeRule.onNodeWithText("添加第一本书").performClick()
         composeRule.onNode(hasText("书名") and hasSetTextAction()).performTextInput("修正测试书")
         composeRule.onNode(hasText("总页数") and hasSetTextAction()).performTextInput("100")
         composeRule.onNode(hasText("当前页") and hasSetTextAction()).performTextReplacement(currentPage.toString())
         composeRule.onNode(hasText("创建") and hasClickAction()).performClick()
         composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(hasText("开始阅读")).fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(hasText("开始学习")).fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("开始阅读").performClick()
+        composeRule.onNodeWithText("开始学习").performClick()
     }
 
     private fun activeSessionId(): String = runBlocking {

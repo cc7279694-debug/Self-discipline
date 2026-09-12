@@ -1,118 +1,172 @@
 package com.guanyi.mirra.feature.start
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewModelScope
-import com.guanyi.mirra.data.local.entity.LearningItemEntity
-import com.guanyi.mirra.data.local.entity.StudyIntentEntity
-import com.guanyi.mirra.data.local.entity.StudySessionEntity
-import com.guanyi.mirra.data.repository.LearningItemRepository
-import com.guanyi.mirra.data.repository.StudyWorkflowRepository
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-
-data class StartUiState(
-    val mainline: LearningItemEntity? = null,
-    val activeIntent: StudyIntentEntity? = null,
-    val activeSession: StudySessionEntity? = null,
-)
-
-class StartViewModel(
-    private val learningItems: LearningItemRepository,
-    private val workflow: StudyWorkflowRepository,
-) : ViewModel() {
-    var error by mutableStateOf<String?>(null)
-        private set
-
-    val uiState = combine(
-        learningItems.observeMainline(),
-        workflow.observeActiveIntent(),
-        workflow.observeActiveSession(),
-        ::StartUiState,
-    ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StartUiState())
-
-    fun begin(onIntentReady: (String) -> Unit) {
-        val item = uiState.value.mainline ?: return
-        viewModelScope.launch {
-            runCatching { workflow.createIntent(item.id) }
-                .onSuccess { onIntentReady(it.id) }
-                .onFailure { error = it.message ?: "无法开始" }
-        }
-    }
-}
+import com.guanyi.mirra.data.local.model.RecentReadingSnapshot
 
 @Composable
 fun StartScreen(
     viewModel: StartViewModel,
     onOpenIntent: (String) -> Unit,
     onOpenSession: (String) -> Unit,
-    onCreateLearningItem: () -> Unit,
+    onCreateFirstLearningItem: () -> Unit,
+    onOpenKnowledge: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val activeSession = state.activeSession
-    val activeIntent = state.activeIntent
-    val mainline = state.mainline
-
     Column(
-        modifier = modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 32.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Column {
-            Text("观已Mirra", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(28.dp))
-            Text("把想学的，变成正在发生的。", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = when {
-                    activeSession != null -> "有一段阅读正在进行"
-                    activeIntent != null -> "你已经产生了学习意图，继续完成第一个动作。"
-                    mainline != null -> "主线：《${mainline.name}》\n上次读到第 ${mainline.currentPage} 页"
-                    else -> "先建立一条清晰的学习主线，再从一次真实阅读开始。"
-                },
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Text("观已Mirra", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        Text("我现在要怎么开始学习？", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+
+        if (state.isLoading) CircularProgressIndicator()
+        state.content?.let { content ->
+            StartContent(
+                content = content,
+                isSubmitting = state.isSubmitting,
+                onOpenIntent = onOpenIntent,
+                onOpenSession = onOpenSession,
+                onCreateFirstLearningItem = onCreateFirstLearningItem,
+                onOpenKnowledge = onOpenKnowledge,
+                onSelectItem = viewModel::selectItem,
+                onSetAsMainline = viewModel::setSelectedAsMainline,
+                onBegin = { viewModel.begin(onOpenIntent) },
+                onAbandon = { viewModel.abandonIntent() },
             )
-            viewModel.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
-        Button(
-            onClick = {
-                when {
-                    activeSession != null -> onOpenSession(activeSession.id)
-                    activeIntent != null -> onOpenIntent(activeIntent.id)
-                    mainline != null -> viewModel.begin(onOpenIntent)
-                    else -> onCreateLearningItem()
+        state.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    }
+}
+
+@Composable
+private fun StartContent(
+    content: StartContentState,
+    isSubmitting: Boolean,
+    onOpenIntent: (String) -> Unit,
+    onOpenSession: (String) -> Unit,
+    onCreateFirstLearningItem: () -> Unit,
+    onOpenKnowledge: () -> Unit,
+    onSelectItem: (String) -> Unit,
+    onSetAsMainline: (Boolean) -> Unit,
+    onBegin: () -> Unit,
+    onAbandon: () -> Unit,
+) {
+    when (content) {
+        is StartContentState.ActiveSession -> {
+            Text("正在学习", style = MaterialTheme.typography.titleLarge)
+            Text(content.learningItemName, style = MaterialTheme.typography.headlineSmall)
+            Text("当前第 ${content.currentPage} 页 · 已进行 ${content.elapsedMinutes} 分钟")
+            Button(onClick = { onOpenSession(content.sessionId) }, modifier = Modifier.fillMaxWidth()) {
+                Text("继续学习")
+            }
+        }
+        is StartContentState.ActiveIntent -> {
+            Text("准备开始", style = MaterialTheme.typography.titleLarge)
+            Text(content.learningItemName, style = MaterialTheme.typography.headlineSmall)
+            Text(content.firstAction, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Button(onClick = { onOpenIntent(content.intentId) }, modifier = Modifier.fillMaxWidth()) {
+                Text("继续准备")
+            }
+            TextButton(onClick = onAbandon, enabled = !isSubmitting, modifier = Modifier.fillMaxWidth()) {
+                Text("取消本次启动")
+            }
+        }
+        is StartContentState.Mainline -> {
+            Text("当前主线", style = MaterialTheme.typography.titleMedium)
+            LearningItemSummary(content.item, content.recentReading)
+            Button(onClick = onBegin, enabled = !isSubmitting, modifier = Modifier.fillMaxWidth()) {
+                Text("开始学习")
+            }
+        }
+        is StartContentState.ChooseInProgress -> {
+            Text("这次想学什么？", style = MaterialTheme.typography.titleLarge)
+            content.items.forEach { item ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { onSelectItem(item.id) }.padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(selected = content.selectedItemId == item.id, onClick = { onSelectItem(item.id) })
+                    Column(Modifier.weight(1f)) {
+                        Text(item.name, fontWeight = FontWeight.Medium)
+                        Text("上次停在第 ${item.currentPage} 页", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
-            },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-        ) {
-            Text(
-                when {
-                    activeSession != null -> "继续当前阅读"
-                    activeIntent != null -> "继续启动"
-                    mainline != null -> "我想开始"
-                    else -> "创建第一本书"
-                },
-            )
+                HorizontalDivider()
+            }
+            if (content.selectedItemId != null) {
+                val selected = content.items.first { it.id == content.selectedItemId }
+                Text(selected.firstAction, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                RecentReading(content.recentReading)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = content.setSelectedAsMainline, onCheckedChange = onSetAsMainline)
+                    Text("设为主线")
+                }
+            }
+            Button(
+                onClick = onBegin,
+                enabled = content.selectedItemId != null && !isSubmitting,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("开始学习") }
         }
+        is StartContentState.NoInProgress -> {
+            Text("暂无正在学习的内容", style = MaterialTheme.typography.titleLarge)
+            Text("你已有 ${content.totalItemCount} 项学习内容，可到知识页恢复或查看。")
+            Button(onClick = onOpenKnowledge, modifier = Modifier.fillMaxWidth()) { Text("查看学习内容") }
+        }
+        StartContentState.EmptyLibrary -> {
+            Text("开始你的第一次学习", style = MaterialTheme.typography.titleLarge)
+            Text("先添加一本书，再决定是否把它设为主线。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Button(onClick = onCreateFirstLearningItem, modifier = Modifier.fillMaxWidth()) { Text("添加第一本书") }
+        }
+    }
+}
+
+@Composable
+private fun LearningItemSummary(item: StartLearningItem, recentReading: RecentReadingSnapshot?) {
+    Text(item.name, style = MaterialTheme.typography.headlineSmall)
+    Text("上次停在第 ${item.currentPage} 页 · 共 ${item.totalPages} 页")
+    LinearProgressIndicator(
+        progress = { item.progressPercent / 100f },
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Text(item.firstAction, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    RecentReading(recentReading)
+    Spacer(Modifier.height(4.dp))
+}
+
+@Composable
+private fun RecentReading(recent: RecentReadingSnapshot?) {
+    recent?.let {
+        Text(
+            "上次阅读 ${it.durationMillis / 60_000L} 分钟 · ${it.noteCount} 条笔记",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

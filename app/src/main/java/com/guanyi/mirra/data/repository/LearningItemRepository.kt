@@ -12,7 +12,14 @@ interface LearningItemRepository {
     fun observe(id: String): Flow<LearningItemEntity?>
     fun observeMainline(): Flow<LearningItemEntity?>
     suspend fun get(id: String): LearningItemEntity?
-    suspend fun create(name: String, totalPages: Int, currentPage: Int = 1): LearningItemEntity
+    suspend fun create(
+        name: String,
+        totalPages: Int,
+        currentPage: Int = 1,
+        firstAction: String? = null,
+        setAsMainline: Boolean = false,
+    ): LearningItemEntity
+    suspend fun updateFirstAction(id: String, firstAction: String): LearningItemEntity
     suspend fun setMainline(id: String)
     suspend fun pause(id: String): LearningItemEntity
     suspend fun resume(id: String): LearningItemEntity
@@ -33,25 +40,40 @@ class DefaultLearningItemRepository(
     override fun observeMainline() = dao.observeMainline()
     override suspend fun get(id: String) = dao.get(id)
 
-    override suspend fun create(name: String, totalPages: Int, currentPage: Int): LearningItemEntity {
+    override suspend fun create(
+        name: String,
+        totalPages: Int,
+        currentPage: Int,
+        firstAction: String?,
+        setAsMainline: Boolean,
+    ): LearningItemEntity = database.withTransaction {
         val cleanName = name.trim()
         require(cleanName.isNotEmpty()) { "名称不能为空" }
         require(totalPages > 0) { "总页数必须大于 0" }
         require(currentPage in 1..totalPages) { "当前页必须在书籍范围内" }
         val now = clock()
-        return LearningItemEntity(
+        if (setAsMainline) dao.clearMainline(now)
+        LearningItemEntity(
             id = newId(),
             name = cleanName,
             status = LearningItemStatus.IN_PROGRESS,
             totalPages = totalPages,
             currentPage = currentPage,
-            mainlineSlot = null,
-            firstAction = "拿起《$cleanName》，翻到第 $currentPage 页。",
+            mainlineSlot = if (setAsMainline) 1 else null,
+            firstAction = firstAction?.trim().orEmpty(),
             createdAt = now,
             updatedAt = now,
             completedAt = null,
         ).also { dao.insert(it) }
     }
+
+    override suspend fun updateFirstAction(id: String, firstAction: String): LearningItemEntity =
+        database.withTransaction {
+            checkNotNull(dao.get(id)) { "Learning Item 不存在" }
+            ensureNoActiveWorkflow(id)
+            check(dao.updateFirstAction(id, firstAction.trim(), clock()) == 1) { "更新起步动作失败" }
+            checkNotNull(dao.get(id))
+        }
 
     override suspend fun setMainline(id: String) {
         database.withTransaction {

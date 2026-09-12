@@ -63,6 +63,41 @@ class StudyWorkflowRepositoryTest {
     }
 
     @Test
+    fun intentCanAtomicallySetTheChosenInProgressItemAsMainline() = runTest {
+        val previous = learningItems.create("旧主线", 100, setAsMainline = true)
+        val chosen = learningItems.create("本次学习", 100)
+
+        val intent = workflow.createIntent(chosen.id, setAsMainline = true)
+
+        assertEquals(chosen.id, intent.learningItemId)
+        assertEquals(chosen.id, learningItems.observeMainline().first()?.id)
+        assertNull(learningItems.get(previous.id)?.mainlineSlot)
+    }
+
+    @Test
+    fun choosingAnItemForThisIntentDoesNotChangeMainlineByDefault() = runTest {
+        val previous = learningItems.create("旧主线", 100, setAsMainline = true)
+        val chosen = learningItems.create("本次学习", 100)
+
+        workflow.createIntent(chosen.id)
+
+        assertEquals(previous.id, learningItems.observeMainline().first()?.id)
+    }
+
+    @Test
+    fun existingActiveIntentWinsWithoutChangingMainline() = runTest {
+        val mainline = learningItems.create("当前主线", 100, setAsMainline = true)
+        val activeItem = learningItems.create("已有启动", 100)
+        val requested = learningItems.create("另一本", 100)
+        val active = workflow.createIntent(activeItem.id)
+
+        val returned = workflow.createIntent(requested.id, setAsMainline = true)
+
+        assertEquals(active.id, returned.id)
+        assertEquals(mainline.id, learningItems.observeMainline().first()?.id)
+    }
+
+    @Test
     fun duplicateActiveIntentIsRejectedByDatabaseConstraint() = runTest {
         val item = learningItems.create("书", totalPages = 100, currentPage = 1)
         database.intentDao().insert(activeIntent(item.id, "intent-1"))
@@ -176,6 +211,26 @@ class StudyWorkflowRepositoryTest {
         assertEquals(31, recovered.endPage)
         assertEquals(20, learningItems.get(item.id)?.currentPage)
         assertNull(workflow.observeActiveSession().first())
+    }
+
+    @Test
+    fun latestNormalReadingExcludesAbnormalSessionsAndCountsNotes() = runTest {
+        val item = learningItems.create("书", 200, 20)
+        val normal = workflow.startSession(workflow.createIntent(item.id).id, 20)
+        notes.save(item.id, normal.id, "第一条", 20)
+        notes.save(item.id, normal.id, "第二条", 21)
+        now += 42 * 60 * 1_000L
+        workflow.finishSession(normal.id, 25)
+
+        now += 1_000L
+        workflow.startSession(workflow.createIntent(item.id).id, 25)
+        now += 5 * 60 * 1_000L
+        workflow.recoverInterruptedSession()
+
+        val recent = workflow.observeLatestNormalReading(item.id).first()
+        assertEquals(normal.id, recent?.sessionId)
+        assertEquals(42 * 60 * 1_000L, recent?.durationMillis)
+        assertEquals(2, recent?.noteCount)
     }
 
     @Test

@@ -72,6 +72,44 @@ class ModuleTwoALearningItemRepositoryTest {
     }
 
     @Test
+    fun createCanAtomicallyMakeTheNewItemMainline() = runTest {
+        val previous = learningItems.create("旧主线", 120, setAsMainline = true)
+
+        now = 2_000L
+        val created = learningItems.create(
+            name = "新主线",
+            totalPages = 240,
+            currentPage = 12,
+            firstAction = "先把书放到桌面。",
+            setAsMainline = true,
+        )
+
+        assertEquals(created.id, learningItems.observeMainline().first()?.id)
+        assertNull(learningItems.get(previous.id)?.mainlineSlot)
+        assertEquals("先把书放到桌面。", created.firstAction)
+    }
+
+    @Test
+    fun createWithoutMainlineChoiceNeverSelectsItImplicitly() = runTest {
+        val created = learningItems.create("第一本书", 100, setAsMainline = false)
+
+        assertNull(created.mainlineSlot)
+        assertNull(learningItems.observeMainline().first())
+    }
+
+    @Test
+    fun firstActionCanBeUpdatedAndBlankRestoresDynamicFallback() = runTest {
+        val item = learningItems.create("起步动作", 100, 16)
+
+        val customized = learningItems.updateFirstAction(item.id, "  先倒一杯水。  ")
+        assertEquals("先倒一杯水。", customized.firstAction)
+        assertEquals(now, customized.updatedAt)
+
+        val reset = learningItems.updateFirstAction(item.id, "   ")
+        assertEquals("", reset.firstAction)
+    }
+
+    @Test
     fun completeSetsTimestampClearsMainlineAndCannotResume() = runTest {
         val item = learningItems.create("完成测试", 100)
         learningItems.setMainline(item.id)
