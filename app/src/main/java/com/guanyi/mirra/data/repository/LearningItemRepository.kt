@@ -4,6 +4,8 @@ import androidx.room.withTransaction
 import com.guanyi.mirra.data.local.MirraDatabase
 import com.guanyi.mirra.data.local.entity.LearningItemEntity
 import com.guanyi.mirra.data.local.entity.LearningItemStatus
+import com.guanyi.mirra.data.search.SearchIndexWriter
+import com.guanyi.mirra.domain.DefaultSearchEngine
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 
@@ -30,6 +32,7 @@ class DefaultLearningItemRepository(
     private val database: MirraDatabase,
     private val clock: () -> Long = System::currentTimeMillis,
     private val newId: () -> String = { UUID.randomUUID().toString() },
+    private val searchIndexWriter: SearchIndexWriter = SearchIndexWriter(database, DefaultSearchEngine()),
 ) : LearningItemRepository {
     private val dao = database.learningItemDao()
     private val intentDao = database.intentDao()
@@ -64,7 +67,10 @@ class DefaultLearningItemRepository(
             createdAt = now,
             updatedAt = now,
             completedAt = null,
-        ).also { dao.insert(it) }
+        ).also {
+            dao.insert(it)
+            searchIndexWriter.reindexLearningItem(it.id)
+        }
     }
 
     override suspend fun updateFirstAction(id: String, firstAction: String): LearningItemEntity =

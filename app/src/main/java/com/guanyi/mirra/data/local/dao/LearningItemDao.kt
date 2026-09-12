@@ -19,6 +19,12 @@ interface LearningItemDao {
     @Query("SELECT * FROM learning_items WHERE id = :id")
     suspend fun get(id: String): LearningItemEntity?
 
+    @Query("SELECT * FROM learning_items ORDER BY updatedAt DESC, id DESC")
+    suspend fun listAll(): List<LearningItemEntity>
+
+    @Query("SELECT * FROM learning_items WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<String>): List<LearningItemEntity>
+
     @Query("SELECT * FROM learning_items WHERE mainlineSlot = 1 LIMIT 1")
     fun observeMainline(): Flow<LearningItemEntity?>
 

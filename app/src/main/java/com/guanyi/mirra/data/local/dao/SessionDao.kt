@@ -15,6 +15,12 @@ interface SessionDao {
     @Query("SELECT * FROM study_sessions WHERE id = :id")
     suspend fun get(id: String): StudySessionEntity?
 
+    @Query("SELECT * FROM study_sessions ORDER BY startedAt DESC, id DESC")
+    suspend fun listAll(): List<StudySessionEntity>
+
+    @Query("SELECT * FROM study_sessions WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<String>): List<StudySessionEntity>
+
     @Query("SELECT * FROM study_sessions WHERE id = :id")
     fun observe(id: String): Flow<StudySessionEntity?>
 

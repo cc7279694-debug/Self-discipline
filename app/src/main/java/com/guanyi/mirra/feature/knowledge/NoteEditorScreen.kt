@@ -18,6 +18,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -41,6 +42,9 @@ import com.guanyi.mirra.data.repository.ImageRepository
 import com.guanyi.mirra.data.repository.ImportBatchResult
 import com.guanyi.mirra.data.repository.LearningItemRepository
 import com.guanyi.mirra.data.repository.NoteRepository
+import com.guanyi.mirra.data.repository.TopicRepository
+import com.guanyi.mirra.data.local.entity.TopicEntity
+import com.guanyi.mirra.domain.TopicSuggestion
 import com.guanyi.mirra.data.storage.CameraTarget
 import com.guanyi.mirra.domain.RuleBasedNoteTypeSuggester
 import java.util.UUID
@@ -64,6 +68,7 @@ class NoteEditorViewModel(
     private val notes: NoteRepository,
     private val imageRepository: ImageRepository,
     learningItems: LearningItemRepository,
+    private val topicRepository: TopicRepository,
     private val noteTypeSuggester: RuleBasedNoteTypeSuggester = RuleBasedNoteTypeSuggester(),
     newId: () -> String = { UUID.randomUUID().toString() },
 ) : ViewModel() {
@@ -76,6 +81,16 @@ class NoteEditorViewModel(
     val images = noteIdState.flatMapLatest { noteId ->
         if (noteId == null) flowOf(emptyList()) else imageRepository.observeForNote(noteId)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val linkedTopics = noteIdState.flatMapLatest { noteId ->
+        if (noteId == null) flowOf(emptyList()) else topicRepository.observeForNote(noteId)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val allTopics = topicRepository.observeAllTopics().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList(),
+    )
+    var topicSuggestions by mutableStateOf<List<TopicSuggestion>>(emptyList())
+        private set
+    var topicMessage by mutableStateOf<String?>(null)
+        private set
     var content by mutableStateOf("")
         private set
     var pageText by mutableStateOf("")
@@ -277,6 +292,40 @@ class NoteEditorViewModel(
 
     fun imageFile(localPath: String) = imageRepository.displayFile(localPath)
 
+    fun refreshTopicSuggestions() {
+        val noteId = persistedNoteId ?: return
+        viewModelScope.launch {
+            topicSuggestions = runCatching { topicRepository.suggestions(noteId) }.getOrDefault(emptyList())
+        }
+    }
+
+    fun createTopicAndLink(name: String) {
+        val noteId = persistedNoteId ?: return
+        viewModelScope.launch {
+            runCatching { topicRepository.createAndLink(noteId, name) }
+                .onSuccess { topicMessage = "Topic 已关联"; refreshTopicSuggestions() }
+                .onFailure { topicMessage = it.message ?: "Topic 创建失败" }
+        }
+    }
+
+    fun linkTopic(topicId: String) {
+        val noteId = persistedNoteId ?: return
+        viewModelScope.launch {
+            runCatching { topicRepository.link(noteId, topicId) }
+                .onSuccess { topicMessage = "Topic 已关联"; refreshTopicSuggestions() }
+                .onFailure { topicMessage = it.message ?: "关联失败" }
+        }
+    }
+
+    fun unlinkTopic(topicId: String) {
+        val noteId = persistedNoteId ?: return
+        viewModelScope.launch {
+            runCatching { topicRepository.unlink(noteId, topicId) }
+                .onSuccess { topicMessage = "已解除关联"; refreshTopicSuggestions() }
+                .onFailure { topicMessage = it.message ?: "解除关联失败" }
+        }
+    }
+
     private fun changed() {
         revision += 1
         savedMessage = ""
@@ -347,17 +396,23 @@ internal fun imageImportMessage(result: ImportBatchResult): String = buildString
     if (result.rejectedCount > 0) append("；单次最多 20 张，已忽略 ${result.rejectedCount} 张")
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteEditorScreen(
     viewModel: NoteEditorViewModel,
     onBack: () -> Unit,
     onDeleted: () -> Unit,
     onOpenImage: (String, String) -> Unit,
+    onOpenTopic: (String) -> Unit,
 ) {
     val learningItems by viewModel.learningItems.collectAsStateWithLifecycle()
     val images by viewModel.images.collectAsStateWithLifecycle()
+    val linkedTopics by viewModel.linkedTopics.collectAsStateWithLifecycle()
+    val allTopics by viewModel.allTopics.collectAsStateWithLifecycle()
     var itemMenuExpanded by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var showTopics by remember { mutableStateOf(false) }
+    var confirmUnlinkTopic by remember { mutableStateOf<TopicEntity?>(null) }
     val selectedItemName = learningItems.firstOrNull { it.id == viewModel.selectedLearningItemId }?.name
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -423,6 +478,23 @@ fun NoteEditorScreen(
             modifier = Modifier.fillMaxWidth(),
         )
         if (viewModel.canDelete) {
+            if (linkedTopics.isNotEmpty()) {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    linkedTopics.forEach { topic ->
+                        OutlinedButton(onClick = { onOpenTopic(topic.id) }) { Text(topic.name) }
+                        TextButton(onClick = { confirmUnlinkTopic = topic }) { Text("解除") }
+                    }
+                }
+            }
+            OutlinedButton(
+                onClick = { viewModel.refreshTopicSuggestions(); showTopics = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("关联 Topic") }
+        }
+        if (viewModel.canDelete) {
             NoteImageSection(
                 images = images,
                 imageFile = viewModel::imageFile,
@@ -476,6 +548,47 @@ fun NoteEditorScreen(
             dismissButton = {
                 TextButton(onClick = { confirmDelete = false }) { Text("取消") }
             },
+        )
+    }
+    if (showTopics) {
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showTopics = false }) {
+            var newTopic by remember { mutableStateOf("") }
+            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("关联 Topic", style = MaterialTheme.typography.titleLarge)
+                viewModel.topicSuggestions.forEach { suggestion ->
+                    TextButton(onClick = { viewModel.linkTopic(suggestion.topic.id) }) { Text("建议：${suggestion.topic.name}") }
+                }
+                allTopics.forEach { topic ->
+                    val linked = linkedTopics.any { it.id == topic.id }
+                    OutlinedButton(
+                        onClick = {
+                            if (linked) {
+                                showTopics = false
+                                confirmUnlinkTopic = topic
+                            } else {
+                                viewModel.linkTopic(topic.id)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(if (linked) "✓ ${topic.name}（解除）" else topic.name) }
+                }
+                OutlinedTextField(newTopic, { newTopic = it }, label = { Text("新 Topic") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Button(
+                    onClick = { viewModel.createTopicAndLink(newTopic); newTopic = "" },
+                    enabled = newTopic.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("创建并关联") }
+                viewModel.topicMessage?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+        }
+    }
+    confirmUnlinkTopic?.let { topic ->
+        AlertDialog(
+            onDismissRequest = { confirmUnlinkTopic = null },
+            title = { Text("解除 Topic 关联？") },
+            text = { Text("只解除与“${topic.name}”的关联，不会删除 Topic 或笔记。") },
+            confirmButton = { TextButton(onClick = { confirmUnlinkTopic = null; viewModel.unlinkTopic(topic.id) }) { Text("确认解除") } },
+            dismissButton = { TextButton(onClick = { confirmUnlinkTopic = null }) { Text("取消") } },
         )
     }
 }

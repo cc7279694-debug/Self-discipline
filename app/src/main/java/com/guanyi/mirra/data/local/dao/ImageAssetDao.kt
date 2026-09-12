@@ -24,6 +24,9 @@ interface ImageAssetDao {
     @Query("SELECT localPath FROM image_assets")
     suspend fun listAllPaths(): List<String>
 
+    @Query("SELECT * FROM image_assets ORDER BY createdAt, id")
+    suspend fun listAll(): List<ImageAssetEntity>
+
     @Query(
         """
         SELECT image_assets.*, notes.pageNumber AS notePageNumber,

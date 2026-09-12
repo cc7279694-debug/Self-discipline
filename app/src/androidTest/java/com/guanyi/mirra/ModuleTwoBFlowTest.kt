@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import com.guanyi.mirra.navigation.TopLevelDestination
 import java.io.File
@@ -38,7 +39,10 @@ class ModuleTwoBFlowTest {
     }
 
     @After
-    fun tearDown() = container.close()
+    fun tearDown() {
+        composeRule.activityRule.scenario.close()
+        container.close()
+    }
 
     @Test
     fun globalImageListOpensPreviewAndSwitchesWithinNote() {
@@ -84,7 +88,7 @@ class ModuleTwoBFlowTest {
         composeRule.waitUntil(5_000) {
             runBlocking { container.imageRepository.observeForNote(data.first).first().single().caption } == "新 Caption"
         }
-        composeRule.onNodeWithText("删除笔记").performClick()
+        composeRule.onNodeWithText("删除笔记").performScrollTo().performClick()
         composeRule.onNodeWithText("删除后无法恢复，并将同时删除 1 张图片。").assertExists()
         composeRule.onNodeWithText("确认删除").performClick()
         composeRule.waitUntil(5_000) {

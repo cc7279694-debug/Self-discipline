@@ -48,8 +48,11 @@ fun KnowledgeScreen(
     viewModel: KnowledgeViewModel,
     onCreateLearningItem: () -> Unit,
     onCreateNote: () -> Unit,
+    onCreateTopic: () -> Unit,
     onOpenNotes: () -> Unit,
     onOpenImages: () -> Unit,
+    onOpenTopics: () -> Unit,
+    onSearch: () -> Unit,
     onOpenItem: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -61,8 +64,10 @@ fun KnowledgeScreen(
             Button(onClick = { showCreateChoices = true }) { Text("创建") }
         }
         Spacer(Modifier.height(12.dp))
+        OutlinedButton(onClick = onSearch, modifier = Modifier.fillMaxWidth()) { Text("搜索") }
         OutlinedButton(onClick = onOpenNotes, modifier = Modifier.fillMaxWidth()) { Text("全部笔记") }
         OutlinedButton(onClick = onOpenImages, modifier = Modifier.fillMaxWidth()) { Text("全部图片") }
+        OutlinedButton(onClick = onOpenTopics, modifier = Modifier.fillMaxWidth()) { Text("Topic") }
         Spacer(Modifier.height(20.dp))
         if (learningItems.isEmpty()) {
             Text("还没有学习内容。先创建一本正在读的书。", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -102,6 +107,13 @@ fun KnowledgeScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("创建笔记") }
+                    OutlinedButton(
+                        onClick = {
+                            showCreateChoices = false
+                            onCreateTopic()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("创建 Topic") }
                 }
             },
             confirmButton = {},

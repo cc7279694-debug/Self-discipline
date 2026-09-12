@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 2｜Module 2A 与 Module 2B 已正式验收并冻结；Start Experience Correction 已完成实现与验证，等待用户正式验收；Module 2C 计划已完成但继续暂停。
+Phase 2｜Module 2A、Module 2B 与 Start Experience Correction 已正式验收并冻结；Module 2C Topic + Search 已完成实现与全量验证，等待用户正式验收；Module 2D 尚未开始。
 
 ## Verified Completed
 
@@ -49,11 +49,16 @@ Phase 2｜Module 2A 与 Module 2B 已正式验收并冻结；Start Experience Co
 - Start 与 Preparation 统一通过 First Action resolver 展示动态 fallback；旧版自动生成文案会按最新 `currentPage` 重算，自定义内容优先，Learning Item 详情支持编辑或清空恢复默认。
 - Start 的最近阅读只投影当前内容最近一次 NORMAL Session 的时长和 Note 数量，ABNORMAL Session 不参与；未建立 Analytics 层。
 - Start Experience Correction 保持 Room Schema v2、`1.json`、`2.json` 与既有 Migration 不变；API 37 完整 Instrumented/Compose 回归、JVM、lint、assemble、离线覆盖安装及强停冷启动均已通过。
+- Topic 已支持创建、列表、详情、Note 多对多关联、幂等关联/解除、笔记内创建并关联，以及仅基于正文明确包含关系的保守本地建议；不包含改名、删除、层级或 AI。
+- Room 已从 Schema v2 非破坏性迁移到 v3：仅新增 `topics`、`note_topic_cross_refs` 与 Room FTS4 `search_fts`；`1.json`、`2.json` 未变化，v2→v3 与 v1→v2→v3 真实 Migration 测试确认旧数据完整保留。
+- 本地搜索覆盖 Note 正文、图片 Caption、Learning Item 名称、Topic 名称和非空 Session Summary；中文使用 NFKC 与连续 CJK 双字 token，英文使用完整 token，MATCH 仅使用参数绑定的安全表达式。
+- `search_fts` 是可重建派生索引；既有 Repository 在事务内同步相关写路径，冷启动只用行数做轻量健康检查，并保留显式 rebuild、FTS 异常后最多一次 rebuild + retry、missing/duplicate/stale 恢复测试。
+- Knowledge 已增加搜索与 Topic 入口；搜索 300ms debounce、全局最多 60 条并按 Note / Learning Item / Topic / Session 分组，可进入对应详情或最小只读阅读记录。
+- Module 2C 的 JVM、完整 Room/Migration/Instrumented/Compose、lintDebug、assembleDebug、离线 APK 覆盖安装与冷启动均已通过；Phase 1、2A、2B 与 Start 六级状态回归通过。
 
 ## In Progress
 
-- Start Experience Correction 已完成，等待用户正式验收与冻结。
-- Module 2C 的 `docs/plans/MODULE_2C_IMPLEMENTATION.md` 已完成但按用户要求暂停；没有 Module 2C 业务代码、Schema v3 或 Migration 实施中。
+- Module 2C 已完成实现、验证与 checkpoint，等待用户正式验收冻结。
 
 ## Pending
 
@@ -61,9 +66,9 @@ Phase 2｜Module 2A 与 Module 2B 已正式验收并冻结；Start Experience Co
 
 - Module 2A：Learning Item 生命周期与 Note 完整化（已正式验收并冻结）。
 - Module 2B：图片、App-owned Files 与 Schema v1 → v2 已正式验收并冻结。
-- Module 2C：轻量 Topic、FTS4 搜索与 Schema v2 → v3（详细计划已完成，等待计划验收）。
+- Module 2C：轻量 Topic、FTS4 搜索与 Schema v2 → v3（已实现并完成验证，等待正式验收）。
 - Module 2D：阅读分析、剩余阅读时间与自然完成预测。
-- Start Experience Correction：六级行动首页、首次创建主线事务与 First Action 补齐（已实现并验证，等待正式验收）。
+- Start Experience Correction：六级行动首页、首次创建主线事务与 First Action 补齐（已正式验收并冻结）。
 
 ## Known Risks / Unknowns
 
@@ -71,20 +76,21 @@ Phase 2｜Module 2A 与 Module 2B 已正式验收并冻结；Start Experience Co
 - 原中文路径副本仍因当前 Codex 桌面会话占用而保留；后续开发与验证仅以英文路径仓库为准。
 - Android Studio 的系统安装流程被 Windows 安装确认阻塞，本阶段改用用户目录下的 JDK 17、Android SDK Command-line Tools、ADB 与 Emulator 完成验证。
 - Android 设备与厂商对 Usage Access、DND、Overlay 的兼容性需要在 Phase 3 通过真实设备验证。
-- Room 当前为 Schema v2；v1 → v2 使用显式非破坏性 Migration 并由导出的真实 v1 Schema 验证，后续任何 Schema 变更仍必须提供非破坏性 Migration。
+- Room 当前为 Schema v3；v1 → v2 → v3 使用显式非破坏性 Migration 并由导出的真实历史 Schema 验证，后续任何 Schema 变更仍必须提供非破坏性 Migration。
 - Phase 1 不包含 SessionSegment，故只保存和展示 Session 总时长，不计算有效专注时间。
 - Android 在无生命周期回调的瞬时进程终止下无法保证最后不足 500ms 的未落盘输入绝对不丢；当前已覆盖所有可观察的关键生命周期与导航节点。
-- 中文双字 token 的具体生成与 MATCH 查询实现需要在 Module 2C 计划中以设备上的 Room 2.8.x FTS4 测试验证。
+- 中文双字 token 不支持中文单字、拼音、同义词、stemming 或模糊匹配；这是首版明确边界，单字查询会提示输入至少两个连续中文字符。
+- FTS 行数相等只代表轻量健康检查通过，不能证明索引内容绝对正确；用户可显式重建，查询异常会自动重建并最多重试一次。
 - 自然完成日期的速度变异系数阈值尚未冻结；必须在 Module 2D 实施计划中提出并经工程验收，不得在实现中临时决定。
 - 文件系统与 SQLite 无法形成真正的跨资源原子事务；当前通过 trash、补偿和启动清理实现最终一致。若设备在文件系统持续故障时终止进程，文件会保留供后续启动再次恢复或清理。
 - Android Instrumented 测试为兼容 Room 2.8.5 Migration Schema 验证，在 androidTest 配置中固定 kotlinx-serialization 1.8.1；生产运行时依赖未因此替换。
 
 ## Git
 
-- Current branch: codex/start-experience-correction
+- Current branch: codex/phase-2c-topic-search
 - Base: origin/main
-- Push status: Phase 0、Module 1、Phase 2 文档基线、Module 2A、Module 2B 与 Start Experience Correction 均已推送；当前分支跟踪 `origin/codex/start-experience-correction`
+- Push status: Phase 0、Module 1、Phase 2 文档基线、Module 2A、Module 2B、Start Experience Correction 与 Module 2C 均已推送至各自功能分支；Module 2C 远程 SHA 以交付报告记录为准。
 
 ## Next Recommended Task
 
-正式验收并冻结 Start Experience Correction。之后如需推进 Module 2C，应先单独验收其计划并授权；本任务未进入 Topic/Search 实现。
+正式验收并冻结 Module 2C。之后如需推进 Module 2D，应先单独规划阅读分析、剩余阅读时间与自然完成预测；本任务未进入 Module 2D。

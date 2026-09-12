@@ -39,7 +39,10 @@ class PhaseOneCorrectionTest {
     }
 
     @After
-    fun tearDown() = container.close()
+    fun tearDown() {
+        composeRule.activityRule.scenario.close()
+        container.close()
+    }
 
     @Test
     fun preparationSeparatesKeepForLaterFromAbandon() {
@@ -140,6 +143,9 @@ class PhaseOneCorrectionTest {
     }
 
     private fun createBookAndOpenPreparation(currentPage: Int = 10) {
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(hasText("添加第一本书")).fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithText("添加第一本书").performClick()
         composeRule.onNode(hasText("书名") and hasSetTextAction()).performTextInput("修正测试书")
         composeRule.onNode(hasText("总页数") and hasSetTextAction()).performTextInput("100")

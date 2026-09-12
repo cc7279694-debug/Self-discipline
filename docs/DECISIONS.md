@@ -1,5 +1,27 @@
 # Decisions
 
+## 2026-09-12 — SearchFts 行数检查只用于轻量健康判断
+
+### Decision
+
+`SearchIndexRebuilder.ensureConsistent()` 在冷启动只比较可搜索业务对象数量与 FTS 行数；相等不解释为索引内容绝对正确。系统继续提供幂等显式 `rebuild()`，FTS 查询异常时最多自动 rebuild 一次并 retry 一次。业务表始终是唯一事实源，rebuild 不修改业务数据。
+
+### Context
+
+行数不一致可以低成本发现 missing 或 duplicate 文档，但无法发现“业务对象数没变、索引正文已过期”的 stale 情况。为首版增加 fingerprint、事件总线、后台任务或索引版本系统会显著扩大复杂度。
+
+### Alternatives
+
+为每行内容计算 fingerprint 并在启动全表核对，或建立后台索引一致性任务。
+
+### Reason
+
+现有 Repository 事务内同步覆盖正常写路径，轻量行数检查、异常自动修复与用户显式重建已经形成足够清晰的恢复链；派生索引可以随时重建，不值得为绝对一致性引入新的基础设施。
+
+### Consequences
+
+missing/duplicate 可由冷启动检查触发重建；等行数 stale 内容依赖显式 rebuild 或后续查询异常恢复。测试必须分别制造三类损坏并确认索引可恢复、业务表不改变。
+
 ## 2026-09-11 — Start 是六级状态驱动的行动入口
 
 ### Decision

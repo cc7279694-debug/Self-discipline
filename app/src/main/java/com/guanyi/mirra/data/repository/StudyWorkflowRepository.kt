@@ -10,6 +10,8 @@ import com.guanyi.mirra.data.local.entity.StudySessionEntity
 import com.guanyi.mirra.data.local.model.RecentReadingSnapshot
 import com.guanyi.mirra.domain.IntentExpiryPolicy
 import com.guanyi.mirra.domain.SummaryEngine
+import com.guanyi.mirra.data.search.SearchIndexWriter
+import com.guanyi.mirra.domain.DefaultSearchEngine
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 
@@ -34,6 +36,7 @@ class DefaultStudyWorkflowRepository(
     private val expiryPolicy: IntentExpiryPolicy,
     private val clock: () -> Long = System::currentTimeMillis,
     private val newId: () -> String = { UUID.randomUUID().toString() },
+    private val searchIndexWriter: SearchIndexWriter = SearchIndexWriter(database, DefaultSearchEngine()),
 ) : StudyWorkflowRepository {
     private val intentDao = database.intentDao()
     private val sessionDao = database.sessionDao()
@@ -165,6 +168,7 @@ class DefaultStudyWorkflowRepository(
                 "结束 Session 失败"
             }
             check(itemDao.advanceProgress(item.id, finalPage, now) == 1) { "保存阅读进度失败" }
+            searchIndexWriter.reindexSession(sessionId)
             checkNotNull(sessionDao.get(sessionId))
         }
 
@@ -179,6 +183,7 @@ class DefaultStudyWorkflowRepository(
                     endType = SessionEndType.ABNORMAL,
                     summary = null,
                 )
+                searchIndexWriter.reindexSession(active.id)
             }
             intentDao.getActive()?.takeIf { expiryPolicy.isExpired(it.createdAt, now) }?.let { expired ->
                 intentDao.markTimedOut(expired.id, now)

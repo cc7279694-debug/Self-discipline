@@ -7,6 +7,9 @@ import com.guanyi.mirra.data.local.entity.NoteSemanticType
 import com.guanyi.mirra.data.local.model.NoteListItem
 import com.guanyi.mirra.data.storage.ImageStorageService
 import com.guanyi.mirra.data.storage.TrashedFile
+import com.guanyi.mirra.data.search.SearchDocumentType
+import com.guanyi.mirra.data.search.SearchIndexWriter
+import com.guanyi.mirra.domain.DefaultSearchEngine
 import java.util.UUID
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
@@ -48,6 +51,7 @@ class DefaultNoteRepository(
     private val storage: ImageStorageService,
     private val clock: () -> Long = System::currentTimeMillis,
     private val newId: () -> String = { UUID.randomUUID().toString() },
+    private val searchIndexWriter: SearchIndexWriter = SearchIndexWriter(database, DefaultSearchEngine()),
 ) : NoteRepository {
     private val dao = database.noteDao()
     override fun observeForSession(sessionId: String) = dao.observeForSession(sessionId)
@@ -62,7 +66,7 @@ class DefaultNoteRepository(
         pageNumber: Int?,
         semanticType: NoteSemanticType,
         id: String?,
-    ): NoteEntity {
+    ): NoteEntity = database.withTransaction {
         val cleanContent = content.trim()
         require(cleanContent.isNotEmpty()) { "笔记内容不能为空" }
         val item = checkNotNull(database.learningItemDao().get(learningItemId)) { "Learning Item 不存在" }
@@ -74,7 +78,7 @@ class DefaultNoteRepository(
         val now = clock()
         val existingId = id ?: newId()
         val existing = id?.let { dao.get(it) }
-        return NoteEntity(
+        NoteEntity(
             id = existingId,
             learningItemId = learningItemId,
             sessionId = sessionId,
@@ -83,7 +87,10 @@ class DefaultNoteRepository(
             pageNumber = pageNumber,
             createdAt = existing?.createdAt ?: now,
             updatedAt = now,
-        ).also { dao.upsert(it) }
+        ).also {
+            dao.upsert(it)
+            searchIndexWriter.reindexNote(it.id)
+        }
     }
 
     override suspend fun createStandalone(
@@ -107,7 +114,10 @@ class DefaultNoteRepository(
             pageNumber = pageNumber,
             createdAt = now,
             updatedAt = now,
-        ).also { dao.insert(it) }
+        ).also {
+            dao.insert(it)
+            searchIndexWriter.reindexNote(it.id)
+        }
     }
 
     override suspend fun update(
@@ -122,6 +132,7 @@ class DefaultNoteRepository(
         val item = checkNotNull(database.learningItemDao().get(existing.learningItemId)) { "Learning Item 不存在" }
         require(pageNumber == null || pageNumber in 1..item.totalPages) { "页码必须在书籍范围内" }
         check(dao.updateContent(noteId, cleanContent, semanticType, pageNumber, clock()) == 1) { "Note 已被删除" }
+        searchIndexWriter.reindexNote(noteId)
         checkNotNull(dao.get(noteId))
     }
 
@@ -145,6 +156,7 @@ class DefaultNoteRepository(
                 val currentImageIds = database.imageAssetDao().listForNote(noteId).map { it.id }
                 check(currentImageIds == images.map { it.id }) { "图片列表已变化，请重试" }
                 check(dao.delete(noteId) == 1) { "Note 已被删除" }
+                searchIndexWriter.remove(SearchDocumentType.NOTE, noteId)
             }
         } catch (failure: Throwable) {
             withContext(NonCancellable) {

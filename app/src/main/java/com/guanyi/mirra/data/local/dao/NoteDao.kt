@@ -18,6 +18,12 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE id = :id")
     suspend fun get(id: String): NoteEntity?
 
+    @Query("SELECT * FROM notes ORDER BY updatedAt DESC, id DESC")
+    suspend fun listAll(): List<NoteEntity>
+
+    @Query("SELECT * FROM notes WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<String>): List<NoteEntity>
+
     @Query("SELECT * FROM notes WHERE id = :id")
     fun observe(id: String): Flow<NoteEntity?>
 

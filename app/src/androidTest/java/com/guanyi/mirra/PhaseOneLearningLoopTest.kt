@@ -28,7 +28,10 @@ class PhaseOneLearningLoopTest {
     }
 
     @After
-    fun tearDown() = container.close()
+    fun tearDown() {
+        composeRule.activityRule.scenario.close()
+        container.close()
+    }
 
     @Test
     fun completeLearningLoopCreatesBookNotesProgressAndSummary() {

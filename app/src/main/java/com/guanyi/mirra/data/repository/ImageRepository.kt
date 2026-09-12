@@ -10,6 +10,8 @@ import com.guanyi.mirra.data.storage.CleanupReport
 import com.guanyi.mirra.data.storage.ImageImportPolicy
 import com.guanyi.mirra.data.storage.ImageStorageService
 import com.guanyi.mirra.data.storage.StoredImage
+import com.guanyi.mirra.data.search.SearchIndexWriter
+import com.guanyi.mirra.domain.DefaultSearchEngine
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
@@ -42,6 +44,7 @@ class DefaultImageRepository(
     private val storage: ImageStorageService,
     private val clock: () -> Long = System::currentTimeMillis,
     private val newId: () -> String = { UUID.randomUUID().toString() },
+    private val searchIndexWriter: SearchIndexWriter = SearchIndexWriter(database, DefaultSearchEngine()),
 ) : ImageRepository {
     private val dao = database.imageAssetDao()
 
@@ -77,6 +80,7 @@ class DefaultImageRepository(
         database.withTransaction {
             checkNotNull(dao.get(imageId)) { "图片不存在" }
             check(dao.updateCaption(imageId, normalized) == 1) { "图片已被删除" }
+            searchIndexWriter.reindexNote(checkNotNull(dao.get(imageId)).noteId)
         }
     }
 
@@ -87,6 +91,7 @@ class DefaultImageRepository(
             database.withTransaction {
                 checkNotNull(dao.get(imageId)) { "图片已被删除" }
                 check(dao.delete(imageId) == 1) { "图片已被删除" }
+                searchIndexWriter.reindexNote(image.noteId)
             }
         } catch (failure: Throwable) {
             if (trash != null) withContext(NonCancellable) { runCatching { storage.restoreFromTrash(trash) } }
@@ -119,6 +124,7 @@ class DefaultImageRepository(
             database.withTransaction {
                 checkNotNull(database.noteDao().get(noteId)) { "Note 不存在" }
                 dao.insert(image)
+                searchIndexWriter.reindexNote(noteId)
             }
         } catch (failure: Throwable) {
             withContext(NonCancellable) { runCatching { storage.deleteFinal(stored.localPath) } }
