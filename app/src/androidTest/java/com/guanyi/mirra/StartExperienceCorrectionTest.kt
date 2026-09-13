@@ -52,7 +52,8 @@ class StartExperienceCorrectionTest {
         composeRule.waitUntil(5_000) {
             runBlocking { container.learningItemRepository.observeMainline().first() }?.name == "第一本"
         }
-        composeRule.onNodeWithText("当前主线").assertExists()
+        composeRule.onNodeWithText("今天继续").assertExists()
+        composeRule.onNodeWithText("当前主线").assertDoesNotExist()
     }
 
     @Test

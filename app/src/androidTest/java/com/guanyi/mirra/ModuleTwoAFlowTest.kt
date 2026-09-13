@@ -77,7 +77,7 @@ class ModuleTwoAFlowTest {
     fun standaloneNoteCreatesOnlyAfterRequiredFieldsAndCanBeEditedAndDeleted() {
         val item = runBlocking { container.learningItemRepository.create("笔记所属书", 120, 40) }
         launchKnowledge()
-        composeRule.onNodeWithText("全部笔记").performClick()
+        composeRule.onNodeWithText("笔记").performClick()
         composeRule.onNodeWithText("还没有笔记").assertExists()
         composeRule.onNodeWithText("新建笔记").performClick()
 
@@ -123,7 +123,7 @@ class ModuleTwoAFlowTest {
             container.noteRepository.createStandalone(second.id, "第二本问题", NoteSemanticType.QUESTION, 5)
         }
         launchKnowledge()
-        composeRule.onNodeWithText("全部笔记").performClick()
+        composeRule.onNodeWithText("笔记").performClick()
 
         composeRule.onNodeWithText("问题").performClick()
         assertTextAbsent("第一本摘录")
@@ -140,7 +140,7 @@ class ModuleTwoAFlowTest {
     fun createNoteDoesNotPersistBlankPlaceholder() {
         runBlocking { container.learningItemRepository.create("空白测试", 100) }
         launchKnowledge()
-        composeRule.onNodeWithText("全部笔记").performClick()
+        composeRule.onNodeWithText("笔记").performClick()
         composeRule.onNodeWithText("新建笔记").performClick()
         composeRule.onNodeWithText("选择学习内容").performClick()
         composeRule.onNodeWithText("空白测试").performClick()
@@ -155,7 +155,7 @@ class ModuleTwoAFlowTest {
     fun standaloneDraftFlushesWhenActivityGoesToBackground() {
         runBlocking { container.learningItemRepository.create("后台保存", 100) }
         launchKnowledge()
-        composeRule.onNodeWithText("全部笔记").performClick()
+        composeRule.onNodeWithText("笔记").performClick()
         composeRule.onNodeWithText("新建笔记").performClick()
         composeRule.onNodeWithText("选择学习内容").performClick()
         composeRule.onNodeWithText("后台保存").performClick()

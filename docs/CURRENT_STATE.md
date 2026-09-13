@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 2｜Module 2A、Module 2B、Module 2C 与 Start Experience Correction 已正式验收并冻结；Theme Foundation 已正式验收，Mirra Blue Visual Refinement 已完成实现与验证、等待视觉验收；Module 2D 仅完成详细工程规划，未开始实现。
+Phase 2｜Module 2A、Module 2B、Module 2C 与 Start Experience Correction 已正式验收并冻结；Theme Foundation 已正式验收，Mirra Blue 最后一轮信息层级精修已完成实现与验证、等待视觉冻结；Module 2D 仅完成详细工程规划，未开始实现。
 
 ## Verified Completed
 
@@ -61,10 +61,12 @@ Phase 2｜Module 2A、Module 2B、Module 2C 与 Start Experience Correction 已�
 - 主题 ID 通过现有 DataStore 持久化，空值或非法值回退 Mirra Blue，且不覆盖已保存的顶层导航；设备测试确认已保存主题在 Activity recreate 后仍被应用。Mono / Night 只定义基础可读 Palette / Token，本阶段未开放主题选择页。
 - Theme Foundation 不修改 Room：`MirraDatabase.version` 仍为 3，`1.json` / `2.json` / `3.json` 无变化，未新增 Migration。API 37 断网覆盖安装、冷启动、Start / Knowledge / Mine 视觉检查与完整 JVM / Instrumented / Compose / lint / build 已通过。
 - Mirra Blue Visual Refinement 已把 EmptyLibrary 收敛为“观已 Mirra / 开始第一次学习 / 添加第一本书”三项，移除通用问题和主线解释；主 CTA 增加 Token 驱动的顶部高光、柔和阴影与 pressed 低层次，Bottom Navigation 选中态改用较弱的 `#6598E8`，Focus Card 与导航 Surface 使用统一高光 Token。
+- Start Mainline 已将说明式标题替换为“今天继续”，并移除“当前主线”系统标签；Knowledge 已改为独立平面搜索入口、轻量笔记/图片/Topic 二级导航及 Learning Item 主内容，创建操作降为弱于 Start 主 CTA 的文字行动。
+- 本轮保持 Start 六级状态、Navigation、业务数据与 Room Schema v3 不变；API 37 上 37 个 JVM 测试、92 个 Room/Migration/Instrumented/Compose 测试、lintDebug、assembleDebug、断网覆盖安装及强停冷启动均已通过。
 
 ## In Progress
 
-- Theme Foundation 已正式验收并冻结；Mirra Blue Visual Refinement 已通过实现与回归验证，等待用户根据 EmptyLibrary、Mainline、Knowledge、Mine 四张实机截图进行视觉验收。
+- Theme Foundation、Mirra Blue 配色、主按钮、Floating Bottom Navigation、EmptyLibrary、背景与圆角方向已验收；Mainline 与 Knowledge 最后层级精修已通过实现与回归验证，等待两张实机截图的最终视觉验收。
 - Module 2D 阅读分析与完成预测详细工程计划已保存到 `docs/plans/MODULE_2D_IMPLEMENTATION.md`；本任务未修改其业务代码、Room Schema 或 Migration。
 
 ## Pending
@@ -76,7 +78,7 @@ Phase 2｜Module 2A、Module 2B、Module 2C 与 Start Experience Correction 已�
 - Module 2C：轻量 Topic、FTS4 搜索与 Schema v2 → v3（已正式验收并冻结）。
 - Module 2D：阅读分析、剩余阅读时间与自然完成预测（仅完成工程规划，等待实施授权）。
 - Start Experience Correction：六级行动首页、首次创建主线事务与 First Action 补齐（已正式验收并冻结）。
-- Theme System v1：Theme Foundation 已验收；Mirra Blue Visual Refinement 等待视觉验收；Mono / Night 全页面迁移、可视化选择与三主题全量验收属于后续独立阶段。
+- Theme System v1：Theme Foundation 与 Mirra Blue 已完成工程验证，Mainline / Knowledge 最终视觉等待验收；Mono / Night 全页面迁移、可视化选择与三主题全量验收属于后续独立阶段。
 
 ## Known Risks / Unknowns
 
@@ -102,4 +104,4 @@ Phase 2｜Module 2A、Module 2B、Module 2C 与 Start Experience Correction 已�
 
 ## Next Recommended Task
 
-先验收 Mirra Blue Visual Refinement。之后再由用户单独选择继续 Mono / Night 主题阶段，或按已完成的 `docs/plans/MODULE_2D_IMPLEMENTATION.md` 另行授权 Module 2D；当前任务不自动进入任一方向。
+先验收 Mirra Blue Mainline 与 Knowledge 的最终信息层级。视觉冻结后，再由用户按已完成的 `docs/plans/MODULE_2D_IMPLEMENTATION.md` 另行授权 Module 2D，或单独选择 Mono / Night 主题阶段；当前任务不自动进入任一方向。

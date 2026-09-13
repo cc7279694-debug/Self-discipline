@@ -44,7 +44,7 @@ class PhaseOneLearningLoopTest {
         composeRule.onNode(hasText("总页数") and hasSetTextAction()).performTextInput("300")
         composeRule.onNode(hasText("当前页") and hasSetTextAction()).performTextReplacement("10")
         composeRule.onNode(hasText("创建") and hasClickAction()).performClick()
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("当前主线")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("今天继续")).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText("开始学习").performClick()
         composeRule.onNodeWithText("我已拿起书，开始阅读").performClick()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("快速笔记")).fetchSemanticsNodes().isNotEmpty() }

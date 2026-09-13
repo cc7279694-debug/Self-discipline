@@ -1729,6 +1729,8 @@ Soft Neumorphism 只允许用于 Primary Button、Focus Card、Progress、Toggle
 
 Start 的 EmptyLibrary 状态保持极简：只显示品牌标识、主标题“开始第一次学习”和唯一主 CTA“添加第一本书”。不显示通用问题标题、主线机制解释、小卡片或填充留白的装饰内容。有真实学习内容后才展示 Focus Card、Progress、First Action 与最近阅读信息。
 
+Start 的 Mainline 状态以“今天继续”作为行动标题，不展示“当前主线”等系统术语；最重要位置的 Focus Card 本身承担当前学习内容语义。Knowledge 将搜索作为独立轻量入口，将笔记、图片与 Topic 作为平面的二级导航，并始终以 Learning Item 列表作为页面主体；“创建”是唯一明显创建入口，但视觉强度低于 Start 的主 CTA。
+
 ---
 
 # 26. Codex 工作原则

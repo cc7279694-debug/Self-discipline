@@ -56,7 +56,7 @@ class ModuleTwoBFlowTest {
         }
         launchKnowledge()
 
-        composeRule.onNodeWithText("全部图片").performClick()
+        composeRule.onNodeWithText("图片").performClick()
         assertEquals(2, composeRule.onAllNodes(hasText("图片所属书")).fetchSemanticsNodes().size)
         assertEquals(2, composeRule.onAllNodes(hasText("第 18 页")).fetchSemanticsNodes().size)
         composeRule.onNodeWithText("第一张").performClick()
@@ -81,7 +81,7 @@ class ModuleTwoBFlowTest {
             note.id to image.localPath
         }
         launchKnowledge()
-        composeRule.onNodeWithText("全部笔记").performClick()
+        composeRule.onNodeWithText("笔记").performClick()
         composeRule.onNodeWithText("有图笔记").performClick()
 
         composeRule.onNode(hasText("Caption（可选）") and hasSetTextAction()).performTextReplacement("新 Caption")

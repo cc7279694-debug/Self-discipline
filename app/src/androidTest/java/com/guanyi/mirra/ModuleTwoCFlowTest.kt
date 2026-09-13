@@ -38,7 +38,7 @@ class ModuleTwoCFlowTest {
         }
         launchKnowledge()
 
-        composeRule.onNodeWithText("搜索").performClick()
+        composeRule.onNodeWithText("搜索知识").performClick()
         composeRule.onNode(hasText("搜索笔记、内容、Topic 或阅读总结") and hasSetTextAction()).performTextInput("账户")
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("第 12 页")).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText("认知训练").performClick()
@@ -62,7 +62,7 @@ class ModuleTwoCFlowTest {
             container.noteRepository.createStandalone(item.id, "心理账户").id
         }
         launchKnowledge()
-        composeRule.onNodeWithText("全部笔记").performClick()
+        composeRule.onNodeWithText("笔记").performClick()
         composeRule.onNodeWithText("心理账户").performClick()
         composeRule.onNodeWithText("关联 Topic").performClick()
         composeRule.onNodeWithText("心理", useUnmergedTree = true).performClick()

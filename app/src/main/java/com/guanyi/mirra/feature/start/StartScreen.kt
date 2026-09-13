@@ -51,8 +51,18 @@ fun StartScreen(
             fontWeight = FontWeight.SemiBold,
             color = MirraTheme.colors.textSecondary,
         )
-        if (state.content != StartContentState.EmptyLibrary) {
-            Text("我现在要怎么开始学习？", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+        when (state.content) {
+            is StartContentState.Mainline -> Text(
+                "今天继续",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            null, StartContentState.EmptyLibrary -> Unit
+            else -> Text(
+                "我现在要怎么开始学习？",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
         }
 
         if (state.isLoading) CircularProgressIndicator()
@@ -108,7 +118,6 @@ private fun StartContent(
             }
         }
         is StartContentState.Mainline -> {
-            Text("当前主线", style = MaterialTheme.typography.titleMedium)
             LearningItemSummary(content.item, content.recentReading)
             MirraPrimaryButton(onClick = onBegin, enabled = !isSubmitting, modifier = Modifier.fillMaxWidth()) {
                 Text("开始学习")
