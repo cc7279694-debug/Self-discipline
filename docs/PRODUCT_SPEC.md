@@ -1727,6 +1727,8 @@ Soft Neumorphism 只允许用于 Primary Button、Focus Card、Progress、Toggle
 
 参考概念图只定义视觉方向；其中的书封面、头像、装饰气泡、slogan 或其他未确认元素不得因此进入产品。
 
+Start 的 EmptyLibrary 状态保持极简：只显示品牌标识、主标题“开始第一次学习”和唯一主 CTA“添加第一本书”。不显示通用问题标题、主线机制解释、小卡片或填充留白的装饰内容。有真实学习内容后才展示 Focus Card、Progress、First Action 与最近阅读信息。
+
 ---
 
 # 26. Codex 工作原则

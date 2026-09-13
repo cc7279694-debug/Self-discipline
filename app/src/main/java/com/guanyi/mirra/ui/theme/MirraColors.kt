@@ -9,6 +9,7 @@ data class MirraColors(
     val background: Color,
     val surface: Color,
     val surfaceRaised: Color,
+    val surfaceHighlight: Color,
     val surfacePressed: Color,
     val textPrimary: Color,
     val textSecondary: Color,

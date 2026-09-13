@@ -40,8 +40,10 @@ class StartExperienceCorrectionTest {
     @Test
     fun emptyLibraryCreatesFirstBookWithExplicitDefaultMainlineChoice() {
         launchStart()
-        waitForText("开始你的第一次学习")
-        composeRule.onNodeWithText("开始你的第一次学习").assertExists()
+        waitForText("开始第一次学习")
+        composeRule.onNodeWithText("开始第一次学习").assertExists()
+        composeRule.onNodeWithText("我现在要怎么开始学习？").assertDoesNotExist()
+        composeRule.onNodeWithText("先添加一本书，再决定是否把它设为主线。").assertDoesNotExist()
         composeRule.onNodeWithText("添加第一本书").performClick()
         composeRule.onNode(hasText("书名") and hasSetTextAction()).performTextInput("第一本")
         composeRule.onNode(hasText("总页数") and hasSetTextAction()).performTextInput("100")

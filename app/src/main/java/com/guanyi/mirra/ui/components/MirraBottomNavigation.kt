@@ -1,5 +1,6 @@
 package com.guanyi.mirra.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +19,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.guanyi.mirra.navigation.TopLevelDestination
@@ -27,8 +30,14 @@ import com.guanyi.mirra.ui.theme.MirraTheme
 fun MirraBottomNavigation(selected: TopLevelDestination, onSelect: (TopLevelDestination) -> Unit, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)
-            .shadow(MirraTheme.depth.floating, MirraTheme.shapes.pill),
-        color = MirraTheme.colors.surfaceRaised,
+            .shadow(MirraTheme.depth.floating, MirraTheme.shapes.pill)
+            .background(
+                Brush.verticalGradient(
+                    listOf(MirraTheme.colors.surfaceHighlight, MirraTheme.colors.surfaceRaised),
+                ),
+                MirraTheme.shapes.pill,
+            ),
+        color = Color.Transparent,
         shape = MirraTheme.shapes.pill,
     ) {
         Row(
@@ -44,7 +53,7 @@ fun MirraBottomNavigation(selected: TopLevelDestination, onSelect: (TopLevelDest
                         onClick = { onSelect(destination) },
                         role = Role.Tab,
                     ),
-                    color = if (isSelected) MirraTheme.colors.accentStrong else androidx.compose.ui.graphics.Color.Transparent,
+                    color = if (isSelected) MirraTheme.colors.accent else Color.Transparent,
                     contentColor = if (isSelected) MirraTheme.colors.onAccent else MirraTheme.colors.textSecondary,
                     shape = MirraTheme.shapes.pill,
                 ) {

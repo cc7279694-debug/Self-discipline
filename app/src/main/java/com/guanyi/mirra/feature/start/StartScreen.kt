@@ -45,8 +45,15 @@ fun StartScreen(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Text("观已Mirra", style = MaterialTheme.typography.labelLarge, color = MirraTheme.colors.textSecondary)
-        Text("我现在要怎么开始学习？", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+        Text(
+            "观已 Mirra",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MirraTheme.colors.textSecondary,
+        )
+        if (state.content != StartContentState.EmptyLibrary) {
+            Text("我现在要怎么开始学习？", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+        }
 
         if (state.isLoading) CircularProgressIndicator()
         state.content?.let { content ->
@@ -143,8 +150,7 @@ private fun StartContent(
             MirraPrimaryButton(onClick = onOpenKnowledge, modifier = Modifier.fillMaxWidth()) { Text("查看学习内容") }
         }
         StartContentState.EmptyLibrary -> {
-            Text("开始你的第一次学习", style = MaterialTheme.typography.titleLarge)
-            Text("先添加一本书，再决定是否把它设为主线。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("开始第一次学习", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
             MirraPrimaryButton(onClick = onCreateFirstLearningItem, modifier = Modifier.fillMaxWidth()) { Text("添加第一本书") }
         }
     }
