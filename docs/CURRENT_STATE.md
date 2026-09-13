@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 2｜Module 2A、Module 2B、Module 2C 与 Start Experience Correction 已正式验收并冻结；Module 2D 仅完成详细工程规划，尚未授权实现。
+Phase 2｜Module 2A、Module 2B、Module 2C 与 Start Experience Correction 已正式验收并冻结；Theme System v1 第一阶段 Theme Foundation + Mirra Blue 已完成实现与验证，等待验收；Module 2D 仅完成详细工程规划，未开始实现。
 
 ## Verified Completed
 
@@ -55,10 +55,16 @@ Phase 2｜Module 2A、Module 2B、Module 2C 与 Start Experience Correction 已�
 - `search_fts` 是可重建派生索引；既有 Repository 在事务内同步相关写路径，冷启动只用行数做轻量健康检查，并保留显式 rebuild、FTS 异常后最多一次 rebuild + retry、missing/duplicate/stale 恢复测试。
 - Knowledge 已增加搜索与 Topic 入口；搜索 300ms debounce、全局最多 60 条并按 Note / Learning Item / Topic / Session 分组，可进入对应详情或最小只读阅读记录。
 - Module 2C 的 JVM、完整 Room/Migration/Instrumented/Compose、lintDebug、assembleDebug、离线 APK 覆盖安装与冷启动均已通过；Phase 1、2A、2B 与 Start 六级状态回归通过。
+- 已建立 Mirra 自有 Color、Shape、Depth 语义 Token 与完整 Material 3 角色映射，默认 Mirra Blue 使用灰白主体、`#6598E8` 行动 Accent 与 `#386FBE` 白字主 CTA，不再泄漏 Material 默认紫色。
+- 已落地 `MirraPrimaryButton`、`MirraSecondaryButton`、`MirraTextAction`、`MirraFocusCard`、`MirraProgress`、`MirraToggle`、`MirraBottomNavigation` 和最小 Surface primitive；Depth 仅用于交互与焦点。
+- Start、Preparation、Session、Knowledge、Mine 与图片预览已迁移到 Mirra Blue。Start 保持六级真实状态与唯一强 CTA；Knowledge 列表保持平面和较高信息密度；Mine 未提前引入 Module 2D 数据 UI。
+- 主题 ID 通过现有 DataStore 持久化，空值或非法值回退 Mirra Blue，且不覆盖已保存的顶层导航。Mono / Night 只定义基础可读 Palette / Token，本阶段未开放主题选择页。
+- Theme Foundation 不修改 Room：`MirraDatabase.version` 仍为 3，`1.json` / `2.json` / `3.json` 无变化，未新增 Migration。API 37 断网覆盖安装、冷启动、Start / Knowledge / Mine 视觉检查与完整 JVM / Instrumented / Compose / lint / build 已通过。
 
 ## In Progress
 
-- Module 2D 阅读分析与完成预测详细工程计划已保存到 `docs/plans/MODULE_2D_IMPLEMENTATION.md`，等待用户验收；业务代码、Room Schema 与 Migration 尚未修改。
+- Theme System v1 第一阶段 Theme Foundation + Mirra Blue 已通过实现侧验证，等待用户正式验收。
+- Module 2D 阅读分析与完成预测详细工程计划已保存到 `docs/plans/MODULE_2D_IMPLEMENTATION.md`；本任务未修改其业务代码、Room Schema 或 Migration。
 
 ## Pending
 
@@ -69,6 +75,7 @@ Phase 2｜Module 2A、Module 2B、Module 2C 与 Start Experience Correction 已�
 - Module 2C：轻量 Topic、FTS4 搜索与 Schema v2 → v3（已正式验收并冻结）。
 - Module 2D：阅读分析、剩余阅读时间与自然完成预测（仅完成工程规划，等待实施授权）。
 - Start Experience Correction：六级行动首页、首次创建主线事务与 First Action 补齐（已正式验收并冻结）。
+- Theme System v1：Theme Foundation + Mirra Blue 已实现并等待验收；Mono / Night 全页面迁移、可视化选择与三主题全量验收属于后续独立阶段。
 
 ## Known Risks / Unknowns
 
@@ -84,13 +91,14 @@ Phase 2｜Module 2A、Module 2B、Module 2C 与 Start Experience Correction 已�
 - 自然完成日期的速度变异系数阈值尚未冻结；必须在 Module 2D 实施计划中提出并经工程验收，不得在实现中临时决定。
 - 文件系统与 SQLite 无法形成真正的跨资源原子事务；当前通过 trash、补偿和启动清理实现最终一致。若设备在文件系统持续故障时终止进程，文件会保留供后续启动再次恢复或清理。
 - Android Instrumented 测试为兼容 Room 2.8.5 Migration Schema 验证，在 androidTest 配置中固定 kotlinx-serialization 1.8.1；生产运行时依赖未因此替换。
+- Mono / Night 尚未进行全页面、字号放大、TalkBack 与主题切换视觉验收，因此本阶段不向用户开放主题选择入口。
 
 ## Git
 
-- Current branch: codex/phase-2c-topic-search
-- Base: origin/main
-- Push status: Phase 0、Module 1、Phase 2 文档基线、Module 2A、Module 2B、Start Experience Correction 与 Module 2C 均已推送至各自功能分支；Module 2C 远程 SHA 以交付报告记录为准。
+- Current branch: codex/mirra-theme-system-v1
+- Base: frozen Module 2C / Start Experience Correction baseline with separately committed Module 2D and Theme plans
+- Push target: Theme System v1 第一阶段独立提交至 `codex/mirra-theme-system-v1`；最终远程 SHA 与一致性状态以交付报告为准。
 
 ## Next Recommended Task
 
-验收 `docs/plans/MODULE_2D_IMPLEMENTATION.md` 中的零推进 Session、稳健 CV、可信度和日期范围规则；确认后再从冻结的 Module 2C 基线创建 `codex/phase-2d-reading-analytics` 实施。本任务未开始 Module 2D 编码。
+先验收并冻结 Theme Foundation + Mirra Blue。之后再由用户单独选择继续 Mono / Night 主题阶段，或按已完成的 `docs/plans/MODULE_2D_IMPLEMENTATION.md` 另行授权 Module 2D；当前任务不自动进入任一方向。

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -45,6 +44,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import com.guanyi.mirra.ui.components.MirraPrimaryButton
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -309,7 +309,7 @@ fun SessionScreen(
         }
         item {
             Spacer(Modifier.height(8.dp))
-            Button(
+            MirraPrimaryButton(
                 onClick = { currentSession?.let { viewModel.finish(viewModel.currentPageText.toIntOrNull() ?: it.currentPage, onFinished) } },
                 enabled = currentSession != null,
                 modifier = Modifier.fillMaxWidth().height(54.dp),

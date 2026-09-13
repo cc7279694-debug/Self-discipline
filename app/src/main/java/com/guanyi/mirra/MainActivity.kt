@@ -23,8 +23,11 @@ class MainActivity : ComponentActivity() {
                 val restoredDestination by container.appPreferencesRepository.lastDestination.collectAsStateWithLifecycle(
                     initialValue = TopLevelDestination.Start,
                 )
+                val themeId by container.appPreferencesRepository.themeId.collectAsStateWithLifecycle(
+                    initialValue = com.guanyi.mirra.data.preferences.MirraThemeId.BLUE,
+                )
 
-                MirraTheme {
+                MirraTheme(themeId = themeId) {
                     MirraApp(
                         container = container,
                         restoredDestination = restoredDestination,

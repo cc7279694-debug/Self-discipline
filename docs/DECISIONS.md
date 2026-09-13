@@ -1,5 +1,27 @@
 # Decisions
 
+## 2026-09-13 — Mirra Blue 是 Theme System v1 的首个完整主题
+
+### Decision
+
+在 Material 3 之上建立 Mirra 自有 Color、Shape 与 Depth 语义 Token，并以 Mirra Blue 作为首个完整迁移和验收主题。默认页面以灰白为主体，`#6598E8` 只承担进度、选中、Toggle 与少量 Accent，白字主要 CTA 使用更深的 `#386FBE`。Mono 与 Night 首阶段只提供可读 Palette / Token，不开放未完成全面视觉验收的选择入口。
+
+### Context
+
+原界面直接依赖 Material 角色且存在单一绿色品牌色，难以稳定表达已确认的灰白、柔和蓝和局部软拟态方向。一次同时重做三套主题会放大页面回归和视觉验收范围。
+
+### Alternatives
+
+继续直接使用 Material 默认颜色，或首轮同时开放 Blue、Mono 与 Night 三套完整主题。
+
+### Reason
+
+自有语义 Token 可以隔离 Screen 与品牌色，先完成 Mirra Blue 能以最小范围建立真实组件和视觉基准；后续主题只替换 Token 与少量质感，不复制页面或改变布局。
+
+### Consequences
+
+主题偏好由现有 DataStore 保存，未知值回退到 Blue；Room Schema 保持 v3。Soft Neumorphism 仅用于 Primary Button、Focus Card、Progress、Toggle、Bottom Navigation 和少量关键选择器，普通内容列表与大段文本保持平面或极弱层次。主题切换不得改变 IA、尺寸、Touch Target、Start 六级状态、导航或业务数据。
+
 ## 2026-09-12 — SearchFts 行数检查只用于轻量健康判断
 
 ### Decision

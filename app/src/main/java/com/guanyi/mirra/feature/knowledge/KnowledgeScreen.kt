@@ -11,12 +11,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,6 +29,10 @@ import androidx.lifecycle.viewModelScope
 import com.guanyi.mirra.data.local.entity.LearningItemEntity
 import com.guanyi.mirra.data.local.entity.LearningItemStatus
 import com.guanyi.mirra.data.repository.LearningItemRepository
+import com.guanyi.mirra.ui.components.MirraPrimaryButton
+import com.guanyi.mirra.ui.components.MirraSecondaryButton
+import com.guanyi.mirra.ui.components.MirraTextAction
+import com.guanyi.mirra.ui.theme.MirraTheme
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 
@@ -61,27 +62,26 @@ fun KnowledgeScreen(
     Column(modifier = modifier.fillMaxSize().padding(24.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("知识", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold)
-            Button(onClick = { showCreateChoices = true }) { Text("创建") }
+            MirraPrimaryButton(onClick = { showCreateChoices = true }) { Text("创建") }
         }
         Spacer(Modifier.height(12.dp))
-        OutlinedButton(onClick = onSearch, modifier = Modifier.fillMaxWidth()) { Text("搜索") }
-        OutlinedButton(onClick = onOpenNotes, modifier = Modifier.fillMaxWidth()) { Text("全部笔记") }
-        OutlinedButton(onClick = onOpenImages, modifier = Modifier.fillMaxWidth()) { Text("全部图片") }
-        OutlinedButton(onClick = onOpenTopics, modifier = Modifier.fillMaxWidth()) { Text("Topic") }
+        MirraSecondaryButton(onClick = onSearch, modifier = Modifier.fillMaxWidth()) { Text("搜索") }
+        MirraSecondaryButton(onClick = onOpenNotes, modifier = Modifier.fillMaxWidth()) { Text("全部笔记") }
+        MirraSecondaryButton(onClick = onOpenImages, modifier = Modifier.fillMaxWidth()) { Text("全部图片") }
+        MirraSecondaryButton(onClick = onOpenTopics, modifier = Modifier.fillMaxWidth()) { Text("Topic") }
         Spacer(Modifier.height(20.dp))
         if (learningItems.isEmpty()) {
             Text("还没有学习内容。先创建一本正在读的书。", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(learningItems, key = LearningItemEntity::id) { item ->
-                    Card(modifier = Modifier.fillMaxWidth().clickable { onOpenItem(item.id) }) {
-                        Column(Modifier.padding(18.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth().clickable { onOpenItem(item.id) }.padding(vertical = 14.dp)) {
                             Text(item.name, style = MaterialTheme.typography.titleMedium)
                             Text(
                                 "${item.status.displayName} · 第 ${item.currentPage} / ${item.totalPages} 页${if (item.isMainline) " · 主线" else ""}",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                        }
+                        HorizontalDivider(Modifier.padding(top = 14.dp), color = MirraTheme.colors.divider)
                     }
                 }
             }
@@ -93,21 +93,21 @@ fun KnowledgeScreen(
             title = { Text("创建") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
+                    MirraPrimaryButton(
                         onClick = {
                             showCreateChoices = false
                             onCreateLearningItem()
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("创建学习内容") }
-                    OutlinedButton(
+                    MirraSecondaryButton(
                         onClick = {
                             showCreateChoices = false
                             onCreateNote()
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("创建笔记") }
-                    OutlinedButton(
+                    MirraSecondaryButton(
                         onClick = {
                             showCreateChoices = false
                             onCreateTopic()
@@ -118,7 +118,7 @@ fun KnowledgeScreen(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { showCreateChoices = false }) { Text("取消") }
+                MirraTextAction(onClick = { showCreateChoices = false }) { Text("取消") }
             },
         )
     }

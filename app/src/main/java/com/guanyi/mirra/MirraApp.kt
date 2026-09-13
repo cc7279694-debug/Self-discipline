@@ -1,11 +1,7 @@
 package com.guanyi.mirra
 
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -13,10 +9,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Person
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -75,6 +67,8 @@ import com.guanyi.mirra.navigation.SessionSearchDetailRoute
 import com.guanyi.mirra.navigation.CreateTopicRoute
 import com.guanyi.mirra.data.search.SearchDocumentType
 import com.guanyi.mirra.ui.viewModelFactory
+import com.guanyi.mirra.ui.components.MirraBottomNavigation
+import com.guanyi.mirra.ui.theme.MirraTheme
 
 @Composable
 fun MirraApp(
@@ -106,27 +100,13 @@ fun MirraApp(
 
     val isTopLevel = backStack.lastOrNull() is TopLevelDestination
     Scaffold(
+        containerColor = MirraTheme.colors.background,
         bottomBar = {
             if (isTopLevel) {
-                NavigationBar {
-                    TopLevelDestination.entries.forEach { destination ->
-                        NavigationBarItem(
-                            selected = destination == selectedDestination,
-                            onClick = { select(destination, persist = true) },
-                            icon = {
-                                Icon(
-                                    imageVector = when (destination) {
-                                        TopLevelDestination.Start -> Icons.Default.Home
-                                        TopLevelDestination.Knowledge -> Icons.AutoMirrored.Filled.List
-                                        TopLevelDestination.Profile -> Icons.Default.Person
-                                    },
-                                    contentDescription = null,
-                                )
-                            },
-                            label = { Text(destination.label) },
-                        )
-                    }
-                }
+                MirraBottomNavigation(
+                    selected = selectedDestination,
+                    onSelect = { select(it, persist = true) },
+                )
             }
         },
     ) { contentPadding ->

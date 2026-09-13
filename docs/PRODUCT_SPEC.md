@@ -1715,7 +1715,21 @@ V1 才算真正完成。
 
 ---
 
-# 25. Codex 工作原则
+# 25. Mirra Theme System v1
+
+Mirra 的视觉基线是灰白主体、蓝色行动色，以及只服务于交互与焦点的克制层次。主题只能改变 Color、Surface、Shadow / Elevation、视觉状态与少量质感，不得改变页面 IA、组件尺寸、Touch Target、信息顺序、导航、Start 六级状态或业务行为。
+
+首阶段默认主题为 **Mirra Blue**：`#6598E8` 用于 Progress、Selected State、Toggle On 与少量关键 Accent；主要 CTA 使用 `#386FBE` 搭配白色文字。蓝色不得扩散到普通正文与大量标题。
+
+Soft Neumorphism 只允许用于 Primary Button、Focus Card、Progress、Toggle、Bottom Navigation 与少量关键选择器。Note 正文与列表、Search Result、Topic 普通内容、Learning Item 普通列表和 Settings 保持平面或极弱 Depth。
+
+主题偏好保存于 DataStore，默认及非法值回退到 Mirra Blue。Mono 与 Night 可以先保留可读的 Palette / Token，但在完成独立视觉迁移与验收前不向用户开放完整主题选择。本主题系统不修改 Room Schema，也不改变 Local-first 与离线能力。
+
+参考概念图只定义视觉方向；其中的书封面、头像、装饰气泡、slogan 或其他未确认元素不得因此进入产品。
+
+---
+
+# 26. Codex 工作原则
 
 每个阶段开始前：
 
@@ -1742,7 +1756,7 @@ V1 才算真正完成。
 
 ---
 
-# 26. 产品最终判断标准
+# 27. 产品最终判断标准
 
 这个 App 的成功不是：
 

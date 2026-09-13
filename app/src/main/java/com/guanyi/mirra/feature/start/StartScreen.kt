@@ -11,15 +11,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -28,6 +25,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.guanyi.mirra.data.local.model.RecentReadingSnapshot
+import com.guanyi.mirra.ui.components.MirraFocusCard
+import com.guanyi.mirra.ui.components.MirraPrimaryButton
+import com.guanyi.mirra.ui.components.MirraProgress
+import com.guanyi.mirra.ui.components.MirraTextAction
+import com.guanyi.mirra.ui.theme.MirraTheme
 
 @Composable
 fun StartScreen(
@@ -43,7 +45,7 @@ fun StartScreen(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Text("观已Mirra", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        Text("观已Mirra", style = MaterialTheme.typography.labelLarge, color = MirraTheme.colors.textSecondary)
         Text("我现在要怎么开始学习？", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
 
         if (state.isLoading) CircularProgressIndicator()
@@ -83,7 +85,7 @@ private fun StartContent(
             Text("正在学习", style = MaterialTheme.typography.titleLarge)
             Text(content.learningItemName, style = MaterialTheme.typography.headlineSmall)
             Text("当前第 ${content.currentPage} 页 · 已进行 ${content.elapsedMinutes} 分钟")
-            Button(onClick = { onOpenSession(content.sessionId) }, modifier = Modifier.fillMaxWidth()) {
+            MirraPrimaryButton(onClick = { onOpenSession(content.sessionId) }, modifier = Modifier.fillMaxWidth()) {
                 Text("继续学习")
             }
         }
@@ -91,17 +93,17 @@ private fun StartContent(
             Text("准备开始", style = MaterialTheme.typography.titleLarge)
             Text(content.learningItemName, style = MaterialTheme.typography.headlineSmall)
             Text(content.firstAction, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Button(onClick = { onOpenIntent(content.intentId) }, modifier = Modifier.fillMaxWidth()) {
+            MirraPrimaryButton(onClick = { onOpenIntent(content.intentId) }, modifier = Modifier.fillMaxWidth()) {
                 Text("继续准备")
             }
-            TextButton(onClick = onAbandon, enabled = !isSubmitting, modifier = Modifier.fillMaxWidth()) {
+            MirraTextAction(onClick = onAbandon, enabled = !isSubmitting, modifier = Modifier.fillMaxWidth()) {
                 Text("取消本次启动")
             }
         }
         is StartContentState.Mainline -> {
             Text("当前主线", style = MaterialTheme.typography.titleMedium)
             LearningItemSummary(content.item, content.recentReading)
-            Button(onClick = onBegin, enabled = !isSubmitting, modifier = Modifier.fillMaxWidth()) {
+            MirraPrimaryButton(onClick = onBegin, enabled = !isSubmitting, modifier = Modifier.fillMaxWidth()) {
                 Text("开始学习")
             }
         }
@@ -129,7 +131,7 @@ private fun StartContent(
                     Text("设为主线")
                 }
             }
-            Button(
+            MirraPrimaryButton(
                 onClick = onBegin,
                 enabled = content.selectedItemId != null && !isSubmitting,
                 modifier = Modifier.fillMaxWidth(),
@@ -138,26 +140,27 @@ private fun StartContent(
         is StartContentState.NoInProgress -> {
             Text("暂无正在学习的内容", style = MaterialTheme.typography.titleLarge)
             Text("你已有 ${content.totalItemCount} 项学习内容，可到知识页恢复或查看。")
-            Button(onClick = onOpenKnowledge, modifier = Modifier.fillMaxWidth()) { Text("查看学习内容") }
+            MirraPrimaryButton(onClick = onOpenKnowledge, modifier = Modifier.fillMaxWidth()) { Text("查看学习内容") }
         }
         StartContentState.EmptyLibrary -> {
             Text("开始你的第一次学习", style = MaterialTheme.typography.titleLarge)
             Text("先添加一本书，再决定是否把它设为主线。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Button(onClick = onCreateFirstLearningItem, modifier = Modifier.fillMaxWidth()) { Text("添加第一本书") }
+            MirraPrimaryButton(onClick = onCreateFirstLearningItem, modifier = Modifier.fillMaxWidth()) { Text("添加第一本书") }
         }
     }
 }
 
 @Composable
 private fun LearningItemSummary(item: StartLearningItem, recentReading: RecentReadingSnapshot?) {
-    Text(item.name, style = MaterialTheme.typography.headlineSmall)
-    Text("上次停在第 ${item.currentPage} 页 · 共 ${item.totalPages} 页")
-    LinearProgressIndicator(
-        progress = { item.progressPercent / 100f },
-        modifier = Modifier.fillMaxWidth(),
-    )
-    Text(item.firstAction, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    RecentReading(recentReading)
+    MirraFocusCard(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(item.name, style = MaterialTheme.typography.headlineSmall)
+            Text("上次停在第 ${item.currentPage} 页 · 共 ${item.totalPages} 页")
+            MirraProgress(progress = { item.progressPercent / 100f }, modifier = Modifier.fillMaxWidth())
+            Text(item.firstAction, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            RecentReading(recentReading)
+        }
+    }
     Spacer(Modifier.height(4.dp))
 }
 

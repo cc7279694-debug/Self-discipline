@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.guanyi.mirra.data.local.MirraDatabase
 import com.guanyi.mirra.data.preferences.AppPreferencesRepository
+import com.guanyi.mirra.data.preferences.MirraThemeId
 import com.guanyi.mirra.data.repository.DefaultLearningItemRepository
 import com.guanyi.mirra.data.repository.DefaultImageRepository
 import com.guanyi.mirra.data.repository.DefaultNoteRepository
@@ -39,9 +40,14 @@ class TestAppContainer(private val context: Context) : AppContainer, AutoCloseab
     private val searchIndexRebuilder = SearchIndexRebuilder(database, searchEngine)
     override val appPreferencesRepository: AppPreferencesRepository = object : AppPreferencesRepository {
         private val destination = MutableStateFlow(TopLevelDestination.Start)
+        private val theme = MutableStateFlow(MirraThemeId.BLUE)
         override val lastDestination: Flow<TopLevelDestination> = destination
+        override val themeId: Flow<MirraThemeId> = theme
         override suspend fun setLastDestination(destination: TopLevelDestination) {
             this.destination.value = destination
+        }
+        override suspend fun setThemeId(themeId: MirraThemeId) {
+            theme.value = themeId
         }
     }
     override val learningItemRepository: LearningItemRepository = DefaultLearningItemRepository(database, searchIndexWriter = searchIndexWriter)

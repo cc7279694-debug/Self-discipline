@@ -7,9 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,6 +28,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.guanyi.mirra.ui.components.MirraPrimaryButton
+import com.guanyi.mirra.ui.components.MirraSecondaryButton
+import com.guanyi.mirra.ui.components.MirraTextAction
 
 data class PreparationUiState(
     val intent: StudyIntentEntity? = null,
@@ -101,15 +102,15 @@ fun PreparationScreen(
             viewModel.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
         Column {
-            Button(
+            MirraPrimaryButton(
                 onClick = { viewModel.start(onStarted) },
                 enabled = item != null,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
             ) { Text("我已拿起书，开始阅读") }
             Spacer(Modifier.height(10.dp))
-            OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("稍后再说") }
+            MirraSecondaryButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("稍后再说") }
             Spacer(Modifier.height(10.dp))
-            OutlinedButton(
+            MirraTextAction(
                 onClick = { viewModel.abandon(onAbandoned) },
                 enabled = item != null && !viewModel.abandoning,
                 modifier = Modifier.fillMaxWidth(),

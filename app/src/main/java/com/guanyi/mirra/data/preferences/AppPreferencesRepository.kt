@@ -13,8 +13,10 @@ import kotlinx.coroutines.flow.map
 
 interface AppPreferencesRepository {
     val lastDestination: Flow<TopLevelDestination>
+    val themeId: Flow<MirraThemeId>
 
     suspend fun setLastDestination(destination: TopLevelDestination)
+    suspend fun setThemeId(themeId: MirraThemeId)
 }
 
 class DefaultAppPreferencesRepository(
@@ -29,13 +31,25 @@ class DefaultAppPreferencesRepository(
                 TopLevelDestination.fromStorageValue(preferences[LAST_DESTINATION])
             }
 
+    override val themeId: Flow<MirraThemeId> =
+        dataStore.data
+            .catch { throwable ->
+                if (throwable is IOException) emit(emptyPreferences()) else throw throwable
+            }
+            .map { preferences -> MirraThemeId.fromStorageValue(preferences[THEME_ID]) }
+
     override suspend fun setLastDestination(destination: TopLevelDestination) {
         dataStore.edit { preferences ->
             preferences[LAST_DESTINATION] = destination.storageValue
         }
     }
 
+    override suspend fun setThemeId(themeId: MirraThemeId) {
+        dataStore.edit { preferences -> preferences[THEME_ID] = themeId.storageValue }
+    }
+
     private companion object {
         val LAST_DESTINATION = stringPreferencesKey("last_destination")
+        val THEME_ID = stringPreferencesKey("theme_id")
     }
 }

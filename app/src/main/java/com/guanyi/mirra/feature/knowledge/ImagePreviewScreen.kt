@@ -29,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -80,20 +79,20 @@ fun ImagePreviewScreen(
     LaunchedEffect(pagerState.currentPage) { zoomedPage = -1 }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(Color.Black).padding(16.dp),
+        modifier = Modifier.fillMaxSize().background(com.guanyi.mirra.ui.theme.MirraTheme.colors.mediaBackdrop).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(onClick = onBack) { Text("关闭") }
             Text(
                 if (images.isEmpty()) "0 / 0" else "${pagerState.currentPage + 1} / ${images.size}",
-                color = Color.White,
+                color = com.guanyi.mirra.ui.theme.MirraTheme.colors.onMediaBackdrop,
             )
             OutlinedButton(onClick = { onOpenNote(viewModel.noteId) }) { Text("查看笔记") }
         }
         if (images.isEmpty()) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("图片已被删除", color = Color.White)
+                Text("图片已被删除", color = com.guanyi.mirra.ui.theme.MirraTheme.colors.onMediaBackdrop)
             }
         } else {
             HorizontalPager(
@@ -109,7 +108,7 @@ fun ImagePreviewScreen(
                 )
             }
             images.getOrNull(pagerState.currentPage)?.caption?.let {
-                Text(it, color = Color.White, style = MaterialTheme.typography.bodyLarge)
+                Text(it, color = com.guanyi.mirra.ui.theme.MirraTheme.colors.onMediaBackdrop, style = MaterialTheme.typography.bodyLarge)
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Button(
@@ -150,6 +149,6 @@ private fun ZoomableImage(file: File, description: String, resetKey: Int, onZoom
             .graphicsLayer(scaleX = scale, scaleY = scale, translationX = offset.x, translationY = offset.y)
             .transformable(transformState),
         loading = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() } },
-        error = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("图片缺失或已损坏", color = Color.White) } },
+        error = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("图片缺失或已损坏", color = com.guanyi.mirra.ui.theme.MirraTheme.colors.onMediaBackdrop) } },
     )
 }
