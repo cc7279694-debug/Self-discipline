@@ -1719,7 +1719,7 @@ V1 才算真正完成。
 
 Mirra 的视觉基线是灰白主体、蓝色行动色，以及只服务于交互与焦点的克制层次。主题只能改变 Color、Surface、Shadow / Elevation、视觉状态与少量质感，不得改变页面 IA、组件尺寸、Touch Target、信息顺序、导航、Start 六级状态或业务行为。
 
-首阶段默认主题为 **Mirra Blue**：`#6598E8` 用于 Progress、Selected State、Toggle On 与少量关键 Accent；主要 CTA 使用 `#386FBE` 搭配白色文字。蓝色不得扩散到普通正文与大量标题。
+首阶段默认主题为 **Mirra Blue**：`#6598E8` 用于 Progress、Selected State、Toggle On 与少量关键 Accent；主要 CTA 使用 `#386FBE` 搭配白色文字。蓝色不得扩散到普通正文与大量标题。确定型 Progress 只显示实际进度 Fill 与剩余 Track，不在 Track 末端绘制第二个 Accent 标记。
 
 Soft Neumorphism 只允许用于 Primary Button、Focus Card、Progress、Toggle、Bottom Navigation 与少量关键选择器。Note 正文与列表、Search Result、Topic 普通内容、Learning Item 普通列表和 Settings 保持平面或极弱 Depth。
 

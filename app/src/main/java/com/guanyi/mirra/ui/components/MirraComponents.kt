@@ -126,6 +126,7 @@ fun MirraProgress(progress: () -> Float, modifier: Modifier = Modifier) {
         modifier = modifier.heightIn(min = 8.dp),
         color = MirraTheme.colors.accent,
         trackColor = MirraTheme.colors.accentSoft,
+        drawStopIndicator = {},
     )
 }
 
