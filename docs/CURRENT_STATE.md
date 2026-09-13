@@ -1,10 +1,10 @@
 # Current State
 
-更新日期：2026-09-12
+更新日期：2026-09-13
 
 ## Current Stage
 
-Phase 2｜Module 2A、Module 2B 与 Start Experience Correction 已正式验收并冻结；Module 2C Topic + Search 已完成实现与全量验证，等待用户正式验收；Module 2D 尚未开始。
+Phase 2｜Module 2A、Module 2B、Module 2C 与 Start Experience Correction 已正式验收并冻结；Module 2D 仅完成详细工程规划，尚未授权实现。
 
 ## Verified Completed
 
@@ -58,7 +58,7 @@ Phase 2｜Module 2A、Module 2B 与 Start Experience Correction 已正式验收�
 
 ## In Progress
 
-- Module 2C 已完成实现、验证与 checkpoint，等待用户正式验收冻结。
+- Module 2D 阅读分析与完成预测详细工程计划已保存到 `docs/plans/MODULE_2D_IMPLEMENTATION.md`，等待用户验收；业务代码、Room Schema 与 Migration 尚未修改。
 
 ## Pending
 
@@ -66,8 +66,8 @@ Phase 2｜Module 2A、Module 2B 与 Start Experience Correction 已正式验收�
 
 - Module 2A：Learning Item 生命周期与 Note 完整化（已正式验收并冻结）。
 - Module 2B：图片、App-owned Files 与 Schema v1 → v2 已正式验收并冻结。
-- Module 2C：轻量 Topic、FTS4 搜索与 Schema v2 → v3（已实现并完成验证，等待正式验收）。
-- Module 2D：阅读分析、剩余阅读时间与自然完成预测。
+- Module 2C：轻量 Topic、FTS4 搜索与 Schema v2 → v3（已正式验收并冻结）。
+- Module 2D：阅读分析、剩余阅读时间与自然完成预测（仅完成工程规划，等待实施授权）。
 - Start Experience Correction：六级行动首页、首次创建主线事务与 First Action 补齐（已正式验收并冻结）。
 
 ## Known Risks / Unknowns
@@ -93,4 +93,4 @@ Phase 2｜Module 2A、Module 2B 与 Start Experience Correction 已正式验收�
 
 ## Next Recommended Task
 
-正式验收并冻结 Module 2C。之后如需推进 Module 2D，应先单独规划阅读分析、剩余阅读时间与自然完成预测；本任务未进入 Module 2D。
+验收 `docs/plans/MODULE_2D_IMPLEMENTATION.md` 中的零推进 Session、稳健 CV、可信度和日期范围规则；确认后再从冻结的 Module 2C 基线创建 `codex/phase-2d-reading-analytics` 实施。本任务未开始 Module 2D 编码。
