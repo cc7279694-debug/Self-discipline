@@ -8,7 +8,9 @@
 
 **Tech Stack:** Kotlin、Jetpack Compose、Navigation 3、Coroutines / Flow、Room 2.8.5、SQLite、`java.time`、core library desugaring、手工 `AppContainer`。
 
-**Spec:** `docs/PRODUCT_SPEC.md`、`docs/DECISIONS.md`、`docs/plans/PHASE_2_IMPLEMENTATION.md`、`docs/checkpoints/2026-09-12-module-2c.md`
+**Spec:** `docs/PRODUCT_SPEC.md`、`docs/DECISIONS.md`、`docs/plans/PHASE_2_IMPLEMENTATION.md`、`docs/checkpoints/2026-09-12-module-2c.md`、`docs/checkpoints/2026-09-12-start-experience-correction.md`、`docs/checkpoints/2026-09-13-mirra-blue-final.md`
+
+**Calibrated baseline (2026-09-13):** 本计划最初完成于 Module 2C 之后；现已按 `codex/mirra-theme-system-v1` 的远程事实源 `8ce8dd4ee82bfb1787dc762d34ccbd59742fd9a5` 重新核对。统计与预测公式保持不变，只校准当前分支、Theme/UI 接入点、自然日边界文案和验收回归范围；本次校准不实施任何业务代码。
 
 ## Global Constraints
 
@@ -19,6 +21,8 @@
 - 不建立持久化统计缓存、后台聚合作业、WorkManager、Paging、事件总线、规则 DSL 或通用预测框架。
 - UI 不直接访问 DAO；所有数据查询经 Repository，算法通过纯 Kotlin Service 执行。
 - Start 六级状态、`currentPage` 语义、Intent / Session 状态机、图片补偿、Topic 与 FTS 行为必须无回归。
+- Module 2D 新增和修改的 UI 必须直接继承现有 `MirraTheme`、Color / Shape / Depth Token 与已落地的 Mirra Components；不得重新引入 Material 默认紫色、硬编码品牌色或新的视觉语言。
+- Start 不增加任何 Analytics 内容；“我的”只承接最近 7 天摘要，Learning Item 详情只承接单书事实与预测，二者都不得演变为 Dashboard。
 
 ---
 
@@ -43,11 +47,12 @@
 
 ### Dependencies
 
-- 当前分支 `codex/phase-2c-topic-search`，HEAD `e677551`；
+- 当前冻结基线分支 `codex/mirra-theme-system-v1`，本地与远程事实 SHA `8ce8dd4ee82bfb1787dc762d34ccbd59742fd9a5`；实施 Module 2D 时从该基线创建 `codex/phase-2d-reading-analytics`；
 - `LearningItemEntity`、`StudySessionEntity`、`NoteEntity`；
 - `SessionEndType.NORMAL / ABNORMAL` 和 `LearningItemStatus`；
 - 现有 `LearningItemDetailScreen`、`ProfileScreen`、Navigation 3 与手工 `AppContainer`；
 - Room v3 schema export 与现有 JVM / Instrumented / Compose 测试基础。
+- 已冻结的 `MirraTheme`、`MirraColors`、`MirraShapes`、`MirraDepth`、`MirraPrimaryButton`、`MirraSecondaryButton`、`MirraTextAction`、`MirraFocusCard`、`MirraProgress`、`MirraSurface` 与 `MirraBottomNavigation`。
 
 ### Acceptance / Verification
 
@@ -78,9 +83,10 @@
 
 - `SessionDao.observeLatestNormalReading()` 已支持 Start 的单条轻量投影，继续保留，不把它扩成 Analytics API。
 - `LearningItemDetailViewModel` 当前组合 Learning Item 与最近 Summary；2D 只追加阅读分析流，不改变生命周期操作或开始入口。
-- `ProfileScreen` 当前只有本地数据说明，是“我的”7 天摘要的最小接入点。
+- `ProfileScreen` 当前刻意只保留标题与本地数据说明，是“我的”7 天摘要的最小接入点；不得顺势增加长期趋势、建议、评分或设置卡片。
 - `SessionSearchDetailRoute` 继续只服务搜索结果；2D 阅读历史直接在 Learning Item 详情内展开，不新增全局 Session History 路由。
 - `AppContainer` 继续手工装配两个纯服务和一个只读 Repository；不引入 DI Framework。
+- 当前 `LearningItemDetailScreen` 仍有直接 Material Button / `MaterialTheme.colorScheme` 用法。2D 修改该页面时，只把被触及的按钮、进度和语义颜色迁到既有 Mirra Component / Token，不借机重做 IA，也不创建新设计系统。
 
 ### 1.3 需要增加的最小边界
 
@@ -92,9 +98,9 @@
 
 不复用 `SearchFts` 做统计，不修改 Session 写路径，不新增 Analytics 表。
 
-## 2. 有效 Session 精确定义
+## 2. 合格 Session 精确定义
 
-唯一有效统计条件：
+唯一合格统计条件：
 
 ```kotlin
 fun isQualified(session: ReadingSessionProjection): Boolean =
@@ -126,7 +132,7 @@ pagesRead = max(0, endPage - startPage)
 `pagesRead = 0` 但其余条件合格时：
 
 - 保留为正常阅读历史；
-- 计入有效 Session 数、阅读日和总阅读时长；
+- 计入合格 Session 数、阅读日和总阅读时长；
 - 计入整体速度 denominator，页数 numerator 增加 0；
 - 计入 7/14/30 天窗口的 3 Session / 30 分钟门槛；
 - 计入波动样本，单次速度为 0；
@@ -290,7 +296,16 @@ class AnalyticsTimeProvider(
 inclusiveSpanDays = DAYS.between(firstReadingDate, lastReadingDate) + 1
 ```
 
-所以选定 7 天窗口中，只有最早和最晚有效记录覆盖窗口首尾日期时才可能达到跨度 7 天。
+所以选定 7 天窗口中，只有最早和最晚合格记录覆盖窗口首尾日期时才可能达到跨度 7 天。
+
+“我的”比较使用两个互不重叠的半开自然日区间：
+
+```text
+当前 7 天：[today - 6 天的本地 00:00, snapshot.now]
+前 7 天：[today - 13 天的本地 00:00, today - 6 天的本地 00:00)
+```
+
+Session 以 `endedAt` 归属区间，Note 以 `createdAt` 归属区间；边界统一由同一个 `AnalyticsTimeContext` 生成。当前窗口终点使用 snapshot `now`，未来记录不计入，两个窗口不会重复计数。
 
 ## 5. ReadingAnalyticsService API
 
@@ -499,7 +514,7 @@ robustCV = 删除每一条样本后分别计算 CV，再取其中最小值
 
 样本至少 5 条（自然完成日期本身的最低门槛）；0 页 Session 的速度为 0 并保留。若子样本均值为 0，则该子样本 CV 视为正无穷；整体 calendar pace 为 0 时会更早返回无预测。
 
-**建议冻结阈值：`robustCV > 0.75` 判定为波动过大。**
+**本计划锁定阈值：`robustCV > 0.75` 判定为波动过大。计划通过最终验收后，实施不得临时调整。**
 
 解释：即使移除最偏离的一次阅读，剩余样本的标准差仍超过均值的 75%，说明不稳定不是由单个偶发值造成，完成日期已缺乏足够解释力。
 
@@ -598,12 +613,21 @@ data class LearningItemDetailUiState(
 1. 名称、状态与现有开始/生命周期操作；
 2. 阅读进度：`156 / 320 页 · 48%`；
 3. 最近阅读：最近一条合格 Session，例如“昨天 · 42 分钟 · 18 页”；
-4. 最近阅读速度：“最近约 22 页/小时”，副文案“根据最近 14 天 6 次有效阅读”；
+4. 最近阅读速度：“最近约 22 页/小时”，副文案“根据最近 14 天 6 次正常阅读”；
 5. 预计剩余阅读时间；
 6. 自然完成日期范围与可信度，或一行数据不足说明；
 7. 阅读历史。
 
 已有 Start/暂停/完成/主线/First Action/Note 操作不得被预测信息抢占主 CTA 层级。分析错误只让分析区显示“暂时无法计算，阅读记录仍然安全”，不阻塞内容管理和开始阅读。
+
+### 14.1 Mirra Blue 视觉接入
+
+- 页面根背景继续使用 `MirraTheme.colors.background`，文字层级使用 `textPrimary / textSecondary / textTertiary`，分隔使用 `divider`；Screen 不直接声明 Hex 或品牌色。
+- 现有主要行为使用 `MirraPrimaryButton`，次要行为使用 `MirraSecondaryButton`，弱操作使用 `MirraTextAction`；进度使用 `MirraProgress`，不得直接恢复 Material 默认 stop marker 或默认 Accent。
+- 单书标题、状态和原有操作仍是页面第一层；阅读速度、剩余时间和日期范围作为平面信息分组置于其后。最多允许一个用于当前阅读焦点的 `MirraFocusCard`，不得为每个统计数字各建一张 Card。
+- 历史列表使用平面 row + divider；蓝色只用于进度、选中或可操作状态，不用于普通统计数字和大段标题。
+- 日期可信度必须同时显示“高 / 中”文字，不能只用颜色表达；LOW 不展示日期范围。
+- Material 3 的 Typography、Dialog、TextField 等基础能力可以继续通过已完整映射的 `MaterialTheme` 使用，但颜色、形状和操作层级必须来自 Mirra Theme，不得绕过 Token。
 
 ## 15. Session 阅读历史 UI
 
@@ -627,7 +651,7 @@ data class LearningItemDetailUiState(
 
 新增 `ProfileViewModel`，页面只显示一组克制事实：
 
-- 有效阅读 Session 数；
+- 正常阅读 Session 数；
 - 总阅读时长；
 - 总推进页数；
 - 新增 Note 数量。
@@ -642,6 +666,8 @@ data class LearningItemDetailUiState(
 Service 同时计算四项 delta；首版 UI 只用一行弱文案展示阅读时长差异，例如“阅读时间比前 7 天多 32 分钟 / 少 18 分钟 / 与前 7 天相同”。不解释效率、自律或专注力，不增加图表、连续天数、建议或评分。
 
 空状态：“最近 7 天还没有正常结束的阅读记录。”即使 Session 指标为空，新增 Note 数仍可如实展示。
+
+视觉上保留“我的”标题作为第一层，只新增一个“最近 7 天”平面 section：四项事实采用紧凑文字或两列布局，比较文案置于其后；不使用四张等权重卡片，不使用图表，不使用 `MirraFocusCard` 堆叠，不新增 slogan。只有进度或可操作状态才使用蓝色，本摘要的事实数字默认使用中性色。
 
 ## 17. ViewModel 与刷新策略
 
@@ -671,6 +697,7 @@ ViewModel 在初始化和页面 `ON_RESUME` 调用 `refreshTimeContext()`，以�
 - “我的”摘要直接进入既有 `TopLevelDestination.Profile`；
 - Search 的最小 Session Summary 页面保持不变；
 - 不建设全局 Session History 页面或详情路由。
+- Start 的六级状态、文案、Focus Card、最近阅读提示和 CTA 完全不接入 2D 数据，也不增加到分析页面的快捷入口。
 
 `MirraApp.kt` 只修改 ViewModel 装配参数，不改变 back stack 行为。
 
@@ -720,7 +747,7 @@ ViewModel 在初始化和页面 `ON_RESUME` 调用 `refreshTimeContext()`，以�
 - PAUSED / COMPLETED 隐藏未来预测；
 - totalPages <= 0、currentPage > totalPages；
 - 5 Session / 3 阅读日 / inclusive span 7 天通过；各项少 1 时失败；
-- 最近 14 天无有效阅读失败；
+- 最近 14 天无合格阅读失败；
 - 单一极端值与单一零推进不触发 high variability；
 - 多组持续分散样本 `robustCV > 0.75` 隐藏日期；
 - Confidence 分别命中 HIGH / MEDIUM / LOW 的边界分数；
@@ -751,6 +778,7 @@ ViewModel 在初始化和页面 `ON_RESUME` 调用 `refreshTimeContext()`，以�
 - “我的”显示 7 天四项摘要和前 7 天事实比较；
 - 空状态与 analytics error 不阻塞页面既有操作；
 - Start 六级状态、`currentPage` 不加 1、Intent/Session CTA 无回归。
+- Learning Item 详情与“我的”使用 Mirra Theme Token / Components，无硬编码品牌色、Material 默认 Accent、满屏 Card 或过重 Depth；主要统计状态不只依赖颜色表达。
 
 ### 21.5 全量回归
 
@@ -769,6 +797,8 @@ API 37 模拟器还需验证：
 - 创建 Active Session 后强停、冷启动仍标记 ABNORMAL，且不进入统计；
 - Phase 1 完整学习闭环；
 - 2A Note、2B 图片补偿、2C Topic/FTS 搜索回归；
+- Start EmptyLibrary / Mainline 与 Floating Bottom Navigation 的 Mirra Blue 冻结视觉无回归；
+- Learning Item 详情和“我的”检查灰白主体、克制蓝色、平面统计层级、无 Material 默认紫色泄漏；
 - 网络状态测试后恢复。
 
 ## 22. 预计新增 / 修改文件
@@ -812,6 +842,7 @@ API 37 模拟器还需验证：
 - Session 完成、异常恢复、页码推进和 SearchFts 写路径；
 - Navigation routes；
 - 图片目录与文件补偿；
+- `ui/theme` 下现有 Palette / Color / Shape / Depth 定义与 Bottom Navigation 结构；若实现发现确需新语义 Token，必须先回到计划评审，不得在 2D 内临时发明新视觉体系；
 - PRODUCT_SPEC / DECISIONS，除非用户先验收并要求把本计划数学口径正式冻结。
 
 ## 23. Schema v3 不变验证
@@ -834,6 +865,7 @@ rg -n "Migration\(" app/src/main/java/com/guanyi/mirra/data/local/Migrations.kt
 - 只增加一个只读 Repository，避免 UI/Service 直接依赖 DAO；不建立 Analytics 数据库或缓存。
 - 自然日期使用固定窗口、稳健 CV、离散可信度和确定性范围，不使用概率模型、Monte Carlo 或机器学习。
 - “我的”只展示四个 7 天事实和一条比较，不建设 Dashboard、图表或行为评价。
+- 2D 直接消费现有 Mirra Theme 与组件，不为 Analytics 新建图表组件库、统计卡片体系或第二套 Design Token。
 - 阅读历史只存在于 Learning Item 详情，不提前建设 Phase 4 全局 Session History。
 - 没有新 Route、Gradle Module、DI Framework、后台任务或事件系统。
 - core library desugaring 是 minSdk 23 使用标准 `java.time` 的必要兼容配置，避免自行实现 DST 日历算法；不借机升级依赖。
@@ -864,12 +896,14 @@ rg -n "Migration\(" app/src/main/java/com/guanyi/mirra/data/local/Migrations.kt
 19. 时区、跨年和 DST 测试通过；Service 不直接读取系统当前时间。
 20. 查询没有明显 N+1；10,000 Session 烟测完成且 UI 不在主线程计算/查询。
 21. Room 始终为 Schema v3，三个历史 JSON 无变化，不存在新 Migration 或 destructive fallback。
-22. 全部 JVM、Room、Instrumented、Compose、lintDebug、assembleDebug 通过。
-23. API 37 APK 覆盖安装、完全离线、强停/冷启动和 Phase 1/2A/2B/Start/2C 回归通过。
-24. 只包含 Module 2D 相关改动，无敏感信息、调试残留或未来模块空实现。
-25. 完成后更新 CURRENT_STATE 与 Module 2D checkpoint，独立 Conventional Commit 并在用户授权范围内 Push 功能分支。
-26. 极端数值不能导致溢出或崩溃；超出 `Duration`/`LocalDate` 表达范围时只隐藏对应预测并返回明确原因。
-26. 完成报告后停止；不得自动进入 Phase 3。
+22. Learning Item 详情和“我的”直接继承 Mirra Blue Token / Components，普通统计保持平面，无 Material 默认 Accent、硬编码品牌色、满屏 Card、无意义小字或新 slogan。
+23. Start 六级状态与冻结视觉完全不增加 Analytics，不变成 Dashboard。
+24. 全部 JVM、Room、Instrumented、Compose、lintDebug、assembleDebug 通过。
+25. API 37 APK 覆盖安装、完全离线、强停/冷启动和 Phase 1/2A/2B/Start/2C/Theme 回归通过。
+26. 只包含 Module 2D 相关改动，无敏感信息、调试残留或未来模块空实现。
+27. 完成后更新 CURRENT_STATE 与 Module 2D checkpoint，独立 Conventional Commit 并在用户授权范围内 Push 功能分支。
+28. 极端数值不能导致溢出或崩溃；超出 `Duration`/`LocalDate` 表达范围时只隐藏对应预测并返回明确原因。
+29. 完成报告后停止；不得自动进入 Phase 3。
 
 ## 26. 测试驱动实施顺序
 
@@ -922,6 +956,7 @@ rg -n "Migration\(" app/src/main/java/com/guanyi/mirra/data/local/Migrations.kt
 - [ ] 写正常、数据不足、LOW、PAUSED、COMPLETED、最后一页和 ABNORMAL 历史 Compose 失败测试。
 - [ ] 运行目标 Compose tests，确认 2D 信息尚未展示。
 - [ ] 扩展现有 ViewModel，使用单一 LazyColumn 实现最小 UI。
+- [ ] 只使用现有 Mirra Theme Token / Components 完成被触及页面的视觉接入；统计区保持平面，不新建卡片体系或硬编码颜色。
 - [ ] 运行 2D、2A、Start、Phase 1 Compose 回归。
 - [ ] 核对开始阅读仍走 Intent，currentPage 未加 1。
 
@@ -936,7 +971,7 @@ rg -n "Migration\(" app/src/main/java/com/guanyi/mirra/data/local/Migrations.kt
 **Consumes:** `SevenDayComparison`；**Produces:** 第 16–17 节摘要 UI。
 
 - [ ] 写四项摘要、前 7 天比较、空状态和 ABNORMAL 排除失败测试。
-- [ ] 实现 Profile ViewModel 与克制事实卡片，不加图表或评价。
+- [ ] 实现 Profile ViewModel 与克制平面事实 section，不加图表、四卡 Dashboard 或评价。
 - [ ] 运行 Profile/Navigation/Start Compose tests。
 - [ ] 验证 Session 外 Note 与异常 Session 所属 Note 的独立内容计数语义。
 
@@ -965,6 +1000,7 @@ rg -n "Migration\(" app/src/main/java/com/guanyi/mirra/data/local/Migrations.kt
 - Schema coverage：只改 DAO 查询，不改 Entity/Database/Migration/schema JSON。
 - Scope coverage：未规划专注分段、行为诊断、异常提醒、AI、云或 Phase 3/4 功能。
 - Type consistency：Repository、Service、ViewModel 所消费/产出的类型名称在前文唯一。
+- Theme consistency：2D 只复用冻结的 Mirra Color / Shape / Depth 与现有组件；Start 零接入 Analytics，Learning Item / Mine 不建立第二套视觉体系。
 - Placeholder scan：没有待定占位；实施日期与分支、依赖版本、阈值和命令均已明确。
 - Overdesign：没有持久化聚合、框架、后台任务、Paging、新 Route 或通用规则系统。
 
