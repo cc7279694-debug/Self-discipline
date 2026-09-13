@@ -13,7 +13,7 @@
 - 建立 Primary / Secondary Button、Text Action、Focus Card、Progress、Toggle、Bottom Navigation 与最小 Surface primitive。
 - Start、Preparation、Session、Knowledge、Mine 和图片预览使用同一套 Mirra Blue 主题；Start 六级状态、CTA 回调、导航和数据逻辑未改变。
 - Knowledge 普通内容保持平面；Mine 未新增分析界面；Soft Neumorphism 只保留在重点交互和焦点组件。
-- 主题偏好接入既有 DataStore，未知值回退 Mirra Blue，写入主题不覆盖顶层导航偏好。
+- 主题偏好接入既有 DataStore，未知值回退 Mirra Blue，写入主题不覆盖顶层导航偏好；Activity recreate 后继续应用已保存主题。
 - Mono 与 Night 仅提供可读 Palette / Token 和架构支持，未开放主题选择，也未宣称完成全页面验收。
 - Room Schema 保持 v3；没有 Entity、Table、Column、Index 或 Migration 变化。
 
@@ -41,7 +41,7 @@
 
 ## Verification
 
-- `testDebugUnitTest connectedDebugAndroidTest lintDebug assembleDebug`：通过，Gradle `BUILD SUCCESSFUL`。
+- `testDebugUnitTest connectedDebugAndroidTest lintDebug assembleDebug`：通过，Gradle `BUILD SUCCESSFUL`；37 项 JVM 测试与 92 项 Instrumented / Compose 测试均为 0 failure、0 error、0 skipped。
 - API 37 模拟器：最新 Debug APK `install -r` 成功；关闭 Wi-Fi 与移动数据后冷启动成功，`LaunchState: COLD`。
 - API 37 人工视觉检查：Start、Knowledge、Mine 均使用 Mirra Blue；无默认紫色、满屏 Card 或过重阴影；Start 主 CTA 层级最高，Knowledge / Mine 保持可读性。
 - 静态检查：Screen 中未发现直接品牌 Hex；UI 颜色集中于 Palette / Theme / Mirra components。图片 JPEG 合成使用的白色不属于 UI Theme。

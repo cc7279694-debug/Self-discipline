@@ -1,6 +1,8 @@
 package com.guanyi.mirra.data.preferences
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.test.core.app.ApplicationProvider
 import java.io.File
 import kotlinx.coroutines.flow.first
@@ -22,5 +24,8 @@ class AppPreferencesThemeTest {
 
         assertEquals(MirraThemeId.NIGHT, repository.themeId.first())
         assertEquals(com.guanyi.mirra.navigation.TopLevelDestination.Knowledge, repository.lastDestination.first())
+
+        store.edit { preferences -> preferences[stringPreferencesKey("theme_id")] = "unknown-theme" }
+        assertEquals(MirraThemeId.BLUE, repository.themeId.first())
     }
 }
