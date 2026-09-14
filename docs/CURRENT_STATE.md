@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 2 已正式验收并整体冻结。Module 2A、Module 2B、Module 2C、Module 2D、Start Experience Correction 与 Mirra Blue 均已完成；当前没有实施中的业务模块。Phase 3 尚未开始，仅可在单独规划和验收后实施。
+Phase 2 已正式验收并整体冻结。Module 2A、Module 2B、Module 2C、Module 2D、Start Experience Correction 与 Mirra Blue 均已完成；Phase 3 详细工程计划已通过语义修订并正式冻结，尚未开始任何业务代码、数据库或系统能力实施。
 
 ## Verified Completed
 
@@ -75,7 +75,7 @@ Phase 2 已正式验收并整体冻结。Module 2A、Module 2B、Module 2C、Mod
 
 ## In Progress
 
-- 当前没有实施中的业务模块。Phase 2 已正式冻结；未开始 Phase 3 规划或实现。
+- 当前没有实施中的业务模块。Phase 3 详细工程计划已保存并冻结于 `docs/plans/PHASE_3_IMPLEMENTATION.md`；未开始实现。
 
 ## Frozen Phase 2 Baseline
 
@@ -90,7 +90,7 @@ Phase 2 已正式验收并整体冻结。Module 2A、Module 2B、Module 2C、Mod
 
 ## Pending
 
-- Phase 3｜Android 专注干预与分心恢复：仅待详细工程规划；尚未授权编码、数据库变更或系统能力接入。
+- Phase 3｜Android 专注干预与分心恢复：详细工程计划已正式冻结；尚未授权 Module 3A 编码、数据库变更或系统能力接入。
 
 ## Known Risks / Unknowns
 
@@ -118,4 +118,4 @@ Phase 2 已正式验收并整体冻结。Module 2A、Module 2B、Module 2C、Mod
 
 ## Next Recommended Task
 
-单独规划 Phase 3｜Android 专注干预与分心恢复，重点评估 DND、Usage Access、Risk App、通知 / Overlay fallback、SessionSegment、Break、Distraction 与 Recovery；规划验收前不开始编码。
+等待单独授权 Module 3A：仅实施 Schema v4、SessionSegment / coverage 数据模型与纯状态机，不自动进入 DND、Usage Access、Overlay 或 Module 3B。

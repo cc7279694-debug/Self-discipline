@@ -440,6 +440,32 @@ V1 采用标准版专注干预：风险 App 重复打开时逐步增加摩擦，
 
 业务判断由 InterventionEngine 负责，Android 层只负责能力执行与通知降级；解锁、分心、允许和恢复必须分开记录。
 
+## 2026-09-14 — Phase 3 系统干预必须可归属、可降级且覆盖可证明
+
+### Decision
+
+Android 15+ Mirra 只启用和停用自己拥有的 `AutomaticZenRule`，不恢复或覆盖全局 DND，也不操作用户或其他 App 的规则。旧 Android API 回退只在当前系统状态仍等于 Mirra 施加值时恢复 Session 前快照。前台监测只由用户明确开始 Session 的动作启动，不通过 boot 或后台路径复活。SessionSegment 增加 `UNMONITORED`，所有不可解释监测缺口都不得猜成 Focus 或 Distraction。
+
+Stable Start 120 秒与 Recovery 90 秒只是观测 milestone，不阻塞 Session、限制手机操作或要求 Mirra 始终前台；实体书阅读时屏幕关闭 / 手机放下是正向稳定证据。风险 App 必须经过 candidate → confirmed，只有连续观测证据支持其约 10 秒前台才确认；Launcher、SystemUI 和权限页等系统过渡态不算风险 App，缺失证据进入 UNMONITORED。
+
+Overlay、Notification 和 In-App 只是可选 delivery channel。Android 13+ 通知权限或 channel 不可用时不得记录“用户可见成功”；所有外部 channel 均不可用时 Session 和事实记录继续，只标记 intervention unavailable，不自动结束或伪造 Recovery。
+
+### Context
+
+UsageStats 不是精确实时前台回调；Foreground Service、特殊权限与系统事件可能被用户或系统中断。Android 15+ 也会合并多个 Zen Rule，Mirra 无权把整个设备的 DND 状态当成自己的状态恢复。
+
+### Alternatives
+
+把缺失区间默认算 Focus、依赖 Service 自动复活、结束时强制恢复全局 DND、把 Task Manager notice 当作通知送达，或要求用户留在 Mirra 90 秒完成 Recovery。
+
+### Reason
+
+显式 UNMONITORED coverage 与 ownership-safe restore 能避免制造虚假的有效专注数据和覆盖用户系统选择；把干预 delivery 与状态事实分离，才能让权限拒绝或厂商限制只降低体验而不破坏 Session 正确性。
+
+### Consequences
+
+只要 Session 出现 UNMONITORED 或 monitoringStatus 降为 PARTIAL/NONE，该 Session 就不能产生 effective focus time、effective reading speed 或 remaining effective reading time。监测恢复只能改善后续体验，不能把整场重新升级为 FULL。强停、Task Manager Stop、进程死亡与 reboot 后不承诺自动续监；下一次 Mirra 启动必须从最后可信 heartbeat 补记缺口并执行既有 ABNORMAL 恢复与 Mirra-owned DND 清理。
+
 ## 2026-09-10 — 严格按 Phase 控制 V1 范围
 
 ### Decision
