@@ -6,6 +6,7 @@ import androidx.room.Query
 import com.guanyi.mirra.data.local.entity.SessionEndType
 import com.guanyi.mirra.data.local.entity.StudySessionEntity
 import com.guanyi.mirra.data.local.model.RecentReadingSnapshot
+import com.guanyi.mirra.data.local.model.ReadingSessionProjection
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -51,6 +52,48 @@ interface SessionDao {
         LIMIT 1
     """)
     fun observeLatestNormalReading(learningItemId: String): Flow<RecentReadingSnapshot?>
+
+    @Query("""
+        SELECT s.id AS sessionId, s.learningItemId, s.startedAt, s.endedAt,
+            s.startPage, s.endPage, s.endType, COUNT(n.id) AS noteCount
+        FROM study_sessions s
+        LEFT JOIN notes n ON n.sessionId = s.id AND TRIM(n.content) != ''
+        WHERE s.learningItemId = :learningItemId
+            AND s.endedAt IS NOT NULL
+        GROUP BY s.id
+        ORDER BY s.endedAt DESC, s.id DESC
+    """)
+    fun observeHistory(learningItemId: String): Flow<List<ReadingSessionProjection>>
+
+    @Query("""
+        SELECT s.id AS sessionId, s.learningItemId, s.startedAt, s.endedAt,
+            s.startPage, s.endPage, s.endType, COUNT(n.id) AS noteCount
+        FROM study_sessions s
+        LEFT JOIN notes n ON n.sessionId = s.id AND TRIM(n.content) != ''
+        WHERE s.endedAt >= :fromInclusive AND s.endedAt < :toExclusive
+        GROUP BY s.id
+        ORDER BY s.endedAt DESC, s.id DESC
+    """)
+    fun observeEndedBetween(
+        fromInclusive: Long,
+        toExclusive: Long,
+    ): Flow<List<ReadingSessionProjection>>
+
+    @Query("""
+        SELECT s.id AS sessionId, s.learningItemId, s.startedAt, s.endedAt,
+            s.startPage, s.endPage, s.endType, COUNT(n.id) AS noteCount
+        FROM study_sessions s
+        LEFT JOIN notes n ON n.sessionId = s.id AND TRIM(n.content) != ''
+        WHERE s.learningItemId = :learningItemId
+            AND s.endedAt >= :fromInclusive AND s.endedAt <= :toInclusive
+        GROUP BY s.id
+        ORDER BY s.endedAt DESC, s.id DESC
+    """)
+    fun observeEndedForItemBetween(
+        learningItemId: String,
+        fromInclusive: Long,
+        toInclusive: Long,
+    ): Flow<List<ReadingSessionProjection>>
 
     @Query("UPDATE study_sessions SET currentPage = MAX(currentPage, :page) WHERE id = :id AND activeSlot = 1")
     suspend fun advanceCurrentPage(id: String, page: Int): Int

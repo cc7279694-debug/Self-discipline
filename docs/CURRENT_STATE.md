@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 2｜Module 2A、Module 2B、Module 2C、Start Experience Correction 与 Mirra Blue 已正式验收并冻结；Module 2D 详细工程计划已按当前 Schema v3、Topic/Search、Start 六级状态和 Mirra Blue 最终基线完成校准，未开始实现。
+Phase 2｜Module 2A、Module 2B、Module 2C、Module 2D、Start Experience Correction 与 Mirra Blue 均已实现；Module 2D 已完成阅读分析、自然完成预测和“我的”最近 7 天摘要，等待本次实现提交验收。Phase 3 尚未开始。
 
 ## Verified Completed
 
@@ -64,10 +64,17 @@ Phase 2｜Module 2A、Module 2B、Module 2C、Start Experience Correction 与 Mi
 - Start Mainline 已将说明式标题替换为“今天继续”，并移除“当前主线”系统标签；Knowledge 已改为独立平面搜索入口、轻量笔记/图片/Topic 二级导航及 Learning Item 主内容，创建操作降为弱于 Start 主 CTA 的文字行动。
 - 本轮保持 Start 六级状态、Navigation、业务数据与 Room Schema v3 不变；API 37 上 37 个 JVM 测试、92 个 Room/Migration/Instrumented/Compose 测试、lintDebug、assembleDebug、断网覆盖安装及强停冷启动均已通过。
 - Mirra Blue 最终视觉已验收并冻结；`MirraProgress` 已移除 Material 3 默认 Track 末端 Accent stop marker，仅保留实际进度 Fill 与剩余 Track，并由像素级 Compose 回归测试保护。最终全量验证为 37 个 JVM 测试与 93 个 Room/Migration/Instrumented/Compose 测试全部通过。
+- Module 2D 已新增只读 `ReadingSessionProjection` 与 `ReadingAnalyticsRepository`：单书历史、单书最近 30 天和全局最近 14 天均使用有限查询与 Session/Note 聚合，不读取图片、Topic、FTS 或 Note 正文，不产生 N+1。
+- 统计只纳入正常结束且时间、页码完整的 Session；ABNORMAL、EARLY、AUTO、START_INCOMPLETE、Active、非正时长和未来记录均排除统计。零推进正常 Session 保留在历史，并计入 Session 数、阅读日、总时长及整体速度分母。
+- 近期整体阅读速度使用总推进页数除以总 Session 时长，按 7→14→30 天和至少 3 Session / 30 分钟选窗；预计剩余阅读时间与自然完成日期分离，后者按完整窗口自然日计算真实日历推进速度。
+- 自然完成日期先执行硬门槛，再计算可信度；`robustCV > 0.75`、低可信度、PAUSED/COMPLETED、无近期阅读或无页码推进均不显示日期。高/中可信度分别提供 10%/20% 日期范围，不展示虚假百分比。
+- Learning Item 详情已加入近期节奏、剩余阅读时间、自然完成日期范围和完整已结束 Session 历史；异常历史明确标记“不参与统计”。“我的”只增加平面的最近 7 天 Session、时长、页数、Note 数和一条前 7 天时长比较，Start 未接入 Analytics。
+- Module 2D 保持 Room Schema v3、`1.json` / `2.json` / `3.json` 与既有 Migration 不变；新增 `java.time` core library desugaring 仅用于 minSdk 23 的本地自然日与时区计算。
+- Module 2D 最终验证覆盖 51 个 JVM 测试与 101 个 API 37 Room/Migration/Instrumented/Compose/端到端测试，并通过 `lintDebug`、`assembleDebug`、断网 APK 覆盖安装和两次强停冷启动。
 
 ## In Progress
 
-- 当前没有实施中的业务模块。Module 2D 阅读分析与完成预测详细工程计划已保存并按远程 SHA `8ce8dd4ee82bfb1787dc762d34ccbd59742fd9a5` 完成事实校准，等待最终计划验收与单独实施授权。
+- 当前没有实施中的业务模块。Module 2D 实现、自动化与设备验收已完成，等待用户正式验收冻结；未进入 Phase 3。
 
 ## Pending
 
@@ -76,7 +83,7 @@ Phase 2｜Module 2A、Module 2B、Module 2C、Start Experience Correction 与 Mi
 - Module 2A：Learning Item 生命周期与 Note 完整化（已正式验收并冻结）。
 - Module 2B：图片、App-owned Files 与 Schema v1 → v2 已正式验收并冻结。
 - Module 2C：轻量 Topic、FTS4 搜索与 Schema v2 → v3（已正式验收并冻结）。
-- Module 2D：阅读分析、剩余阅读时间与自然完成预测（工程计划已按 Mirra Blue 最终基线校准，等待最终验收与实施授权）。
+- Module 2D：阅读分析、剩余阅读时间与自然完成预测（已实现，等待本次提交验收后冻结）。
 - Start Experience Correction：六级行动首页、首次创建主线事务与 First Action 补齐（已正式验收并冻结）。
 - Theme System v1：Theme Foundation 与 Mirra Blue 已正式验收并冻结；Mono / Night 全页面迁移、可视化选择与三主题全量验收属于后续独立阶段。
 
@@ -91,17 +98,18 @@ Phase 2｜Module 2A、Module 2B、Module 2C、Start Experience Correction 与 Mi
 - Android 在无生命周期回调的瞬时进程终止下无法保证最后不足 500ms 的未落盘输入绝对不丢；当前已覆盖所有可观察的关键生命周期与导航节点。
 - 中文双字 token 不支持中文单字、拼音、同义词、stemming 或模糊匹配；这是首版明确边界，单字查询会提示输入至少两个连续中文字符。
 - FTS 行数相等只代表轻量健康检查通过，不能证明索引内容绝对正确；用户可显式重建，查询异常会自动重建并最多重试一次。
-- Module 2D 校准计划提出 `robustCV > 0.75` 作为自然完成日期的“波动过大”阈值，并定义 HIGH / MEDIUM 的 10% / 20% 日期范围；这些口径等待本轮计划最终验收，实施时不得临时改动。
+- Module 2D 的完成预测是基于近期页码与 Session 时长的解释性估算，不是目标日期；页码记录不充分、速度高波动或样本不足时会主动隐藏结果。
 - 文件系统与 SQLite 无法形成真正的跨资源原子事务；当前通过 trash、补偿和启动清理实现最终一致。若设备在文件系统持续故障时终止进程，文件会保留供后续启动再次恢复或清理。
 - Android Instrumented 测试为兼容 Room 2.8.5 Migration Schema 验证，在 androidTest 配置中固定 kotlinx-serialization 1.8.1；生产运行时依赖未因此替换。
 - Mono / Night 尚未进行全页面、字号放大、TalkBack 与主题切换视觉验收，因此本阶段不向用户开放主题选择入口。
 
 ## Git
 
-- Current branch: codex/mirra-theme-system-v1
+- Current branch: codex/phase-2d-reading-analytics
 - Base: frozen Phase 1 / 2A / 2B / Start Experience Correction / 2C / Theme Foundation / Mirra Blue baseline
-- Current verified remote SHA: `8ce8dd4ee82bfb1787dc762d34ccbd59742fd9a5`
+- Base remote SHA: `8ce8dd4ee82bfb1787dc762d34ccbd59742fd9a5`
+- Planning commit: `b411f0bf154cab9763aaec0c04c69c4df12d356f`
 
 ## Next Recommended Task
 
-先验收已校准的 `docs/plans/MODULE_2D_IMPLEMENTATION.md`；通过后再从当前冻结基线创建独立分支并授权实施 Module 2D。新页面必须继承 Mirra Blue，Start 不接入 Analytics；当前任务不自动开始编码。
+验收并冻结 Module 2D；之后如需推进，先单独规划 Phase 3 Android 专注干预，不在本次任务自动开始。

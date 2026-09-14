@@ -139,7 +139,15 @@ fun MirraApp(
                             onSearch = { open(SearchRoute) },
                             onOpenItem = { open(LearningItemDetailRoute(it)) },
                         )
-                        TopLevelDestination.Profile -> ProfileScreen()
+                        TopLevelDestination.Profile -> ProfileScreen(
+                            viewModel = viewModel(factory = viewModelFactory {
+                                com.guanyi.mirra.feature.profile.ProfileViewModel(
+                                    container.readingAnalyticsRepository,
+                                    container.readingAnalyticsService,
+                                    container.analyticsTimeProvider,
+                                )
+                            }),
+                        )
                     }
                 }
                 entry<CreateLearningItemRoute> {
@@ -177,6 +185,10 @@ fun MirraApp(
                                     route.itemId,
                                     container.learningItemRepository,
                                     container.studyWorkflowRepository,
+                                    container.readingAnalyticsRepository,
+                                    container.readingAnalyticsService,
+                                    container.completionPredictionService,
+                                    container.analyticsTimeProvider,
                                 )
                             },
                         ),

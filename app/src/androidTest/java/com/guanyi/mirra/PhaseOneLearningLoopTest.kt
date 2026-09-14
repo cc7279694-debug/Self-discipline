@@ -39,6 +39,9 @@ class PhaseOneLearningLoopTest {
             MirraApp(container, TopLevelDestination.Start, onDestinationChanged = {})
         }
 
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(hasText("添加第一本书")).fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithText("添加第一本书").performClick()
         composeRule.onNode(hasText("书名") and hasSetTextAction()).performTextInput("怪诞行为学")
         composeRule.onNode(hasText("总页数") and hasSetTextAction()).performTextInput("300")

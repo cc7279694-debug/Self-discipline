@@ -12,6 +12,8 @@ import com.guanyi.mirra.data.repository.DefaultStudyWorkflowRepository
 import com.guanyi.mirra.data.repository.LearningItemRepository
 import com.guanyi.mirra.data.repository.ImageRepository
 import com.guanyi.mirra.data.repository.NoteRepository
+import com.guanyi.mirra.data.repository.DefaultReadingAnalyticsRepository
+import com.guanyi.mirra.data.repository.ReadingAnalyticsRepository
 import com.guanyi.mirra.data.repository.StudyWorkflowRepository
 import com.guanyi.mirra.data.repository.DefaultSearchRepository
 import com.guanyi.mirra.data.repository.DefaultTopicRepository
@@ -26,6 +28,9 @@ import com.guanyi.mirra.domain.IntentExpiryPolicy
 import com.guanyi.mirra.domain.RuleBasedSummaryEngine
 import com.guanyi.mirra.domain.SessionManager
 import com.guanyi.mirra.domain.DefaultSearchEngine
+import com.guanyi.mirra.domain.AnalyticsTimeProvider
+import com.guanyi.mirra.domain.CompletionPredictionService
+import com.guanyi.mirra.domain.ReadingAnalyticsService
 import com.guanyi.mirra.navigation.TopLevelDestination
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
@@ -33,7 +38,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class TestAppContainer(private val context: Context) : AppContainer, AutoCloseable {
-    private val database = Room.inMemoryDatabaseBuilder(context, MirraDatabase::class.java).build()
+    val database = Room.inMemoryDatabaseBuilder(context, MirraDatabase::class.java).build()
     private val imageStorage = DefaultImageStorageService(context)
     private val searchEngine = DefaultSearchEngine()
     private val searchIndexWriter = SearchIndexWriter(database, searchEngine)
@@ -61,6 +66,10 @@ class TestAppContainer(private val context: Context) : AppContainer, AutoCloseab
     override val imageRepository: ImageRepository = DefaultImageRepository(database, imageStorage, searchIndexWriter = searchIndexWriter)
     override val topicRepository: TopicRepository = DefaultTopicRepository(database, searchIndexWriter)
     override val searchRepository: SearchRepository = DefaultSearchRepository(database, searchEngine, searchIndexRebuilder)
+    override val readingAnalyticsRepository: ReadingAnalyticsRepository = DefaultReadingAnalyticsRepository(database)
+    override val readingAnalyticsService = ReadingAnalyticsService()
+    override val completionPredictionService = CompletionPredictionService()
+    override val analyticsTimeProvider = AnalyticsTimeProvider()
     override val sessionManager: SessionManager = DefaultSessionManager(studyWorkflowRepository)
     override val startup: Deferred<Unit> = CompletableDeferred(Unit)
 

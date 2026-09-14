@@ -35,6 +35,7 @@ android {
     }
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -83,6 +84,7 @@ dependencies {
     implementation(libs.androidx.exifinterface)
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.coroutines.android)
+    coreLibraryDesugaring(libs.android.desugar.jdk.libs)
     ksp(libs.androidx.room.compiler)
 
     debugImplementation(libs.androidx.compose.ui.tooling)

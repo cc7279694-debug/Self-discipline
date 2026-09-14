@@ -47,6 +47,13 @@ interface NoteDao {
     suspend fun countForSession(sessionId: String): Int
 
     @Query("""
+        SELECT COUNT(*) FROM notes
+        WHERE createdAt >= :fromInclusive AND createdAt < :toExclusive
+            AND TRIM(content) != ''
+    """)
+    fun observeCreatedCountBetween(fromInclusive: Long, toExclusive: Long): Flow<Int>
+
+    @Query("""
         UPDATE notes
         SET content = :content, semanticType = :semanticType, pageNumber = :pageNumber, updatedAt = :updatedAt
         WHERE id = :id

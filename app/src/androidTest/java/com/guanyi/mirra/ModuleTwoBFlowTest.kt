@@ -57,6 +57,9 @@ class ModuleTwoBFlowTest {
         launchKnowledge()
 
         composeRule.onNodeWithText("图片").performClick()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(hasText("图片所属书")).fetchSemanticsNodes().size == 2
+        }
         assertEquals(2, composeRule.onAllNodes(hasText("图片所属书")).fetchSemanticsNodes().size)
         assertEquals(2, composeRule.onAllNodes(hasText("第 18 页")).fetchSemanticsNodes().size)
         composeRule.onNodeWithText("第一张").performClick()
