@@ -1,10 +1,10 @@
 # Current State
 
-更新日期：2026-09-13
+更新日期：2026-09-14
 
 ## Current Stage
 
-Phase 2｜Module 2A、Module 2B、Module 2C、Module 2D、Start Experience Correction 与 Mirra Blue 均已实现；Module 2D 已完成阅读分析、自然完成预测和“我的”最近 7 天摘要，等待本次实现提交验收。Phase 3 尚未开始。
+Phase 2 已正式验收并整体冻结。Module 2A、Module 2B、Module 2C、Module 2D、Start Experience Correction 与 Mirra Blue 均已完成；当前没有实施中的业务模块。Phase 3 尚未开始，仅可在单独规划和验收后实施。
 
 ## Verified Completed
 
@@ -71,21 +71,26 @@ Phase 2｜Module 2A、Module 2B、Module 2C、Module 2D、Start Experience Corre
 - Learning Item 详情已加入近期节奏、剩余阅读时间、自然完成日期范围和完整已结束 Session 历史；异常历史明确标记“不参与统计”。“我的”只增加平面的最近 7 天 Session、时长、页数、Note 数和一条前 7 天时长比较，Start 未接入 Analytics。
 - Module 2D 保持 Room Schema v3、`1.json` / `2.json` / `3.json` 与既有 Migration 不变；新增 `java.time` core library desugaring 仅用于 minSdk 23 的本地自然日与时区计算。
 - Module 2D 最终验证覆盖 51 个 JVM 测试与 101 个 API 37 Room/Migration/Instrumented/Compose/端到端测试，并通过 `lintDebug`、`assembleDebug`、断网 APK 覆盖安装和两次强停冷启动。
+- Phase 2 已在远程实现提交 `734750bfe9fabc13d99091356ae0e4ffd1b8dc82` 正式冻结；冻结检查点见 `docs/checkpoints/2026-09-14-phase-2-freeze.md`。
 
 ## In Progress
 
-- 当前没有实施中的业务模块。Module 2D 实现、自动化与设备验收已完成，等待用户正式验收冻结；未进入 Phase 3。
+- 当前没有实施中的业务模块。Phase 2 已正式冻结；未开始 Phase 3 规划或实现。
 
-## Pending
+## Frozen Phase 2 Baseline
 
 ### Phase 2｜笔记与阅读体验完善
 
 - Module 2A：Learning Item 生命周期与 Note 完整化（已正式验收并冻结）。
 - Module 2B：图片、App-owned Files 与 Schema v1 → v2 已正式验收并冻结。
 - Module 2C：轻量 Topic、FTS4 搜索与 Schema v2 → v3（已正式验收并冻结）。
-- Module 2D：阅读分析、剩余阅读时间与自然完成预测（已实现，等待本次提交验收后冻结）。
+- Module 2D：阅读分析、剩余阅读时间与自然完成预测（已正式验收并冻结）。
 - Start Experience Correction：六级行动首页、首次创建主线事务与 First Action 补齐（已正式验收并冻结）。
 - Theme System v1：Theme Foundation 与 Mirra Blue 已正式验收并冻结；Mono / Night 全页面迁移、可视化选择与三主题全量验收属于后续独立阶段。
+
+## Pending
+
+- Phase 3｜Android 专注干预与分心恢复：仅待详细工程规划；尚未授权编码、数据库变更或系统能力接入。
 
 ## Known Risks / Unknowns
 
@@ -109,7 +114,8 @@ Phase 2｜Module 2A、Module 2B、Module 2C、Module 2D、Start Experience Corre
 - Base: frozen Phase 1 / 2A / 2B / Start Experience Correction / 2C / Theme Foundation / Mirra Blue baseline
 - Base remote SHA: `8ce8dd4ee82bfb1787dc762d34ccbd59742fd9a5`
 - Planning commit: `b411f0bf154cab9763aaec0c04c69c4df12d356f`
+- Phase 2 frozen remote SHA: `734750bfe9fabc13d99091356ae0e4ffd1b8dc82`
 
 ## Next Recommended Task
 
-验收并冻结 Module 2D；之后如需推进，先单独规划 Phase 3 Android 专注干预，不在本次任务自动开始。
+单独规划 Phase 3｜Android 专注干预与分心恢复，重点评估 DND、Usage Access、Risk App、通知 / Overlay fallback、SessionSegment、Break、Distraction 与 Recovery；规划验收前不开始编码。
