@@ -19,6 +19,8 @@ import com.guanyi.mirra.data.repository.DefaultSearchRepository
 import com.guanyi.mirra.data.repository.DefaultTopicRepository
 import com.guanyi.mirra.data.repository.SearchRepository
 import com.guanyi.mirra.data.repository.TopicRepository
+import com.guanyi.mirra.data.repository.FocusRepository
+import com.guanyi.mirra.data.repository.DefaultFocusRepository
 import com.guanyi.mirra.data.search.SearchIndexRebuilder
 import com.guanyi.mirra.data.search.SearchIndexWriter
 import com.guanyi.mirra.data.storage.DefaultImageStorageService
@@ -67,6 +69,7 @@ class TestAppContainer(private val context: Context) : AppContainer, AutoCloseab
     override val topicRepository: TopicRepository = DefaultTopicRepository(database, searchIndexWriter)
     override val searchRepository: SearchRepository = DefaultSearchRepository(database, searchEngine, searchIndexRebuilder)
     override val readingAnalyticsRepository: ReadingAnalyticsRepository = DefaultReadingAnalyticsRepository(database)
+    override val focusRepository: FocusRepository = DefaultFocusRepository(database)
     override val readingAnalyticsService = ReadingAnalyticsService()
     override val completionPredictionService = CompletionPredictionService()
     override val analyticsTimeProvider = AnalyticsTimeProvider()

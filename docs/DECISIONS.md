@@ -466,6 +466,32 @@ UsageStats 不是精确实时前台回调；Foreground Service、特殊权限与
 
 只要 Session 出现 UNMONITORED 或 monitoringStatus 降为 PARTIAL/NONE，该 Session 就不能产生 effective focus time、effective reading speed 或 remaining effective reading time。监测恢复只能改善后续体验，不能把整场重新升级为 FULL。强停、Task Manager Stop、进程死亡与 reboot 后不承诺自动续监；下一次 Mirra 启动必须从最后可信 heartbeat 补记缺口并执行既有 ABNORMAL 恢复与 Mirra-owned DND 清理。
 
+## 2026-09-14 — Module 3A 以保守事实初始化 Session coverage
+
+### Decision
+
+Room v4 用独立 SessionFocusContext、SessionSegment 与 FocusEvent 表保存专注事实。`UNMONITORED` 既不算 Focus 也不算 Distraction；只有连续、无空洞、无重叠、无越界且不含 UNMONITORED 的 FULL 时间线才可视为完整可信覆盖。PARTIAL 一旦产生永不回到 FULL；初始 NONE 在后续真正建立局部可信监测时最多变为 PARTIAL。
+
+Module 3A 尚未接入任何 Android 监测能力，因此现有 Session 启动事务保守写入 `NONE + UNMONITORED`，不得预先写成 FOCUS。正常结束关闭活动 Segment；异常恢复从最后可信 heartbeat 起补记 UNMONITORED 并把 Session 结束为 ABNORMAL。零时长 Segment 不持久化，重复关闭和结束后的写入明确拒绝。
+
+Stable Start 120 秒与 Recovery 90 秒只作为纯领域 milestone：前者仅在 FULL coverage 的 Focus/Deep Focus 连续满足窗口时可写入既有 `stableStartedAt`；后者通过 Recovery → Focus 的同边界转换与 `RECOVERY_SUCCEEDED` Event 表达。二者均不自动触发、不阻塞用户操作。
+
+### Context
+
+Schema v3 只有 Session 总时间，无法表示监测缺口或区分 Focus、Break、Distraction 与 Recovery。3A 又明确禁止接入 Usage Access、FGS 等系统能力，因此把新 Session 乐观记为 Focus 会制造无法证明的行为事实。
+
+### Alternatives
+
+在 3A 先写初始 FOCUS、把缺失区间默认为 Focus、允许 PARTIAL 恢复 FULL，或把全部状态塞进 StudySession 列。
+
+### Reason
+
+先建立保守、不可歧义且可迁移的事实模型，能让 3B/3C 只负责提供证据和驱动转换，而不会因权限或进程中断污染 effective 指标。
+
+### Consequences
+
+3A 本身不会产生有效专注时间；3B 必须在真实 capability 建立后明确驱动 coverage 和 Segment。Phase 2 的 Session 总时长与预测语义保持不变，旧 v3 Session 不补造 Segment。
+
 ## 2026-09-10 — 严格按 Phase 控制 V1 范围
 
 ### Decision

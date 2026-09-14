@@ -7,6 +7,11 @@ import com.guanyi.mirra.data.local.entity.LearningItemStatus
 import com.guanyi.mirra.data.local.entity.SessionEndType
 import com.guanyi.mirra.data.local.entity.StudyIntentEntity
 import com.guanyi.mirra.data.local.entity.StudySessionEntity
+import com.guanyi.mirra.data.local.entity.MonitoringCoverage
+import com.guanyi.mirra.data.local.entity.SessionFocusContextEntity
+import com.guanyi.mirra.data.local.entity.SessionRiskAppSnapshotEntity
+import com.guanyi.mirra.data.local.entity.SessionSegmentEntity
+import com.guanyi.mirra.data.local.entity.SessionSegmentType
 import com.guanyi.mirra.data.local.model.RecentReadingSnapshot
 import com.guanyi.mirra.domain.IntentExpiryPolicy
 import com.guanyi.mirra.domain.SummaryEngine
@@ -42,6 +47,7 @@ class DefaultStudyWorkflowRepository(
     private val sessionDao = database.sessionDao()
     private val itemDao = database.learningItemDao()
     private val noteDao = database.noteDao()
+    private val focusDao = database.focusDao()
 
     override fun observeActiveIntent() = intentDao.observeActive()
     override fun observeActiveSession() = sessionDao.observeActive()
@@ -134,6 +140,31 @@ class DefaultStudyWorkflowRepository(
                 activeSlot = ACTIVE_SLOT,
             )
             sessionDao.insert(session)
+            focusDao.insertContext(
+                SessionFocusContextEntity(
+                    sessionId = session.id,
+                    monitoringStatus = MonitoringCoverage.NONE,
+                    monitoringLostAt = session.startedAt,
+                    priorDndInterruptionFilter = null,
+                    dndRuleId = null,
+                    requestedEndPage = null,
+                    closeoutStartedAt = null,
+                    lastHeartbeatAt = session.startedAt,
+                    createdAt = session.startedAt,
+                    updatedAt = session.startedAt,
+                ),
+            )
+            val riskSnapshots = focusDao.listRiskApps().map {
+                SessionRiskAppSnapshotEntity(session.id, it.packageName, it.labelSnapshot)
+            }
+            if (riskSnapshots.isNotEmpty()) focusDao.insertRiskSnapshots(riskSnapshots)
+            focusDao.insertSegment(
+                SessionSegmentEntity(
+                    id = newId(), sessionId = session.id, type = SessionSegmentType.UNMONITORED,
+                    startedAt = session.startedAt, endedAt = null, packageName = null, reason = null,
+                    plannedEndAt = null, extensionCount = 0, relatedSegmentId = null, activeSlot = ACTIVE_SLOT,
+                ),
+            )
             check(intentDao.markConverted(intent.id, now) == 1) { "Intent 转换失败" }
             session
         }
@@ -157,6 +188,7 @@ class DefaultStudyWorkflowRepository(
             require(endPage in 1..item.totalPages) { "结束页必须在书籍范围内" }
             val finalPage = maxOf(session.currentPage, endPage)
             val now = clock()
+            closeActiveSegmentForSession(session.id, now)
             val noteCount = noteDao.countForSession(sessionId)
             val summary = summaryEngine.create(
                 startPage = session.startPage,
@@ -176,6 +208,7 @@ class DefaultStudyWorkflowRepository(
         database.withTransaction {
             val now = clock()
             sessionDao.getActive()?.let { active ->
+                closeActiveSegmentForRecovery(active.id, now)
                 sessionDao.finish(
                     id = active.id,
                     endedAt = now,
@@ -188,6 +221,45 @@ class DefaultStudyWorkflowRepository(
             intentDao.getActive()?.takeIf { expiryPolicy.isExpired(it.createdAt, now) }?.let { expired ->
                 intentDao.markTimedOut(expired.id, now)
             }
+        }
+    }
+
+    private suspend fun closeActiveSegmentForSession(sessionId: String, endedAt: Long) {
+        val active = focusDao.getActiveSegment(sessionId) ?: return
+        if (endedAt > active.startedAt) {
+            check(focusDao.closeActiveSegment(active.id, sessionId, endedAt) == 1) { "关闭 Segment 失败" }
+        } else {
+            check(focusDao.deleteActiveSegment(active.id, sessionId) == 1) { "清理零时长 Segment 失败" }
+        }
+    }
+
+    private suspend fun closeActiveSegmentForRecovery(sessionId: String, detectedAt: Long) {
+        val active = focusDao.getActiveSegment(sessionId) ?: return
+        val context = focusDao.getContext(sessionId)
+        val trustedAt = maxOf(active.startedAt, minOf(context?.lastHeartbeatAt ?: active.startedAt, detectedAt))
+        if (detectedAt <= active.startedAt) {
+            check(focusDao.deleteActiveSegment(active.id, sessionId) == 1)
+        } else if (active.type == SessionSegmentType.UNMONITORED || trustedAt == active.startedAt) {
+            check(
+                focusDao.replaceAndCloseActiveSegment(
+                    active.id, sessionId, SessionSegmentType.UNMONITORED, detectedAt,
+                ) == 1,
+            )
+        } else {
+            check(focusDao.closeActiveSegment(active.id, sessionId, trustedAt) == 1)
+            focusDao.insertSegment(
+                SessionSegmentEntity(
+                    id = newId(), sessionId = sessionId, type = SessionSegmentType.UNMONITORED,
+                    startedAt = trustedAt, endedAt = detectedAt, packageName = null, reason = null,
+                    plannedEndAt = null, extensionCount = 0, relatedSegmentId = null, activeSlot = null,
+                ),
+            )
+        }
+        if (context != null) {
+            val degraded = if (context.monitoringStatus == MonitoringCoverage.FULL) {
+                MonitoringCoverage.PARTIAL
+            } else context.monitoringStatus
+            check(focusDao.setCoverage(sessionId, degraded, trustedAt, detectedAt) == 1)
         }
     }
 

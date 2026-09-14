@@ -6,6 +6,7 @@ import androidx.room.Room
 import com.guanyi.mirra.data.local.MirraDatabase
 import com.guanyi.mirra.data.local.MIGRATION_1_2
 import com.guanyi.mirra.data.local.MIGRATION_2_3
+import com.guanyi.mirra.data.local.MIGRATION_3_4
 import com.guanyi.mirra.data.preferences.AppPreferencesRepository
 import com.guanyi.mirra.data.preferences.DefaultAppPreferencesRepository
 import com.guanyi.mirra.data.repository.DefaultLearningItemRepository
@@ -22,6 +23,8 @@ import com.guanyi.mirra.data.repository.DefaultSearchRepository
 import com.guanyi.mirra.data.repository.DefaultTopicRepository
 import com.guanyi.mirra.data.repository.SearchRepository
 import com.guanyi.mirra.data.repository.TopicRepository
+import com.guanyi.mirra.data.repository.FocusRepository
+import com.guanyi.mirra.data.repository.DefaultFocusRepository
 import com.guanyi.mirra.data.search.SearchIndexRebuilder
 import com.guanyi.mirra.data.search.SearchIndexWriter
 import com.guanyi.mirra.data.storage.DefaultImageStorageService
@@ -50,6 +53,7 @@ interface AppContainer {
     val topicRepository: TopicRepository
     val searchRepository: SearchRepository
     val readingAnalyticsRepository: ReadingAnalyticsRepository
+    val focusRepository: FocusRepository
     val readingAnalyticsService: ReadingAnalyticsService
     val completionPredictionService: CompletionPredictionService
     val analyticsTimeProvider: AnalyticsTimeProvider
@@ -63,7 +67,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
         context,
         MirraDatabase::class.java,
         "mirra.db",
-    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
+    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
     private val imageStorage = DefaultImageStorageService(context)
     private val searchEngine = DefaultSearchEngine()
     private val searchIndexWriter = SearchIndexWriter(database, searchEngine)
@@ -80,6 +84,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
     override val topicRepository: TopicRepository = DefaultTopicRepository(database, searchIndexWriter)
     override val searchRepository: SearchRepository = DefaultSearchRepository(database, searchEngine, searchIndexRebuilder)
     override val readingAnalyticsRepository: ReadingAnalyticsRepository = DefaultReadingAnalyticsRepository(database)
+    override val focusRepository: FocusRepository = DefaultFocusRepository(database)
     override val readingAnalyticsService = ReadingAnalyticsService()
     override val completionPredictionService = CompletionPredictionService()
     override val analyticsTimeProvider = AnalyticsTimeProvider()

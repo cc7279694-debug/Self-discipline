@@ -7,6 +7,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.guanyi.mirra.data.local.MIGRATION_2_3
+import com.guanyi.mirra.data.local.MIGRATION_3_4
 import com.guanyi.mirra.data.local.MirraDatabase
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -63,7 +64,7 @@ class MigrationTwoToThreeTest {
         }
         val context = ApplicationProvider.getApplicationContext<Context>()
         val migrated = Room.databaseBuilder(context, MirraDatabase::class.java, databaseName)
-            .addMigrations(MIGRATION_2_3)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
             .build()
         try {
             runBlocking {

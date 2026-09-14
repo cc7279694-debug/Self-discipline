@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 2 已正式验收并整体冻结。Module 2A、Module 2B、Module 2C、Module 2D、Start Experience Correction 与 Mirra Blue 均已完成；Phase 3 详细工程计划已通过语义修订并正式冻结，尚未开始任何业务代码、数据库或系统能力实施。
+Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；Module 3A 已完成 Schema v4、SessionSegment、coverage 数据模型与纯状态机实现，尚未进入任何 Android 系统能力。
 
 ## Verified Completed
 
@@ -72,10 +72,15 @@ Phase 2 已正式验收并整体冻结。Module 2A、Module 2B、Module 2C、Mod
 - Module 2D 保持 Room Schema v3、`1.json` / `2.json` / `3.json` 与既有 Migration 不变；新增 `java.time` core library desugaring 仅用于 minSdk 23 的本地自然日与时区计算。
 - Module 2D 最终验证覆盖 51 个 JVM 测试与 101 个 API 37 Room/Migration/Instrumented/Compose/端到端测试，并通过 `lintDebug`、`assembleDebug`、断网 APK 覆盖安装和两次强停冷启动。
 - Phase 2 已在远程实现提交 `734750bfe9fabc13d99091356ae0e4ffd1b8dc82` 正式冻结；冻结检查点见 `docs/checkpoints/2026-09-14-phase-2-freeze.md`。
+- Room 已从 Schema v3 非破坏性迁移到 v4，新增 `risk_apps`、`session_focus_contexts`、`session_risk_app_snapshots`、`session_segments` 与 `focus_events`；既有 v1/v2/v3 Schema 文件保持不变。
+- SessionSegment 已具备 FOCUS、DEEP_FOCUS、BREAK、TEMPORARY_ALLOWANCE、DISTRACTION、RECOVERY 与 UNMONITORED 一等语义；唯一 active slot 与 Repository 事务保证切段边界连续、无零时长、无倒序且已结束 Session 不可再写。
+- coverage 明确使用 FULL / PARTIAL / NONE；PARTIAL 永不回到 FULL，初始 NONE 只能在后续获得可信覆盖时成为 PARTIAL。UNMONITORED 不计 Focus，完整可信判断还会拒绝空洞、重叠、越界和未覆盖完整 Session 的时间线。
+- 3A 尚无监测能力，因此新 Session 保守创建为 `NONE + UNMONITORED`；正常结束会关闭活动 Segment，进程死亡恢复会从最后可信 heartbeat 到检测时刻记录 UNMONITORED，再沿用 ABNORMAL 规则结束 Session，不伪造 Focus。
+- Stable Start 120 秒与 Recovery 90 秒已作为纯领域 milestone 规则和持久化事实入口实现，不自动触发、不阻塞 Session，也未接入任何 Android 系统信号。
 
 ## In Progress
 
-- 当前没有实施中的业务模块。Phase 3 详细工程计划已保存并冻结于 `docs/plans/PHASE_3_IMPLEMENTATION.md`；未开始实现。
+- 当前没有实施中的业务模块。Module 3A 已实现并等待正式验收；未开始 Module 3B。
 
 ## Frozen Phase 2 Baseline
 
@@ -90,7 +95,7 @@ Phase 2 已正式验收并整体冻结。Module 2A、Module 2B、Module 2C、Mod
 
 ## Pending
 
-- Phase 3｜Android 专注干预与分心恢复：详细工程计划已正式冻结；尚未授权 Module 3A 编码、数据库变更或系统能力接入。
+- Phase 3｜Module 3B：DND、Usage Access、Foreground Service 等 Android capability 尚未开始，需单独规划复核与授权。
 
 ## Known Risks / Unknowns
 
@@ -98,7 +103,7 @@ Phase 2 已正式验收并整体冻结。Module 2A、Module 2B、Module 2C、Mod
 - 原中文路径副本仍因当前 Codex 桌面会话占用而保留；后续开发与验证仅以英文路径仓库为准。
 - Android Studio 的系统安装流程被 Windows 安装确认阻塞，本阶段改用用户目录下的 JDK 17、Android SDK Command-line Tools、ADB 与 Emulator 完成验证。
 - Android 设备与厂商对 Usage Access、DND、Overlay 的兼容性需要在 Phase 3 通过真实设备验证。
-- Room 当前为 Schema v3；v1 → v2 → v3 使用显式非破坏性 Migration 并由导出的真实历史 Schema 验证，后续任何 Schema 变更仍必须提供非破坏性 Migration。
+- Room 当前为 Schema v4；v1 → v2 → v3 → v4 使用显式非破坏性 Migration 并由导出的真实历史 Schema 验证，后续任何 Schema 变更仍必须提供非破坏性 Migration。
 - Phase 1 不包含 SessionSegment，故只保存和展示 Session 总时长，不计算有效专注时间。
 - Android 在无生命周期回调的瞬时进程终止下无法保证最后不足 500ms 的未落盘输入绝对不丢；当前已覆盖所有可观察的关键生命周期与导航节点。
 - 中文双字 token 不支持中文单字、拼音、同义词、stemming 或模糊匹配；这是首版明确边界，单字查询会提示输入至少两个连续中文字符。
@@ -110,12 +115,10 @@ Phase 2 已正式验收并整体冻结。Module 2A、Module 2B、Module 2C、Mod
 
 ## Git
 
-- Current branch: codex/phase-2d-reading-analytics
-- Base: frozen Phase 1 / 2A / 2B / Start Experience Correction / 2C / Theme Foundation / Mirra Blue baseline
-- Base remote SHA: `8ce8dd4ee82bfb1787dc762d34ccbd59742fd9a5`
-- Planning commit: `b411f0bf154cab9763aaec0c04c69c4df12d356f`
-- Phase 2 frozen remote SHA: `734750bfe9fabc13d99091356ae0e4ffd1b8dc82`
+- Current branch: `codex/phase-3a-session-segments`
+- Frozen Phase 3 planning base: `882d649cf600cd3f6f3b59d0be8a7911f3e42c70`
+- Room Schema: v4
 
 ## Next Recommended Task
 
-等待单独授权 Module 3A：仅实施 Schema v4、SessionSegment / coverage 数据模型与纯状态机，不自动进入 DND、Usage Access、Overlay 或 Module 3B。
+等待 Module 3A 验收；验收后单独规划/授权 Module 3B，不自动进入 DND、Usage Access、Foreground Service、Overlay 或 Notification 实施。
