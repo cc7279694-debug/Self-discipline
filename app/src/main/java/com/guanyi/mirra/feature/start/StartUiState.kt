@@ -147,6 +147,6 @@ private fun LearningItemEntity.toStartLearningItem() = StartLearningItem(
     name = name,
     currentPage = currentPage,
     totalPages = totalPages,
-    progressPercent = ((currentPage.toLong() * 100L) / totalPages.coerceAtLeast(1)).toInt().coerceIn(0, 100),
+    progressPercent = ((currentPage.toLong() * 100L + totalPages / 2L) / totalPages.coerceAtLeast(1)).toInt().coerceIn(0, 100),
     firstAction = FirstActionResolver.resolve(this),
 )

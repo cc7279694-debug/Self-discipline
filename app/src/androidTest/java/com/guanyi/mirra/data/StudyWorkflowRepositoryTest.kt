@@ -230,6 +230,8 @@ class StudyWorkflowRepositoryTest {
         val recent = workflow.observeLatestNormalReading(item.id).first()
         assertEquals(normal.id, recent?.sessionId)
         assertEquals(42 * 60 * 1_000L, recent?.durationMillis)
+        assertEquals(20, recent?.startPage)
+        assertEquals(25, recent?.endPage)
         assertEquals(2, recent?.noteCount)
     }
 

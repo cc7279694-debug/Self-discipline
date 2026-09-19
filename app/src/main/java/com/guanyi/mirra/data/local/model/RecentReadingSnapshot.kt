@@ -6,5 +6,7 @@ data class RecentReadingSnapshot(
     val startedAt: Long,
     val endedAt: Long,
     val durationMillis: Long,
+    val startPage: Int,
+    val endPage: Int,
     val noteCount: Int,
 )

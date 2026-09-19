@@ -1,5 +1,49 @@
 # Decisions
 
+## 2026-09-19 — Start Visual Parity 使用非持久化灰阶占位封面
+
+### Decision
+
+Start Mainline 的封面区域只根据 Learning Item 书名稳定生成灰阶占位视觉，不读取网络、不保存文件或数据库字段。真实封面能力仍须另行设计。Mainline 的最近阅读条只呈现既有正常 Session 的真实日期、总时长和推进页数；空值时隐藏。
+
+### Context
+
+已批准概念图的双栏封面、信息层级和柔和实体感需要在真实 Compose 页面呈现，而此前“概念图不得引入书封面”针对的是未确认的真实封面产品功能。本轮用户明确授权无持久化占位封面。
+
+### Alternatives
+
+新增封面字段及图片资源、在线拉取书封面，或继续保持无封面的纯文字卡片。
+
+### Reason
+
+占位封面满足视觉版式，同时不改变 Room Schema、Local-first 边界或书籍内容模型。
+
+### Consequences
+
+同一本书的占位外观稳定；若以后开发真实封面，须独立定义导入、文件生命周期和数据迁移。本轮不改变 Start 六级状态、Intent/Session 流程或 Analytics。
+
+## 2026-09-19 — Module 3B 需要从 Session 起点建立监测握手
+
+### Decision
+
+3B 规划和实施必须明确 Monitored Session Start handshake：只有真实监测能力在 Session 起点已建立，且从 `sessionStartedAt` 起没有未监测间隙，才允许原子初始化为 `FULL + FOCUS`。若已经产生真实 `UNMONITORED` 区间，只能成为 PARTIAL，永不回到 FULL；不得回填或删除监测缺口。
+
+### Context
+
+3A 在无监测能力时正确初始化为 `NONE + UNMONITORED`，且不允许 `NONE → FULL`。若 3B 只从既有 NONE 升为 PARTIAL，未来 Session 将无法获得完整可信覆盖。
+
+### Alternatives
+
+追认未监测区间为 Focus，或允许 PARTIAL 事后升级 FULL。
+
+### Reason
+
+监测覆盖必须是从 Session 起点就成立的可验证事实，不能为了生成 effective 指标改写历史。
+
+### Consequences
+
+本决策只约束未来 3B，不修改已冻结的 3A Schema、Repository、状态机或 Migration；3B 须另获授权。
+
 ## 2026-09-13 — Mirra Blue 是 Theme System v1 的首个完整主题
 
 ### Decision

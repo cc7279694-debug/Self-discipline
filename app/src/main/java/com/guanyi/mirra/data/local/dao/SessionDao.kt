@@ -41,6 +41,7 @@ interface SessionDao {
         SELECT s.id AS sessionId, s.learningItemId AS learningItemId,
             s.startedAt AS startedAt, s.endedAt AS endedAt,
             MAX(0, s.endedAt - s.startedAt) AS durationMillis,
+            s.startPage AS startPage, s.endPage AS endPage,
             COUNT(n.id) AS noteCount
         FROM study_sessions s
         LEFT JOIN notes n ON n.sessionId = s.id

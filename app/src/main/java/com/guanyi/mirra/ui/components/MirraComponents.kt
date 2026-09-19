@@ -43,7 +43,7 @@ fun MirraPrimaryButton(
     val topColor = when {
         !enabled -> container
         isPressed -> lerp(container, colors.textPrimary, .09f)
-        else -> lerp(container, colors.onAccent, .10f)
+        else -> lerp(container, colors.accent, .42f)
     }
     val elevation = if (isPressed) MirraTheme.depth.pressed else MirraTheme.depth.raised
     Button(
@@ -101,13 +101,13 @@ fun MirraFocusCard(modifier: Modifier = Modifier, content: @Composable () -> Uni
                 MirraTheme.depth.raised,
                 MirraTheme.shapes.extraLarge,
                 ambientColor = colors.surfaceHighlight.copy(alpha = .55f),
-                spotColor = colors.textTertiary.copy(alpha = .14f),
+                spotColor = colors.textTertiary.copy(alpha = .18f),
             )
             .background(
                 Brush.verticalGradient(listOf(colors.surfaceHighlight, colors.surfaceRaised)),
                 MirraTheme.shapes.extraLarge,
             )
-            .border(1.dp, colors.surfaceHighlight.copy(alpha = .7f), MirraTheme.shapes.extraLarge),
+            .border(1.dp, colors.surfaceHighlight.copy(alpha = .4f), MirraTheme.shapes.extraLarge),
         shape = MirraTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -126,6 +126,7 @@ fun MirraProgress(progress: () -> Float, modifier: Modifier = Modifier) {
         modifier = modifier.heightIn(min = 8.dp),
         color = MirraTheme.colors.accent,
         trackColor = MirraTheme.colors.accentSoft,
+        gapSize = 0.dp,
         drawStopIndicator = {},
     )
 }

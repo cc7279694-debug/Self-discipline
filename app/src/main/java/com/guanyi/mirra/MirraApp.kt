@@ -125,6 +125,7 @@ fun MirraApp(
                             onOpenSession = { open(SessionRoute(it)) },
                             onCreateFirstLearningItem = { open(CreateFirstLearningItemRoute) },
                             onOpenKnowledge = { select(TopLevelDestination.Knowledge, persist = true) },
+                            onOpenProfile = { select(TopLevelDestination.Profile, persist = true) },
                         )
                         TopLevelDestination.Knowledge -> KnowledgeScreen(
                             viewModel = viewModel(factory = viewModelFactory {

@@ -1,10 +1,10 @@
 # Current State
 
-更新日期：2026-09-14
+更新日期：2026-09-19
 
 ## Current Stage
 
-Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；Module 3A 已完成 Schema v4、SessionSegment、coverage 数据模型与纯状态机实现，尚未进入任何 Android 系统能力。
+Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；Module 3A 已正式验收。Mirra Visual Parity Pass 已在 3A 基线上完成 Start 视觉工程化，尚未进入 Module 3B 或任何 Android 系统能力。
 
 ## Verified Completed
 
@@ -77,10 +77,14 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；M
 - coverage 明确使用 FULL / PARTIAL / NONE；PARTIAL 永不回到 FULL，初始 NONE 只能在后续获得可信覆盖时成为 PARTIAL。UNMONITORED 不计 Focus，完整可信判断还会拒绝空洞、重叠、越界和未覆盖完整 Session 的时间线。
 - 3A 尚无监测能力，因此新 Session 保守创建为 `NONE + UNMONITORED`；正常结束会关闭活动 Segment，进程死亡恢复会从最后可信 heartbeat 到检测时刻记录 UNMONITORED，再沿用 ABNORMAL 规则结束 Session，不伪造 Focus。
 - Stable Start 120 秒与 Recovery 90 秒已作为纯领域 milestone 规则和持久化事实入口实现，不自动触发、不阻塞 Session，也未接入任何 Android 系统信号。
+- Module 3A 远程提交 `35064ee1cb5fb69a9499db2e847dfb346b4331ef` 已由用户正式验收并冻结。
+- Start Mainline 已按批准概念图实现顶部品牌与轻量个人入口、确定性灰阶占位封面、双栏 Focus Card、页码/百分比/Progress/First Action、Play 主 CTA 和真实正常 Session 的最近阅读条；EmptyLibrary 仍只保留品牌、标题与唯一主按钮。
+- Bottom Navigation 已缩轻图标与选中区，避开系统手势区；Knowledge / Mine 仅做视觉回归检查，未修改页面内容、IA 或数据逻辑。
+- Visual Parity Pass 保持 Room Schema v4、Module 3A Segment/Coverage/FocusRepository/状态机/Migration 3→4 不变；API 37 模拟器四页截图和 Mainline 并排对比已保存至 `docs/checkpoints/assets/mirra-visual-parity/`。
 
 ## In Progress
 
-- 当前没有实施中的业务模块。Module 3A 已实现并等待正式验收；未开始 Module 3B。
+- 当前没有实施中的业务模块；Mirra Visual Parity Pass 已完成，未开始 Module 3B。
 
 ## Frozen Phase 2 Baseline
 
@@ -95,7 +99,7 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；M
 
 ## Pending
 
-- Phase 3｜Module 3B：DND、Usage Access、Foreground Service 等 Android capability 尚未开始，需单独规划复核与授权。
+- Phase 3｜Module 3B：DND、Usage Access、Foreground Service 等 Android capability 尚未开始，需单独规划复核与授权。未来 3B 必须先设计从 Session 起点成立的 Monitored Session Start handshake，不得把真实监测缺口回填为 FULL。
 
 ## Known Risks / Unknowns
 
@@ -115,10 +119,10 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；M
 
 ## Git
 
-- Current branch: `codex/phase-3a-session-segments`
+- Current branch: `codex/mirra-visual-parity`
 - Frozen Phase 3 planning base: `882d649cf600cd3f6f3b59d0be8a7911f3e42c70`
 - Room Schema: v4
 
 ## Next Recommended Task
 
-等待 Module 3A 验收；验收后单独规划/授权 Module 3B，不自动进入 DND、Usage Access、Foreground Service、Overlay 或 Notification 实施。
+验收 Mirra Visual Parity Pass 的真实截图及并排对比；之后再单独规划/授权 Module 3B，不自动进入 DND、Usage Access、Foreground Service、Overlay 或 Notification 实施。

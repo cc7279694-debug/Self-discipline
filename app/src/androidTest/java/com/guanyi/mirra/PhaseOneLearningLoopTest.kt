@@ -68,7 +68,8 @@ class PhaseOneLearningLoopTest {
         composeRule.onNodeWithText("阅读页数：15").assertExists()
         composeRule.onNodeWithText("Note 数量：2").assertExists()
         composeRule.onNodeWithText("完成").performClick()
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("上次停在第 25 页 · 共 300 页")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("上次停在第 25 页")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("25 / 300 页").assertExists()
         composeRule.onNode(hasText("知识") and hasClickAction()).performClick()
         composeRule.onNodeWithText("怪诞行为学").performClick()
         composeRule.onNodeWithText("当前第 25 页，共 300 页").assertExists()

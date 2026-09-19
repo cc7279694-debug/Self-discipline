@@ -1729,7 +1729,7 @@ Soft Neumorphism 只允许用于 Primary Button、Focus Card、Progress、Toggle
 
 主题偏好保存于 DataStore，默认及非法值回退到 Mirra Blue。Mono 与 Night 可以先保留可读的 Palette / Token，但在完成独立视觉迁移与验收前不向用户开放完整主题选择。本主题系统不修改 Room Schema，也不改变 Local-first 与离线能力。
 
-参考概念图只定义视觉方向；其中的书封面、头像、装饰气泡、slogan 或其他未确认元素不得因此进入产品。
+参考概念图只定义视觉方向；头像、装饰气泡、slogan 或其他未确认元素不得因此进入产品。Start Mainline 可用书名确定性生成不联网、不持久化的灰阶占位封面，仅用于视觉版式；本阶段不新增真实封面字段、自定义封面或图片来源。
 
 Start 的 EmptyLibrary 状态保持极简：只显示品牌标识、主标题“开始第一次学习”和唯一主 CTA“添加第一本书”。不显示通用问题标题、主线机制解释、小卡片或填充留白的装饰内容。有真实学习内容后才展示 Focus Card、Progress、First Action 与最近阅读信息。
 
