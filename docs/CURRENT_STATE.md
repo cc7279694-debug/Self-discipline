@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；Module 3A 已正式验收。Mirra Visual Parity Pass 已在 3A 基线上完成 Start 视觉工程化，尚未进入 Module 3B 或任何 Android 系统能力。
+Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；Module 3A 已正式验收。Mirra Visual Parity Pass 已在 3A 基线上完成 Start 视觉工程化。Module 3B 现有方案调研及监测起点等实施语义已验收并冻结；尚未进入 3B 编码或任何 Android 系统能力。
 
 ## Verified Completed
 
@@ -81,10 +81,12 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；M
 - Start Mainline 已按批准概念图实现顶部品牌与轻量个人入口、确定性灰阶占位封面、双栏 Focus Card、页码/百分比/Progress/First Action、Play 主 CTA 和真实正常 Session 的最近阅读条；EmptyLibrary 仍只保留品牌、标题与唯一主按钮。
 - Bottom Navigation 已缩轻图标与选中区，避开系统手势区；Knowledge / Mine 仅做视觉回归检查，未修改页面内容、IA 或数据逻辑。
 - Visual Parity Pass 保持 Room Schema v4、Module 3A Segment/Coverage/FocusRepository/状态机/Migration 3→4 不变；API 37 模拟器四页截图和 Mainline 并排对比已保存至 `docs/checkpoints/assets/mirra-visual-parity/`。
+- Module 3B Existing Solutions Review 已基于 Mindful 与 Reef 的固定源码提交完成并验收，文档见 `docs/research/PHASE_3B_EXISTING_SOLUTIONS_REVIEW.md`；只借鉴可验证思路，不复制第三方代码。
+- 3B 实施语义已锁定：Monitoring READY 定义新 Session 起点且不要求前台 package；能力不可用时允许 `NONE + UNMONITORED` 学习；运行时期限采用单调时间；首版约 1 秒观察；FULL 表示完整可信覆盖而非全程 Focus。建议采用时间有序 Observation reducer，FGS 不承载业务状态机。
 
 ## In Progress
 
-- 当前没有实施中的业务模块；Mirra Visual Parity Pass 已完成，未开始 Module 3B。
+- 当前没有实施中的业务模块；3B 调研已冻结，未开始 Module 3B 实施。
 
 ## Frozen Phase 2 Baseline
 
@@ -99,7 +101,7 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；M
 
 ## Pending
 
-- Phase 3｜Module 3B：DND、Usage Access、Foreground Service 等 Android capability 尚未开始，需单独规划复核与授权。未来 3B 必须先设计从 Session 起点成立的 Monitored Session Start handshake，不得把真实监测缺口回填为 FULL。
+- Phase 3｜Module 3B：DND、Usage Access、Foreground Service 等 Android capability 尚未开始，需根据已冻结调研与监测起点约束先完成实施计划并单独获得授权。真实监测缺口不得回填为 FULL。
 
 ## Known Risks / Unknowns
 
@@ -125,4 +127,4 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；M
 
 ## Next Recommended Task
 
-验收 Mirra Visual Parity Pass 的真实截图及并排对比；之后再单独规划/授权 Module 3B，不自动进入 DND、Usage Access、Foreground Service、Overlay 或 Notification 实施。
+基于已冻结的 Module 3B 调研与六项监测语义，单独制定/验收 3B 实施计划；本回合不进入 DND、Usage Access、Foreground Service、Overlay 或 Notification 实施。

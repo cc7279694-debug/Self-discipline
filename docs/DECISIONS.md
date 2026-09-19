@@ -1,5 +1,34 @@
 # Decisions
 
+## 2026-09-19 — Module 3B 监测就绪、时间与 Coverage 语义
+
+### Decision
+
+本决策细化下方同日的“从 Session 起点建立监测握手”，不改变已冻结的 3A 实现：
+
+1. 用户点击“开始学习”先 preflight 并启动监测；只有 FGS 已运行、Usage Access 有效、UsageMonitor loop 与 event cursor 已建立、`queryEvents` 可正常访问、heartbeat 已开始，才为 Monitoring READY。READY 不要求识别到前台 package；锁屏/息屏或 foreground UNKNOWN 均可 READY。
+2. READY lease 有效且从 READY 起无监测缺口时，以 Monitoring READY 时刻作为 `sessionStartedAt`，在受限事务内原子创建 Session、`FULL` coverage、初始 FOCUS Segment，并完成既有 Intent 转换；不把按钮点击到 READY 的时间回填入 Session。事务前后失去可信覆盖须降级/补偿，不追认 FULL。
+3. Usage Access 缺失/拒绝、FGS 失败或 handshake timeout 不阻止学习：创建普通 `NONE + UNMONITORED` Session，轻量告知本次不监测手机分心。
+4. handshake timeout、heartbeat deadline、candidate duration、风险 App 连续约 10 秒确认采用 `elapsedRealtime` 等单调时钟；wall clock 只用于持久化历史时间和展示。观察 loop 首版约 1 秒，candidate 按 elapsed duration 和持续观测证据确认，不按 tick 数；只有真机证据才能调整频率。
+5. `FULL` 只表示 Session 全时间轴有可信监测覆盖，不表示全程 FOCUS；其中可以有 FOCUS、DEEP_FOCUS、BREAK、TEMPORARY_ALLOWANCE、DISTRACTION、RECOVERY。Coverage 的 FULL/PARTIAL/NONE 与 Segment 状态正交；UNMONITORED 或不可解释缺口不得计 Focus，PARTIAL 不能升回 FULL。
+6. 不复制 Mindful 的 `activeApps mutableList + firstOrNull()`；使用时间有序 UsageEvent Observation 与 `ForegroundObservationReducer` 推导 observed package / UNKNOWN，处理重复、迟到和 OEM 异常。职责链为 `SessionStartCoordinator → MonitoringCapabilityManager → FocusMonitoringService → UsageMonitor → ForegroundObservationReducer → RiskAppMonitor → SessionSegmentStateMachine`；FGS 不是业务状态机。`DndController` 与本地只读 `MonitoringDiagnostics` 为旁路能力。
+
+### Context
+
+Module 3B 现有方案调研确认 Mindful 与 Reef 都没有满足 Mirra FULL 起点的 ready handshake；Mindful 的 750ms 轮询与可变 active-app 列表、Reef 的 Accessibility 即时阻断也不符合 Mirra 已冻结的监测边界。3A 的普通 Session 必须保守从 `NONE + UNMONITORED` 开始。
+
+### Alternatives
+
+先建 Session 后启动 FGS 并回填 FULL、以发现前台 package 作为 READY 条件、监测失败时禁止开始学习、按轮询 tick 计风险时长，或把 FULL 当成全程 Focus。
+
+### Reason
+
+监测起点与连续性必须由可验证事实支撑；实体书阅读可在锁屏状态开始，监测权限不应成为学习门槛。单调时间避免系统时钟修改破坏运行时判定，Observation reducer 能对事件异常作保守处理。
+
+### Consequences
+
+本回合仅冻结 3B 实施约束，不修改业务代码、Room Schema v4 或 Migration。3B 后续实现须用事务与真实设备测试证明 READY lease、启动竞态、gap、1 秒 cadence、权限降级和诊断；未获单独实施授权前不启动 3B。
+
 ## 2026-09-19 — Start Visual Parity 使用非持久化灰阶占位封面
 
 ### Decision
