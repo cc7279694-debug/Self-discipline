@@ -1,5 +1,33 @@
 # Decisions
 
+## 2026-09-19 — Module 3B 实施计划冻结补充约束
+
+### Decision
+
+已验收的 `docs/plans/MODULE_3B_IMPLEMENTATION.md` 在实施前补充以下约束，细化下方同日的监测握手决策，不改写 3A 已有事实：
+
+1. `lastSuccessfulQueryElapsed` 表示 UsageMonitor 最近一次成功、可衔接的事件查询；`lastForegroundEvidenceElapsed` 单独表示前台包证据新鲜度。成功空查询能维持监测连续性，但不能无限延长旧 package。包证据过期可清 Candidate/返回 UNKNOWN，不因此单独制造 monitoring gap。
+2. 明显 wall/elapsed offset 跳变时，清 Candidate；从最后可信点在事务中降为 `PARTIAL + UNMONITORED`；丢弃旧 wall cursor，从当前 wall time 重建。不得跨时钟跳变补证、补 Focus 或将 PARTIAL 升回 FULL；持久化时间线不得倒序。
+3. 10 秒 Candidate 仅在起点至确认时始终对应**同一条仍活动的 FOCUS/DEEP_FOCUS Segment**，且中间没有 BREAK、UNKNOWN/UNMONITORED、其他候选或切段，才可把 DISTRACTION 起点回写到 candidate 起点。运行时 candidate token/generation 与确认事实必须幂等；不满足条件时不得改写已闭合历史。
+4. `SessionStartCoordinator` 状态显式为 `IDLE → PREPARING → READY_LEASE → COMMITTING → COMMITTED → BOUND`。commit 前取消只停已证实未绑定的孤儿 FGS；COMMITTING 取消且结果未知时先查 Room；commit 后 bind/连续性失败保留 Session，并立即 `FULL → PARTIAL + UNMONITORED`，不能误停仍属于该 Session 的 FGS。
+5. API 35+ 优先复用单一、可重复识别的 Mirra-owned `AutomaticZenRule`，保存并可重新发现 rule ID。若系统建规则成功但 App 尚未保存 ID 就死亡，启动时只识别和处理 Mirra 自己的规则，幂等停用/复用，不留下孤儿 DND，也不触碰用户或其他 App 的规则。
+
+### Context
+
+Module 3B 详细计划已由用户验收；上述五处如果留给编码时临场推断，可能把查询空结果误当监测缺口、跨系统调时伪造连续事实、回写已结束 Segment、在协程取消后误停有效 Service，或遗留自动勿扰规则。
+
+### Alternatives
+
+用单一“最近观察时间”推断两种连续性、保留旧 wall cursor、无条件回写 candidate 起点、只靠 `finally` 清 Service，或每场 Session 新建 DND rule。
+
+### Reason
+
+FULL 的证明依赖可审计的查询连续性、事务边界与失败补偿；前台包新鲜度和系统规则归属属于不同事实，必须分别处理。
+
+### Consequences
+
+这些是后续 3B 实施与测试的冻结约束。本次仅修改规划和项目记忆；Room v4、业务代码、Manifest、权限与设备行为没有变化。3B 编码仍需逐 Task 单独授权和验收。
+
 ## 2026-09-19 — Module 3B 监测就绪、时间与 Coverage 语义
 
 ### Decision

@@ -68,24 +68,24 @@ Usage Access 与 DND 均不是普通危险权限弹窗：只从明确用户操�
 
 **采集:** active Session 约每 1 秒 IO 查询 `queryEvents(begin,end)`；API 35+ 可使用 `UsageEventsQuery` 限定 Activity resume/pause、screen/keyguard 事件，低版本用时间区间重载。`begin` 为上次成功查询 wall cursor 减一个**有界重叠窗**（初拟 3 秒），`end` 为本次 wall now（exclusive）；同一事件以 `(timestamp,type,package,class)` 去重，重叠窗长度和 OEM 延迟必须真机验证。API 返回 null/抛异常、Direct Boot 用户存储锁定与成功空结果分别建模。系统聚合 `queryUsageStats` 不能用于此刻前台判断。[官方 UsageStats API](https://developer.android.com/reference/android/app/usage/UsageStatsManager)。
 
-**时钟:** `queryEvents` 区间和事件 timestamp 必须用 wall epoch，运行时 1 秒调度、READY lease TTL、握手 timeout、heartbeat deadline、6 秒缺口、candidate 10 秒一律用 `SystemClock.elapsedRealtime()`。每次查询保留 `(wallNow, elapsedNow)` 配对；wall clock 跳变/事件晚于合理窗口时使 observation UNKNOWN、废弃候选并降级，不把 wall 时间差直接当持续前台。跨 boot 不比较旧 elapsedRealtime。持久化 Session/Segment/Event/heartbeat 的时间仍是 wall timestamp。
+**时钟:** `queryEvents` 区间和事件 timestamp 必须用 wall epoch，运行时 1 秒调度、READY lease TTL、握手 timeout、heartbeat deadline、6 秒缺口、candidate 10 秒一律用 `SystemClock.elapsedRealtime()`。每次查询保留 `(wallNow, elapsedNow)` 配对；相邻样本的 wall 增量与 elapsed 增量明显不符时（首版阈值超过 2 秒，真机校准），执行固定恢复序列：清除 Candidate → 从最后可信边界在一个 Room 事务内降为 `PARTIAL + UNMONITORED` → 丢弃旧 wall cursor 和重叠窗 → 从当前 wall time 重新建立查询 cursor。新的连续查询只能改善后续观察，不能让当前 Session 恢复 FULL，也不能跨时间跳变补回 Focus。向后调钟时持久化 Segment 边界仍须单调且位于 Session 内；不能用倒退的系统时间直接写出倒序区间。跨 boot 不比较旧 elapsedRealtime。持久化 Session/Segment/Event/heartbeat 的时间仍是 wall timestamp。
 
 **模型:** `ForegroundObservation = Package(name, observedAtElapsed, sourceEventAtWall) | ScreenOff | DeviceLocked | Unknown(reason) | MonitoringUnavailable(reason)`。另外保留查询成功与否、cursor 和 freshness，不把“此轮无事件”直接变为 PACKAGE。`ForegroundObservationReducer` 以事件时间顺序折叠，处理重复 RESUMED、PAUSED/STOPPED 迟到、同 timestamp 冲突、跨包切换与缺失 stop；无可信事件顺序或超过有界 freshness 时给 UNKNOWN，而非使用旧 `activeApps.firstOrNull()`。系统 Launcher、SystemUI、设置/权限页只作为中性过渡，不自动认作风险包；锁屏/息屏是可观测状态，**unlock 不等于 distraction**。
 
-**连续性:** 已知 PACKAGE 只在初始可信 RESUMED 之后、屏幕仍交互、连续成功且覆盖的增量查询无反证、且 observation 未过期时维持；空结果不能从 UNKNOWN 创造 PACKAGE，也不能无限延长旧包。查询失败或事件窗无法衔接立即输出 UNKNOWN/UNAVAILABLE；若形成真实未知区间，落 `UNMONITORED` 并使 FULL 永久降 PARTIAL。约 1 秒只是采样节拍，不是 Android 事件即时性保证。
+**连续性与新鲜度分开:** `lastSuccessfulQueryElapsed` 只表示监测 loop 最近一次成功读取了可衔接的事件窗口；`lastForegroundEvidenceElapsed` 只表示最近一次可信前台包证据。成功但无事件的查询可推进 query cursor 与监测连续性，因此不能仅因 6 秒没有新 App Event 就制造 gap；它不能把旧 package 无限延长为当前前台。PACKAGE 只在初始可信 RESUMED、屏幕仍交互、后续成功查询无反证、且有界前台证据仍新鲜时维持；超过新鲜度上限输出 package UNKNOWN，但不自动等同监测中断。查询失败、权限撤销或事件窗无法衔接才进入 `MonitoringUnavailable/UNMONITORED`，使 FULL 永久降 PARTIAL。约 1 秒只是采样节拍，不是 Android 事件即时性保证。
 
 ## 5. 风险 App 目录、候选与事实记录
 
 - 复用 `risk_apps(packageName PRIMARY KEY,labelSnapshot,createdAt,updatedAt)` 与 Session 不可变快照。用户从**可见、可启动**的 App 列表显式选风险 App；Android 11+ 包可见性受限，优先针对 `ACTION_MAIN/CATEGORY_LAUNCHER` 的窄 `<queries>`，不得为图省事声明 `QUERY_ALL_PACKAGES`。只能识别可见子集时 UI 说明限制；不能宣称列出设备所有 App。[官方包可见性](https://developer.android.com/training/package-visibility/declaring)。
 - `packageName` 为身份，label 仅显示快照，图标按当前包即时读取并使用平台/Coil 现有缓存，不持久化 icon。卸载/禁用后配置保留但标示不可用，重新安装同 package 时刷新 label 并让用户确认是否仍为目标；不自动根据标签或图标匹配新包。Mirra 自身、Launcher、SystemUI、权限设置及不可安全干预的关键系统 App 不能加入风险集合；默认不预选微信、抖音或其他 App。
-- 纯领域 `CandidateRiskAppMachine` 输入有序 observation 与 elapsed 时间：首次可信风险包 → `Candidate(package, firstSeenElapsed)`；同包且持续可信 → 延续；换另一风险包 → 旧候选取消/记录 brief，新候选从零开始；转普通/系统过渡包 → 清除候选；`ScreenOff/DeviceLocked` → 清除候选，不将解锁计分心；UNKNOWN、查询失败、撤权或临时事件缺口 → 清除候选并通知 coverage 处理。只有持续约 10 秒、至少一次后续成功覆盖查询支持、无相反事件/缺口，才 `Confirmed`；**不按 10 次 tick**。不足 10 秒记录 `RISK_APP_BRIEF_VISIT`，确认后记录 `RISK_APP_CONFIRMED`，相同 candidate 幂等。
-- 确认后在 Room 事务内由 FOCUS/DEEP_FOCUS 切到 `DISTRACTION`，边界采用可信候选起点并满足 3A 边界/乱序约束；迟到到无法安全改写已闭合段时不倒填旧时段，保守标记缺口。风险 App 可信退出时可仅开始已有 `RECOVERY` Segment（表示等待恢复，不代表成功）；**3B 不判定 90 秒成功、不展示恢复干预、不计算 effective 指标**。这避免风险 App 已离开后仍把整段伪记为 FOCUS 或 DISTRACTION；3C 才实现恢复成功与用户引导。
+- 纯领域 `CandidateRiskAppMachine` 输入有序 observation 与 elapsed 时间：首次可信风险包 → `Candidate(token/generation, package, firstSeenElapsed, sourceFocusSegmentId)`；同包且持续可信 → 延续；换另一风险包 → 旧候选取消/记录 brief，新候选从零开始；转普通/系统过渡包 → 清除候选；`ScreenOff/DeviceLocked` → 清除候选，不将解锁计分心；前台证据过期而查询仍成功时 → 清除候选、foreground UNKNOWN，但**不自动制造 monitoring gap**；查询失败、撤权或事件窗缺口 → 清除候选并通知 coverage 降级。只有持续约 10 秒、至少一次后续成功覆盖查询支持、无相反事件/缺口，才 `Confirmed`；**不按 10 次 tick**。不足 10 秒记录 `RISK_APP_BRIEF_VISIT`。同一 candidate token 的确认与 `RISK_APP_CONFIRMED` 只能落库一次；重复观察不得重复切段或写事件。
+- 确认后只有当 candidate 起点至确认时**始终是同一条仍活动的 FOCUS/DEEP_FOCUS Segment**，且期间没有 BREAK、UNKNOWN/UNMONITORED、其他风险 candidate 或任何 Segment 切换时，才允许在同一 Room 事务以 candidate 起点为边界切到 `DISTRACTION` 并写 `RISK_APP_CONFIRMED`。Repository 须比对 `sourceFocusSegmentId`、candidate generation、活动 Segment ID 与现有确认事实；任一条件不满足不得修改已闭合历史，按当前可信边界处理或保守记录缺口。风险 App 可信退出时可仅开始已有 `RECOVERY` Segment（表示等待恢复，不代表成功）；**3B 不判定 90 秒成功、不展示恢复干预、不计算 effective 指标**。3C 才实现恢复成功与用户引导。
 
 ## 6. Monitored Session Start handshake 与事务
 
 `SessionStartCoordinator.start(intentId,startPage)` 是 PreparationViewModel 唯一调用点；内部 Mutex 防重复点击，同一 Intent 再次调用只能返回已有匹配 Session 或明确拒绝，不能重复监测或重复插入。UI 显示短暂“正在准备分心监测”，超时仍允许继续阅读。
 
-首版工程超时建议为**用户点击后最多 5 秒等待 READY**；用户可更早选择“不监测，继续学习”。这是可测试的等待上限，不是 Session 时长或产品成功阈值；须以真机 P95 重新验收。握手协程若因 ViewModel 销毁/导航取消，必须在 `finally` 中安全停止未绑定 Session 的 FGS，不能遗留孤儿服务；Activity recreate 后从仍 Active 的 Intent 重新发起即可，不继承已失效 lease。
+首版工程超时建议为**用户点击后最多 5 秒等待 READY**；用户可更早选择“不监测，继续学习”。这是可测试的等待上限，不是 Session 时长或产品成功阈值；须以真机 P95 重新验收。Coordinator 显式状态为 `IDLE → PREPARING → READY_LEASE → COMMITTING → COMMITTED → BOUND`，每个状态带同一 generation。Activity recreate/协程取消时，`finally` 只可在确认**尚未 commit**时停止孤儿 FGS；进入 COMMITTING 后若协程取消而提交结果未知，先按 Intent ID 查询 Room 事实，再决定清理，不能凭内存状态误停已属于 FULL Session 的 Service。已 commit 但 bind/连续性核对失败时保留 Session，立即从最后可信点降 `FULL → PARTIAL + UNMONITORED`。Activity recreate 后从仍 Active 的 Intent 重试未 commit 的启动，不继承已失效 lease。
 
 ```text
 用户明确点击 Start（不产生 sessionStartedAt）
@@ -98,21 +98,21 @@ Usage Access 与 DND 均不是普通危险权限弹窗：只从明确用户操�
 → 绑定 sessionId/generation 到运行中的 monitor，并核对 READY→commit→首个 post-commit poll 的连续性
 ```
 
-READY **不要求前台 package**；锁屏/息屏下首次成功查询可以为空，但 service/loop/cursor/heartbeat 必须可证明。READY lease 与事务之间 monitor 一直运行，暂存该区间观察证据；若监测在事务前失效，不执行 FULL 分支，而走原有普通 `startSession()` 创建 `NONE + UNMONITORED`。权限缺失、FGS 启动失败或 handshake timeout 同理降级，且停止未绑定的 Service。若 Intent 已超时或已有别的 Session，则这是业务拒绝，不得错误兜底创建新 Session。若 DB 事务失败，停止孤儿监测；若 commit 后绑定或首轮校验失败，按最后可信点（最坏为 `sessionStartedAt`）在事务中记录 `UNMONITORED` 并 `FULL→PARTIAL`，绝不删除 Session/重写起点来制造 FULL。
+READY **不要求前台 package**；锁屏/息屏下首次成功查询可以为空，但 service/loop/cursor/heartbeat 必须可证明。READY lease 与事务之间 monitor 一直运行，暂存该区间观察证据；若监测在事务前失效，不执行 FULL 分支，而走原有普通 `startSession()` 创建 `NONE + UNMONITORED`。权限缺失、FGS 启动失败或 handshake timeout 同理降级，且停止未绑定的 Service。若 Intent 已超时或已有别的 Session，则这是业务拒绝，不得错误兜底创建新 Session。若 DB 事务失败且查询证明确无新 Session，停止孤儿监测；若 commit 后绑定或首轮校验失败，按最后可信点（最坏为 `sessionStartedAt`）在事务中记录 `UNMONITORED` 并 `FULL→PARTIAL`，绝不删除 Session/重写起点来制造 FULL。
 
 **原子边界:** Session、FocusContext、风险快照、首段、Intent CONVERTED 必须在一个 `withTransaction`。Service start、system permission、DND apply、notification channel 不能置于 Room 事务内。保留现有 `StudyWorkflowRepository.startSession()` 非监测分支；新增受限 `startMonitoredSession(intentId,startPage,readyLease)`，把校验/创建合并到同一内部函数以避免两套业务逻辑。`readyLease` 只能由 Coordinator 所持 monitor generation 产生，事务调用前和提交后均校验。无法实现严格跨 Service/SQLite 原子性时，用 generation、持续观察缓冲、失败补偿和保守 PARTIAL 获得可恢复的最终一致；不宣称跨系统事务。
 
 ## 7. Heartbeat、监测缺口与进程恢复
 
-- poller 约每 1 秒在内存更新 `lastSuccessfulObservationElapsed`、cursor、observed state；**不每秒写 Room**。`FocusRepository.updateHeartbeat()` 每 15 秒且仅在查询仍可信时写入 wall timestamp；Session 起点先在创建事务写首 heartbeat。每次写单调推进、不越 Session 边界。15 秒写入间隔与 6 秒实时 observation gap 是不同用途。
+- poller 约每 1 秒在内存分别更新 `lastSuccessfulQueryElapsed`、`lastForegroundEvidenceElapsed`、cursor、observed state；**不每秒写 Room**。`FocusRepository.updateHeartbeat()` 每 15 秒且仅在查询仍可信时写入 wall timestamp；Session 起点先在创建事务写首 heartbeat。每次写单调推进、不越 Session 边界。15 秒写入间隔与 6 秒实时 observation gap 是不同用途；6 秒只比较上次成功 query，不比较上次前台 App Event。
 - 活进程中，查询失败/null、撤权、服务非正常停止或事件序列不可解释时立即撤销 candidate 并标 `UNMONITORED`；poller 无成功观测超过 6 秒时由 watchdog 从**最后可信边界**标 gap。多次丢失幂等，只保留一条 open UNMONITORED；即便后续监测恢复也只能保持 PARTIAL，再从可信恢复时刻开启后续 FOCUS。不能把缺口“补证”为 Focus。`UNMONITORED` 不能计有效专注。
 - 进程死亡/Task Manager Stop/Force Stop/reboot 后无正常回调。下次启动复用 3A `recoverInterruptedSession()`：以持久化 `lastHeartbeatAt`（可能早于内存最后查询，故保守）截断可信 Segment，后段记 UNMONITORED、Session `ABNORMAL`、不推进页码；随后仅清理 Mirra-owned DND，**不**启动 FGS 或恢复 Active Session。该恢复必须先于普通 UI 依赖 Active Session 进行。
 - 若 Session 正常结束事务已提交、但 DND release 前进程死亡，下一次启动还须扫描持久化 `dndLifecycle = ACTIVE/RELEASE_PENDING/RELEASE_FAILED` 的已结束 context 并幂等重试；不能只检查 Active Session，否则会留下 Mirra 自己的 DND 规则。
-- `SystemClock.elapsedRealtime` 跨进程或设备重启不持久化为可信 duration；wall clock 跳变、boot 变化、Event 时间逆序均导致保守 Unknown。若当前 `markMonitoringLost()` 无法处理“当前 Segment 起点即失监”的零长度边界，测试先固定预期，再仅作最小事务修正，绝不保存零长 Segment。
+- `SystemClock.elapsedRealtime` 跨进程或设备重启不持久化为可信 duration；wall clock 跳变按第 4 节固定顺序清 candidate、原子降 PARTIAL/UNMONITORED、重建 wall cursor，不能用旧 cursor 拼接新时间。Event 时间逆序导致保守 Unknown；无可衔接证据才降 coverage。若当前 `markMonitoringLost()` 无法处理“当前 Segment 起点即失监”的零长度边界，测试先固定预期，再仅作最小事务修正，绝不保存零长 Segment。
 
 ## 8. DND ownership 与正常结束
 
-- API 35+：有 policy access 且用户启用时，使用 Mirra-owned `AutomaticZenRule`；持久化可重复取得的 own rule ID，再激活。Session context 的 `dndRuleId/dndLifecycle` 记录该次关联。结束/异常启动恢复只停用 Mirra 自己的 rule，**不**调用“把全局 DND 改为 ALL”、不修改用户睡眠/会议或别的 App rule。用户在系统设置主动停用规则时，不强行重新启用。[Android 15 行为](https://developer.android.com/about/versions/15/behavior-changes-15)。
+- API 35+：有 policy access 且用户启用时，优先**复用一条稳定、可重复识别的 Mirra-owned `AutomaticZenRule`**，不为每个 Session 创建新 rule。以 Mirra 自己的 owner/component 与固定用途标识识别；先查询并复用已有 own rule，需要时才创建，持久化 rule ID 后再激活。冷启动若发现“系统已创建规则但尚未保存 rule ID”，须从系统可见的 Mirra-owned rule 中重新发现、记录并幂等停用/复用；识别不充分时不能触碰用户或其他 App 的规则。Session context 的 `dndRuleId/dndLifecycle` 记录该次关联。结束/异常启动恢复只停用 Mirra 自己的 rule，**不**调用“把全局 DND 改为 ALL”、不修改用户睡眠/会议或别的 App rule。用户在系统设置主动停用规则时，不强行重新启用。[Android 15 行为](https://developer.android.com/about/versions/15/behavior-changes-15)。
 - API 23–34：保存 Session 前 interruption filter 到现有 `priorDndInterruptionFilter`，写入意图状态后再调用旧 API；正常结束仅在当前 filter 仍等于 Mirra 当时施加值、且未观察到用户改变/ownership 不确定时才恢复快照。用户中途手动改 DND 时保留新值；进程死亡导致 ownership 无法证明时宁可提示检查系统设置，不盲写全局。系统调用失败/撤权捕获并标 `APPLY_FAILED/RELEASE_FAILED`，保持 Session 正常可结束。
 - 3B 尚无 3D Closeout：**暂在既有 `finishSession()` 正常提交后**执行 Mirra DND release，并在失败时提供重试/系统设置入口；不得在保存 Session 的 Room 事务中调用系统 API。3D 获授权后再把 release 时点移至 Closeout Complete。此阶段必须保证 App 已结束 Session 时不留下 Mirra 施加的 DND。DND 状态写入与外部调用用幂等重试补偿，尤其覆盖“规则已激活、DB ACTIVE 写入前崩溃”。
 - DND 不作为 Monitoring READY 必需条件，撤销 DND access 不降 coverage；撤销 Usage Access 才产生监测缺口。
@@ -153,11 +153,11 @@ OEM 验收不得把 AOSP 模拟器结论外推：Pixel 作为基准；小米、O
 
 ## 12. 可验收的实施顺序（每步先失败测试，再最小实现）
 
-- [ ] **Task 1｜纯领域证据链：**先测有序 reducer（重复/乱序/空查询/锁屏/包切换）和 Candidate（单调 9.9s 不确认、10s 有持续证据确认、时钟回拨无影响、Unknown 取消）；实现 `MonitoringModels`、reducer 和 candidate machine。只产 JVM 结果，不接系统 API。
+- [ ] **Task 1｜纯领域证据链：**先测有序 reducer（重复/乱序/成功空查询/锁屏/包切换）和 Candidate（单调 9.9s 不确认、10s 有持续证据确认、时钟回拨清 candidate、前台证据过期但 query 连续不造 gap、同一 Segment token 幂等、Unknown 取消）；实现 `MonitoringModels`、reducer 和 candidate machine。只产 JVM 结果，不接系统 API。
 - [ ] **Task 2｜Capability/FGS 骨架：**先用 Android fake 验证 granted/denied/revoked/null query、FGS ack/超时/重复 generation、Notification denied 的展示语义；再加 Manifest、系统 adapter、Service 和 debuggable diagnostics。Service 不插入 Session。
-- [ ] **Task 3｜Monitored start：**先写 Room 测试证明 FULL 事务五项原子、Intent 事务内复核、单 Active Session/Segment、READY 失效走 NONE、DB 失败无孤儿 Session；再实现 Coordinator 与同一 Repository 内受限分支，最后接 Preparation loading/降级 UI。
-- [ ] **Task 4｜Risk/heartbeat/gap：**先测 15 秒写放大上限、6 秒缺口、重复 loss、FULL→PARTIAL 不可恢复、风险确认/brief fact、撤权及 3A 段边界；再连接 UsageMonitor、RiskAppCatalog、FocusRepository。风险退出仅开始 RECOVERY 事实，不写成功 milestone。
-- [ ] **Task 5｜DND/收尾与恢复：**先用 fake 验证 API 35 own-rule、API 23–34 user-change-safe restore、权限拒绝/撤销、crash 各阶段；再接 Controller、现有 finish 路径及 bootstrap。没有权限仍可完成 Session。
+- [ ] **Task 3｜Monitored start：**先写 Room 测试证明 FULL 事务五项原子、Intent 事务内复核、单 Active Session/Segment、READY 失效走 NONE、DB 失败无孤儿 Session；再用 fake 测 `IDLE→…→BOUND` 各取消点，尤其 COMMITTING 结果未知先查库、COMMITTED 后 bind 失败降 PARTIAL 而不误停 FGS；最后实现 Coordinator 与同一 Repository 内受限分支、Preparation loading/降级 UI。
+- [ ] **Task 4｜Risk/heartbeat/gap：**先测 15 秒写放大上限、6 秒按成功 query 判缺口、成功空查询不造 gap、wall clock 前跳/后跳 cursor 重建、重复 loss、FULL→PARTIAL 不可恢复、同源 Focus Segment 方可回写候选起点、风险确认/brief 幂等、撤权及 3A 段边界；再连接 UsageMonitor、RiskAppCatalog、FocusRepository。风险退出仅开始 RECOVERY 事实，不写成功 milestone。
+- [ ] **Task 5｜DND/收尾与恢复：**先用 fake 验证 API 35 单一 own-rule 复用、创建成功但 ID 尚未落盘后的重新发现/停用、API 23–34 user-change-safe restore、权限拒绝/撤销、crash 各阶段；再接 Controller、现有 finish 路径及 bootstrap。没有权限仍可完成 Session。
 - [ ] **Task 6｜回归与设备验收：**对全量 JVM/Room/Compose/Instrumented、lintDebug、assembleDebug、APK 覆盖安装、离线/冷启动、Phase 1/2/3A 与 Visual Parity 回归；逐台真实设备记录版本、厂商、结果与未覆盖项。确认 Schema v4 文件 hash 未变、无 Migration、无 3C UI 或 effective 指标后方可提交 3B 实施报告。
 
 每步相关测试先在未实现接口时失败，再以最小代码通过。执行命令基线：`./gradlew testDebugUnitTest`、`./gradlew connectedDebugAndroidTest`、`./gradlew lintDebug assembleDebug`（Windows 可用 `gradlew.bat`）；每步只跑受影响测试，全量命令留到第 6 步。真机脚本只辅助操作，不把手工权限/DND 结果伪装成自动化测试。
@@ -166,8 +166,8 @@ OEM 验收不得把 AOSP 模拟器结论外推：Pixel 作为基准；小米、O
 
 | 层级 | 必测断言 |
 |---|---|
-| JVM | Reducer：重复 RESUMED、late PAUSED、同 timestamp 冲突、空查询、失败查询、锁屏、Launcher/SystemUI/Settings；Candidate：首次、同包延续、切包、Unknown、息屏、撤权、9.9s/10s、tick 丢失、wall clock 修改；Handshake：READY 不需 package、缺 FGS/query/cursor/heartbeat 任一不能 READY、lease 过期、generation 不匹配、用户取消。 |
-| Room | FULL 起点 Session/Context/FOCUS/快照/Intent 一事务；NONE fallback、重复点击、Intent 超时/Active 冲突/书状态改变；DB 失败后无部分写入；risk brief/confirmed 幂等与合法切段；heartbeat 单调、6 秒 gap、起点同刻丢失、重复丢失、已结束 Session 拒绝、PARTIAL 不升 FULL；v1→v4 历史数据仍可读且 v4 Schema 未改。 |
+| JVM | Reducer：重复 RESUMED、late PAUSED、同 timestamp 冲突、成功空查询与失败查询分离、锁屏、Launcher/SystemUI/Settings；Candidate：首次、同包延续、切包、包证据过期但 query 连续、Unknown、息屏、撤权、9.9s/10s、tick 丢失、wall clock 前跳/后跳；Handshake：READY 不需 package、缺 FGS/query/cursor/heartbeat 任一不能 READY、lease 过期、generation 不匹配、`COMMITTING` 取消结果未知、`COMMITTED` 后 bind 失败。 |
+| Room | FULL 起点 Session/Context/FOCUS/快照/Intent 一事务；NONE fallback、重复点击、Intent 超时/Active 冲突/书状态改变；DB 失败后无部分写入；只有 candidate token 所指同一活动 Focus Segment 才能回写、risk brief/confirmed 幂等；heartbeat 单调、成功空查询不产生 6 秒 gap、wall clock 跳变后 PARTIAL/UNMONITORED 原子写入、起点同刻丢失、重复丢失、已结束 Session 拒绝、PARTIAL 不升 FULL；v1→v4 历史数据仍可读且 v4 Schema 未改。 |
 | Instrumented / Compose | API 23/29/33/34/35/37 适用路径；Service foreground ack/停止、权限拒绝/撤销、channel/通知展示状态、Activity 返回后 capability 刷新、Preparation loading/降级、风险 App 设置、debug 入口仅 debuggable、Session 状态条；DND 模拟器只证明平台调用路径，不代替真机 ownership 结论。 |
 | 真机 | 息屏读实体书与解锁不算分心；前台包未知仍可 READY；微信/抖音**仅在用户手动选为风险 App 后**验证 brief<10s 与持续≥10s；切包/系统设置中断候选；Session 中撤 Usage Access；kill Mirra、Task Manager Stop、Force Stop、reboot 后不续监且遗留 Session ABNORMAL/UNMONITORED；用户中途手动修改 DND 不被覆盖；通知拒绝时不宣称普通通知送达；电池/耗电与 UsageEvent 延迟。 |
 

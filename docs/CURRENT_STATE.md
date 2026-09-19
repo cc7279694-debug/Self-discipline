@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；Module 3A 已正式验收。Mirra Visual Parity Pass 已在 3A 基线上完成 Start 视觉工程化。Module 3B 现有方案调研及监测起点等实施语义已验收并冻结；尚未进入 3B 编码或任何 Android 系统能力。
+Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；Module 3A 已正式验收。Mirra Visual Parity Pass 已在 3A 基线上完成 Start 视觉工程化。Module 3B 现有方案调研与详细实施计划均已验收并冻结；尚未进入 3B 编码或任何 Android 系统能力。
 
 ## Verified Completed
 
@@ -86,7 +86,7 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；M
 
 ## In Progress
 
-- 当前没有实施中的业务模块；3B 调研已冻结，未开始 Module 3B 实施。
+- 当前没有实施中的业务模块；`docs/plans/MODULE_3B_IMPLEMENTATION.md` 已正式验收并补齐五项实施约束，未开始 Module 3B 实施。
 
 ## Frozen Phase 2 Baseline
 
@@ -101,7 +101,7 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；M
 
 ## Pending
 
-- Phase 3｜Module 3B：DND、Usage Access、Foreground Service 等 Android capability 尚未开始，需根据已冻结调研与监测起点约束先完成实施计划并单独获得授权。真实监测缺口不得回填为 FULL。
+- Phase 3｜Module 3B：DND、Usage Access、Foreground Service 等 Android capability 尚未开始；下一步按已冻结计划从 Task 1 单独授权、分段验收。真实监测缺口不得回填为 FULL。
 
 ## Known Risks / Unknowns
 
@@ -127,4 +127,4 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；M
 
 ## Next Recommended Task
 
-基于已冻结的 Module 3B 调研与六项监测语义，单独制定/验收 3B 实施计划；本回合不进入 DND、Usage Access、Foreground Service、Overlay 或 Notification 实施。
+在单独授权后执行 Module 3B Task 1：纯领域 Observation reducer 与 Candidate 状态机；Task 2–6 继续逐段验收。3C/Overlay/有效专注指标留在后续模块。
