@@ -12,6 +12,6 @@ class MirraApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        container = DefaultAppContainer(applicationContext)
+        container = DefaultAppContainer(applicationContext, monitoringPlatform)
     }
 }

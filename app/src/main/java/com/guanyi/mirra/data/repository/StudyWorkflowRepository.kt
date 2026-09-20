@@ -17,8 +17,11 @@ import com.guanyi.mirra.domain.IntentExpiryPolicy
 import com.guanyi.mirra.domain.SummaryEngine
 import com.guanyi.mirra.data.search.SearchIndexWriter
 import com.guanyi.mirra.domain.DefaultSearchEngine
+import com.guanyi.mirra.platform.focus.MonitoringReadyLease
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
+
+data class MonitoredSessionStartResult(val session: StudySessionEntity, val created: Boolean)
 
 interface StudyWorkflowRepository {
     fun observeActiveIntent(): Flow<StudyIntentEntity?>
@@ -30,6 +33,10 @@ interface StudyWorkflowRepository {
     suspend fun markTransitioned(intentId: String)
     suspend fun abandonIntent(intentId: String)
     suspend fun startSession(intentId: String, startPage: Int): StudySessionEntity
+    suspend fun startMonitoredSession(
+        intentId: String, startPage: Int, readyLease: MonitoringReadyLease, proposedSessionId: String,
+    ): MonitoredSessionStartResult
+    suspend fun findActiveSessionForIntent(intentId: String): StudySessionEntity?
     suspend fun updateCurrentPage(sessionId: String, page: Int)
     suspend fun finishSession(sessionId: String, endPage: Int): StudySessionEntity
     suspend fun recoverInterruptedSession()
@@ -54,6 +61,7 @@ class DefaultStudyWorkflowRepository(
     override fun observeSession(id: String) = sessionDao.observe(id)
     override fun observeLatestSummaryForItem(learningItemId: String) = sessionDao.observeLatestSummaryForItem(learningItemId)
     override fun observeLatestNormalReading(learningItemId: String) = sessionDao.observeLatestNormalReading(learningItemId)
+    override suspend fun findActiveSessionForIntent(intentId: String) = sessionDao.getActiveForIntent(intentId)
 
     override suspend fun createIntent(
         learningItemId: String,
@@ -106,17 +114,29 @@ class DefaultStudyWorkflowRepository(
         }
     }
 
-    override suspend fun startSession(intentId: String, startPage: Int): StudySessionEntity {
-        val session = database.withTransaction<StudySessionEntity?> {
+    override suspend fun startSession(intentId: String, startPage: Int): StudySessionEntity =
+        startSessionInternal(intentId, startPage, readyLease = null, proposedSessionId = null).session
+
+    override suspend fun startMonitoredSession(
+        intentId: String, startPage: Int, readyLease: MonitoringReadyLease, proposedSessionId: String,
+    ): MonitoredSessionStartResult = startSessionInternal(intentId, startPage, readyLease, proposedSessionId)
+
+    private suspend fun startSessionInternal(
+        intentId: String, startPage: Int, readyLease: MonitoringReadyLease?, proposedSessionId: String?,
+    ): MonitoredSessionStartResult {
+        val result = database.withTransaction<MonitoredSessionStartResult?> {
+            if (readyLease != null) sessionDao.getActiveForIntent(intentId)?.let {
+                return@withTransaction MonitoredSessionStartResult(it, created = false)
+            }
             val intent = checkNotNull(intentDao.get(intentId)) { "Intent 不存在" }
             check(intent.activeSlot == ACTIVE_SLOT && intent.outcome == null) { "Intent 已结束" }
             val initialItem = checkNotNull(itemDao.get(intent.learningItemId)) { "Learning Item 不存在" }
             check(initialItem.status == LearningItemStatus.IN_PROGRESS) {
                 "只有进行中的内容可以开始"
             }
-            val now = clock()
-            if (expiryPolicy.isExpired(intent.createdAt, now)) {
-                intentDao.markTimedOut(intent.id, now)
+            val checkedAt = clock()
+            if (expiryPolicy.isExpired(intent.createdAt, checkedAt)) {
+                intentDao.markTimedOut(intent.id, checkedAt)
                 return@withTransaction null
             }
             check(sessionDao.getActive() == null) { "已有进行中的 Session" }
@@ -125,11 +145,17 @@ class DefaultStudyWorkflowRepository(
                 "只有进行中的内容可以开始"
             }
             require(startPage in 1..item.totalPages) { "起始页必须在书籍范围内" }
+            val startedAt = readyLease?.readyAtWall ?: checkedAt
+            if (readyLease != null) {
+                require(!proposedSessionId.isNullOrBlank()) { "Session ID 不可为空" }
+                require(readyLease.generation.isNotBlank() && readyLease.successfulQueryGeneration > 0) { "监测证据无效" }
+                require(startedAt in intent.createdAt..checkedAt) { "READY 时间越过 Intent/当前时间" }
+            }
             val session = StudySessionEntity(
-                id = newId(),
+                id = proposedSessionId ?: newId(),
                 learningItemId = item.id,
                 intentId = intent.id,
-                startedAt = now,
+                startedAt = startedAt,
                 stableStartedAt = null,
                 endedAt = null,
                 startPage = startPage,
@@ -143,8 +169,12 @@ class DefaultStudyWorkflowRepository(
             focusDao.insertContext(
                 SessionFocusContextEntity(
                     sessionId = session.id,
-                    monitoringStatus = MonitoringCoverage.NONE,
-                    monitoringLostAt = session.startedAt,
+                    monitoringStatus = if (readyLease != null) MonitoringCoverage.FULL else MonitoringCoverage.NONE,
+                    monitoringLostAt = if (readyLease != null) null else session.startedAt,
+                    pollIntervalMillis = if (readyLease != null) 1_000 else 2_000,
+                    usageAccessAtStart = readyLease != null,
+                    dndAccessAtStart = readyLease?.dndAccessAvailable ?: false,
+                    notificationAccessAtStart = readyLease?.notificationVisible ?: false,
                     priorDndInterruptionFilter = null,
                     dndRuleId = null,
                     requestedEndPage = null,
@@ -160,15 +190,16 @@ class DefaultStudyWorkflowRepository(
             if (riskSnapshots.isNotEmpty()) focusDao.insertRiskSnapshots(riskSnapshots)
             focusDao.insertSegment(
                 SessionSegmentEntity(
-                    id = newId(), sessionId = session.id, type = SessionSegmentType.UNMONITORED,
+                    id = newId(), sessionId = session.id,
+                    type = if (readyLease != null) SessionSegmentType.FOCUS else SessionSegmentType.UNMONITORED,
                     startedAt = session.startedAt, endedAt = null, packageName = null, reason = null,
                     plannedEndAt = null, extensionCount = 0, relatedSegmentId = null, activeSlot = ACTIVE_SLOT,
                 ),
             )
-            check(intentDao.markConverted(intent.id, now) == 1) { "Intent 转换失败" }
-            session
+            check(intentDao.markConverted(intent.id, startedAt) == 1) { "Intent 转换失败" }
+            MonitoredSessionStartResult(session, created = true)
         }
-        return session ?: error("Intent 已超时")
+        return result ?: error("Intent 已超时")
     }
 
     override suspend fun updateCurrentPage(sessionId: String, page: Int) {

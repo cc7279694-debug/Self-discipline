@@ -34,6 +34,9 @@ import com.guanyi.mirra.domain.RuleBasedSummaryEngine
 import com.guanyi.mirra.domain.SessionManager
 import com.guanyi.mirra.domain.DefaultSearchEngine
 import com.guanyi.mirra.domain.AnalyticsTimeProvider
+import com.guanyi.mirra.domain.SessionStartCoordinator
+import com.guanyi.mirra.domain.RepositoryMonitoredStartStore
+import com.guanyi.mirra.platform.focus.MonitoringPlatformRuntime
 import com.guanyi.mirra.domain.CompletionPredictionService
 import com.guanyi.mirra.domain.ReadingAnalyticsService
 import kotlinx.coroutines.CoroutineScope
@@ -58,10 +61,11 @@ interface AppContainer {
     val completionPredictionService: CompletionPredictionService
     val analyticsTimeProvider: AnalyticsTimeProvider
     val sessionManager: SessionManager
+    val sessionStartCoordinator: SessionStartCoordinator
     val startup: Deferred<Unit>
 }
 
-class DefaultAppContainer(context: Context) : AppContainer {
+class DefaultAppContainer(context: Context, monitoringRuntime: MonitoringPlatformRuntime) : AppContainer {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val database = Room.databaseBuilder(
         context,
@@ -88,7 +92,10 @@ class DefaultAppContainer(context: Context) : AppContainer {
     override val readingAnalyticsService = ReadingAnalyticsService()
     override val completionPredictionService = CompletionPredictionService()
     override val analyticsTimeProvider = AnalyticsTimeProvider()
-    override val sessionManager: SessionManager = DefaultSessionManager(studyWorkflowRepository)
+    override val sessionManager: SessionManager = DefaultSessionManager(studyWorkflowRepository, monitoringRuntime::releaseSession)
+    override val sessionStartCoordinator: SessionStartCoordinator = SessionStartCoordinator(
+        RepositoryMonitoredStartStore(studyWorkflowRepository, focusRepository), monitoringRuntime,
+    )
     override val startup: Deferred<Unit> = applicationScope.async {
         sessionManager.recoverInterruptedSession()
         runCatching { imageRepository.reconcileStorage() }

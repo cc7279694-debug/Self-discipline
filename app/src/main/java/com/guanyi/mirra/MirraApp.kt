@@ -334,7 +334,7 @@ fun MirraApp(
                                     route.intentId,
                                     container.studyWorkflowRepository,
                                     container.learningItemRepository,
-                                    container.sessionManager,
+                                    container.sessionStartCoordinator,
                                 )
                             },
                         ),

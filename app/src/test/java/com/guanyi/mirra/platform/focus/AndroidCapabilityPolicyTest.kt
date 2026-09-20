@@ -30,6 +30,16 @@ class AndroidCapabilityPolicyTest {
         assertEquals(CapabilityStatus.TEMPORARILY_UNAVAILABLE, UsageAccessCapability(gateway).check())
     }
 
+    @Test fun `poll loop capability recheck never runs a second UsageEvents query`() {
+        val gateway = FakeUsageGateway(mode = UsageOpMode.ALLOWED, queryAvailable = true)
+        val capability = UsageAccessCapability(gateway)
+        assertEquals(CapabilityStatus.AVAILABLE, capability.checkLightweight())
+        assertEquals(0, gateway.queryCount)
+        gateway.mode = UsageOpMode.DENIED
+        assertEquals(CapabilityStatus.NEEDS_USER_ACTION, capability.checkLightweight())
+        assertEquals(0, gateway.queryCount)
+    }
+
     @Test fun `notification denial hides drawer but cannot disable foreground service`() {
         val gateway = FakeNotificationGateway(runtimePermission = false, channelEnabled = true)
         val capability = NotificationCapability(gateway)
@@ -53,9 +63,10 @@ class AndroidCapabilityPolicyTest {
         var queryAvailable: Boolean = false,
         var unlocked: Boolean = true,
     ) : UsageAccessGateway {
+        var queryCount = 0
         override fun appOpMode() = mode
         override fun userUnlocked() = unlocked
-        override fun canQuery(): Boolean = queryAvailable
+        override fun canQuery(): Boolean { queryCount++; return queryAvailable }
     }
 
     private class FakeNotificationGateway(

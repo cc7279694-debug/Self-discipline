@@ -22,8 +22,10 @@ import com.guanyi.mirra.data.local.entity.LearningItemEntity
 import com.guanyi.mirra.data.local.entity.StudyIntentEntity
 import com.guanyi.mirra.data.repository.LearningItemRepository
 import com.guanyi.mirra.data.repository.StudyWorkflowRepository
-import com.guanyi.mirra.domain.SessionManager
+import com.guanyi.mirra.domain.SessionStartCoordinator
+import com.guanyi.mirra.domain.StartMonitoringResult
 import com.guanyi.mirra.domain.FirstActionResolver
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -31,6 +33,8 @@ import kotlinx.coroutines.launch
 import com.guanyi.mirra.ui.components.MirraPrimaryButton
 import com.guanyi.mirra.ui.components.MirraSecondaryButton
 import com.guanyi.mirra.ui.components.MirraTextAction
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 
 data class PreparationUiState(
     val intent: StudyIntentEntity? = null,
@@ -41,11 +45,13 @@ class PreparationViewModel(
     private val intentId: String,
     private val workflow: StudyWorkflowRepository,
     private val learningItems: LearningItemRepository,
-    private val sessionManager: SessionManager,
+    private val sessionStartCoordinator: SessionStartCoordinator,
 ) : ViewModel() {
     var error by mutableStateOf<String?>(null)
         private set
     var abandoning by mutableStateOf(false)
+        private set
+    var starting by mutableStateOf(false)
         private set
 
     val uiState = combine(workflow.observeActiveIntent(), learningItems.observeAll()) { intent, items ->
@@ -57,17 +63,28 @@ class PreparationViewModel(
         viewModelScope.launch { runCatching { workflow.markTransitioned(intentId) } }
     }
 
-    fun start(onStarted: (String) -> Unit) {
+    fun start(onStarted: (String, Boolean) -> Unit) {
+        if (starting) return
         val item = uiState.value.item ?: return
+        starting = true
+        error = null
         viewModelScope.launch {
-            runCatching { sessionManager.start(intentId, item.currentPage) }
-                .onSuccess { onStarted(it.id) }
-                .onFailure { error = it.message ?: "无法开始 Session" }
+            try {
+                val result = sessionStartCoordinator.start(intentId, item.currentPage)
+                onStarted(result.session.id, result.monitoring == StartMonitoringResult.UNMONITORED ||
+                    result.monitoring == StartMonitoringResult.DEGRADED)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                error = failure.message ?: "无法开始 Session"
+            } finally {
+                starting = false
+            }
         }
     }
 
     fun abandon(onAbandoned: () -> Unit) {
-        if (abandoning) return
+        if (abandoning || starting) return
         abandoning = true
         viewModelScope.launch {
             runCatching { workflow.abandonIntent(intentId) }
@@ -88,6 +105,7 @@ fun PreparationScreen(
     onBack: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val item = state.item
     Column(
         Modifier.fillMaxSize().padding(24.dp),
@@ -99,20 +117,25 @@ fun PreparationScreen(
             Text("先完成一个具体动作", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(10.dp))
             Text(item?.let(FirstActionResolver::resolve) ?: "正在读取…", style = MaterialTheme.typography.titleLarge)
+            if (viewModel.starting) Text("正在准备分心监测…", color = MaterialTheme.colorScheme.onSurfaceVariant)
             viewModel.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
         Column {
             MirraPrimaryButton(
-                onClick = { viewModel.start(onStarted) },
-                enabled = item != null,
+                onClick = { viewModel.start { sessionId, unmonitored ->
+                    if (unmonitored) Toast.makeText(context, "本次未开启分心监测", Toast.LENGTH_SHORT).show()
+                    onStarted(sessionId)
+                } },
+                enabled = item != null && !viewModel.starting,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
             ) { Text("我已拿起书，开始阅读") }
             Spacer(Modifier.height(10.dp))
-            MirraSecondaryButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("稍后再说") }
+            MirraSecondaryButton(onClick = onBack, enabled = !viewModel.starting,
+                modifier = Modifier.fillMaxWidth()) { Text("稍后再说") }
             Spacer(Modifier.height(10.dp))
             MirraTextAction(
                 onClick = { viewModel.abandon(onAbandoned) },
-                enabled = item != null && !viewModel.abandoning,
+                enabled = item != null && !viewModel.abandoning && !viewModel.starting,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("取消本次启动") }
         }

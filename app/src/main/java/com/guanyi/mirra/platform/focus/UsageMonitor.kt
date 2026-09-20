@@ -52,6 +52,8 @@ class UsageMonitor(
             running = healthy,
             queryGeneration = previous.queryGeneration + if (healthy) 1 else 0,
             lastSuccessfulQueryElapsed = reduction.state.lastSuccessfulQueryElapsed,
+            lastSuccessfulQueryClock = if (healthy) clock else previous.lastSuccessfulQueryClock,
+            continuityEpoch = previous.continuityEpoch + if (!healthy && previous.running) 1 else 0,
             lastForegroundEvidenceElapsed = reduction.state.lastForegroundEvidenceElapsed,
             cursorWallMillis = reduction.state.cursorWallMillis,
             observation = reduction.state.observation,

@@ -10,6 +10,20 @@ interface UsageAccessGateway {
 }
 
 class UsageAccessCapability(private val gateway: UsageAccessGateway) {
+    /** Runtime recheck only; the poll itself supplies the real query evidence. */
+    fun checkLightweight(): CapabilityStatus = try {
+        when (gateway.appOpMode()) {
+            UsageOpMode.DENIED, UsageOpMode.DEFAULT -> CapabilityStatus.NEEDS_USER_ACTION
+            UsageOpMode.ERRORED -> CapabilityStatus.UNAVAILABLE
+            UsageOpMode.ALLOWED -> if (gateway.userUnlocked()) CapabilityStatus.AVAILABLE
+                else CapabilityStatus.TEMPORARILY_UNAVAILABLE
+        }
+    } catch (_: SecurityException) {
+        CapabilityStatus.NEEDS_USER_ACTION
+    } catch (_: RuntimeException) {
+        CapabilityStatus.TEMPORARILY_UNAVAILABLE
+    }
+
     fun check(): CapabilityStatus = try {
         when (gateway.appOpMode()) {
             UsageOpMode.DENIED, UsageOpMode.DEFAULT -> CapabilityStatus.NEEDS_USER_ACTION

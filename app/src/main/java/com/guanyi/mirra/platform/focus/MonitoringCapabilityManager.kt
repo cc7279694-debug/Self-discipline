@@ -2,6 +2,7 @@ package com.guanyi.mirra.platform.focus
 
 import com.guanyi.mirra.domain.monitoring.ForegroundObservation
 import com.guanyi.mirra.domain.monitoring.MonitoringSignal
+import com.guanyi.mirra.domain.monitoring.ClockSample
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -13,6 +14,8 @@ data class MonitorSnapshot(
     val running: Boolean = false,
     val queryGeneration: Long = 0,
     val lastSuccessfulQueryElapsed: Long? = null,
+    val lastSuccessfulQueryClock: ClockSample? = null,
+    val continuityEpoch: Long = 0,
     val lastForegroundEvidenceElapsed: Long? = null,
     val cursorWallMillis: Long? = null,
     val observation: ForegroundObservation = ForegroundObservation.Unknown("not queried"),

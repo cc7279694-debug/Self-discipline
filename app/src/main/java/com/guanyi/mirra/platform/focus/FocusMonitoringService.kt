@@ -64,6 +64,10 @@ class FocusMonitoringService : Service() {
             if (runtime.lifecycle.state.value.phase == ServicePhase.STOPPED) stopSelf(startId)
             return START_NOT_STICKY
         }
+        if (!runtime.acceptsGeneration(generation)) {
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
         val lifecycle = runtime.lifecycle
         if (!lifecycle.start(generation)) return START_NOT_STICKY
         if (pollingJob != null) return START_NOT_STICKY // same generation: exactly one loop
@@ -89,7 +93,7 @@ class FocusMonitoringService : Service() {
         lastHeartbeatElapsed = SystemClock.elapsedRealtime()
         pollingJob = scope.launch {
             while (isActive) {
-                runtime.refreshCapabilities()
+                runtime.recheckUsageWithoutQuery()
                 if (runtime.capabilities.state.value.usage != CapabilityStatus.AVAILABLE) {
                     lifecycle.failed(generation, "usage access unavailable")
                     runtime.capabilities.updateService(lifecycle.state.value)
@@ -152,6 +156,7 @@ class FocusMonitoringService : Service() {
     }
 
     override fun onDestroy() {
+        val generation = runtime.lifecycle.state.value.generation
         pollingJob?.cancel()
         pollingJob = null
         monitor?.stop()
@@ -161,6 +166,7 @@ class FocusMonitoringService : Service() {
         registered = false
         runtime.lifecycle.state.value.generation?.let { runtime.lifecycle.stop(it) }
         runtime.capabilities.updateService(runtime.lifecycle.state.value)
+        runtime.onServiceDestroyed(generation)
         scope.cancel()
         super.onDestroy()
     }

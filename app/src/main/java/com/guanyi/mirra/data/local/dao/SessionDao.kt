@@ -28,6 +28,9 @@ interface SessionDao {
     @Query("SELECT * FROM study_sessions WHERE activeSlot = 1 LIMIT 1")
     suspend fun getActive(): StudySessionEntity?
 
+    @Query("SELECT * FROM study_sessions WHERE intentId = :intentId AND activeSlot = 1 LIMIT 1")
+    suspend fun getActiveForIntent(intentId: String): StudySessionEntity?
+
     @Query("SELECT * FROM study_sessions WHERE activeSlot = 1 LIMIT 1")
     fun observeActive(): Flow<StudySessionEntity?>
 
