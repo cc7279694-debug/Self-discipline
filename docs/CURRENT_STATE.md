@@ -1,10 +1,10 @@
 # Current State
 
-更新日期：2026-09-19
+更新日期：2026-09-20
 
 ## Current Stage
 
-Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；Module 3A 已正式验收。Mirra Visual Parity Pass 已在 3A 基线上完成 Start 视觉工程化。Module 3B 现有方案调研与详细实施计划均已验收并冻结；尚未进入 3B 编码或任何 Android 系统能力。
+Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B 调研及详细实施计划已冻结；Task 1 纯 Kotlin 监测证据链已实现，Task 2 及 Android 系统能力尚未开始。
 
 ## Verified Completed
 
@@ -83,10 +83,11 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；M
 - Visual Parity Pass 保持 Room Schema v4、Module 3A Segment/Coverage/FocusRepository/状态机/Migration 3→4 不变；API 37 模拟器四页截图和 Mainline 并排对比已保存至 `docs/checkpoints/assets/mirra-visual-parity/`。
 - Module 3B Existing Solutions Review 已基于 Mindful 与 Reef 的固定源码提交完成并验收，文档见 `docs/research/PHASE_3B_EXISTING_SOLUTIONS_REVIEW.md`；只借鉴可验证思路，不复制第三方代码。
 - 3B 实施语义已锁定：Monitoring READY 定义新 Session 起点且不要求前台 package；能力不可用时允许 `NONE + UNMONITORED` 学习；运行时期限采用单调时间；首版约 1 秒观察；FULL 表示完整可信覆盖而非全程 Focus。建议采用时间有序 Observation reducer，FGS 不承载业务状态机。
+- Module 3B Task 1 已新增纯 Kotlin Observation reducer 与 Risk App Candidate 状态机：查询连续性与前台包新鲜度分别跟踪；空查询不制造缺口，重复旧窗口及无关事件不刷新可信证据；失败、窗口断裂、时钟跳变输出保守的领域信号；10 秒候选使用单调时间、后续可信查询及同源 Segment guard，确认幂等。14 项新增 JVM 测试与原有测试合计 75 项通过；未接 Android API、Room 或 UI。
 
 ## In Progress
 
-- 当前没有实施中的业务模块；`docs/plans/MODULE_3B_IMPLEMENTATION.md` 已正式验收并补齐五项实施约束，未开始 Module 3B 实施。
+- 当前没有实施中的业务模块；Module 3B Task 1 已完成，Task 2 尚未获授权。
 
 ## Frozen Phase 2 Baseline
 
@@ -101,7 +102,7 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；M
 
 ## Pending
 
-- Phase 3｜Module 3B：DND、Usage Access、Foreground Service 等 Android capability 尚未开始；下一步按已冻结计划从 Task 1 单独授权、分段验收。真实监测缺口不得回填为 FULL。
+- Phase 3｜Module 3B Task 2–6：DND、Usage Access、Foreground Service 等 Android capability 尚未开始；仍须逐段授权、验收。真实监测缺口不得回填为 FULL。
 
 ## Known Risks / Unknowns
 
@@ -121,10 +122,10 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划已冻结；M
 
 ## Git
 
-- Current branch: `codex/mirra-visual-parity`
+- Current branch: `codex/phase-3b-task1-domain-monitoring`
 - Frozen Phase 3 planning base: `882d649cf600cd3f6f3b59d0be8a7911f3e42c70`
 - Room Schema: v4
 
 ## Next Recommended Task
 
-在单独授权后执行 Module 3B Task 1：纯领域 Observation reducer 与 Candidate 状态机；Task 2–6 继续逐段验收。3C/Overlay/有效专注指标留在后续模块。
+验收 Module 3B Task 1；随后仅在单独授权后执行 Task 2。3C/Overlay/有效专注指标留在后续模块。
