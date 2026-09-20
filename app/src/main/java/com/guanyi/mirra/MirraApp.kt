@@ -69,6 +69,8 @@ import com.guanyi.mirra.data.search.SearchDocumentType
 import com.guanyi.mirra.ui.viewModelFactory
 import com.guanyi.mirra.ui.components.MirraBottomNavigation
 import com.guanyi.mirra.ui.theme.MirraTheme
+import androidx.compose.ui.platform.LocalContext
+import com.guanyi.mirra.platform.focus.isMirraDebuggable
 
 @Composable
 fun MirraApp(
@@ -76,6 +78,9 @@ fun MirraApp(
     restoredDestination: TopLevelDestination,
     onDestinationChanged: (TopLevelDestination) -> Unit,
 ) {
+    val appContext = LocalContext.current.applicationContext
+    val debugMonitoring = if (appContext.isMirraDebuggable())
+        (appContext as? MirraApplication)?.monitoringPlatform else null
     val backStack = rememberNavBackStack(TopLevelDestination.Start)
     var selectedDestination by remember { mutableStateOf(TopLevelDestination.Start) }
 
@@ -148,6 +153,7 @@ fun MirraApp(
                                     container.analyticsTimeProvider,
                                 )
                             }),
+                            debugMonitoring = debugMonitoring,
                         )
                     }
                 }

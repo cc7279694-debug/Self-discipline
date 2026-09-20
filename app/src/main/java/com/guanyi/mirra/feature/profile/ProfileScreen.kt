@@ -19,11 +19,19 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.guanyi.mirra.ui.theme.MirraTheme
+import com.guanyi.mirra.platform.focus.MonitoringDiagnosticsPanel
+import com.guanyi.mirra.platform.focus.MonitoringPlatformRuntime
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.AlertDialog
 
 @Composable
-fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
+fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier, debugMonitoring: MonitoringPlatformRuntime? = null) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
+    var showDiagnostics by remember { mutableStateOf(false) }
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshTimeContext()
@@ -44,6 +52,19 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier) {
             color = MirraTheme.colors.textSecondary,
         )
         ProfileSummaryContent(state, Modifier.padding(top = 28.dp))
+        if (debugMonitoring != null) {
+            TextButton(onClick = { showDiagnostics = true }, modifier = Modifier.padding(top = 20.dp)) {
+                Text("监测诊断（开发版）")
+            }
+        }
+    }
+    if (showDiagnostics && debugMonitoring != null) {
+        AlertDialog(
+            onDismissRequest = { showDiagnostics = false },
+            title = { Text("本地监测诊断") },
+            text = { MonitoringDiagnosticsPanel(debugMonitoring) },
+            confirmButton = { TextButton(onClick = { showDiagnostics = false }) { Text("关闭") } },
+        )
     }
 }
 

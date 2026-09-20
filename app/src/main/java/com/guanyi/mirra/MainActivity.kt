@@ -12,6 +12,11 @@ import com.guanyi.mirra.ui.theme.MirraTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    override fun onResume() {
+        super.onResume()
+        (application as MirraApplication).monitoringPlatform.refreshCapabilities()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

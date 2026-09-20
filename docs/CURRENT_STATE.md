@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B 调研及详细实施计划已冻结；Task 1 纯 Kotlin 监测证据链已实现，Task 2 及 Android 系统能力尚未开始。
+Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B 调研及详细实施计划已冻结；Task 1 纯 Kotlin 监测证据链与 Task 2 Android capability / FGS 骨架已实现，Task 3 尚未开始。
 
 ## Verified Completed
 
@@ -84,10 +84,13 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 - Module 3B Existing Solutions Review 已基于 Mindful 与 Reef 的固定源码提交完成并验收，文档见 `docs/research/PHASE_3B_EXISTING_SOLUTIONS_REVIEW.md`；只借鉴可验证思路，不复制第三方代码。
 - 3B 实施语义已锁定：Monitoring READY 定义新 Session 起点且不要求前台 package；能力不可用时允许 `NONE + UNMONITORED` 学习；运行时期限采用单调时间；首版约 1 秒观察；FULL 表示完整可信覆盖而非全程 Focus。建议采用时间有序 Observation reducer，FGS 不承载业务状态机。
 - Module 3B Task 1 已新增纯 Kotlin Observation reducer 与 Risk App Candidate 状态机：查询连续性与前台包新鲜度分别跟踪；空查询不制造缺口，重复旧窗口及无关事件不刷新可信证据；失败、窗口断裂、时钟跳变输出保守的领域信号；10 秒候选使用单调时间、后续可信查询及同源 Segment guard，确认幂等。14 项新增 JVM 测试与原有测试合计 75 项通过；未接 Android API、Room 或 UI。
+- Module 3B Task 2 已建立 Usage Access、通知栏可见性与 DND policy access 的独立能力检查；Usage Access 须同时通过 AppOps 和真实 query，成功空查询仍可用，通知或 DND 拒绝不阻止监测。仅开发版“我的”提供本地诊断和显式启动/停止入口。
+- 私有 `specialUse` 前台 Service 只在用户显式操作后启动，使用 `START_NOT_STICKY`，以唯一 generation 防重复 poller；Foreground ACK、首次成功查询和 `MONITOR_READY` 分开报告。约 1 秒轮询、3 秒重叠查询窗口、wall-clock jump 后 cursor 重建与息屏/锁定事实均通过 Task 1 reducer；Service 不创建 Session、不写 Room、不应用 DND。
+- API 37 模拟器已实际验证 Usage Access 未授权时不进入 READY、授权后在通知/DND 未授权时仍进入 READY、手动停止、运行中撤销 Usage Access 后退出 READY、权限设置往返、APK 覆盖安装及强停冷启动。Task 2 完整回归为 90 项 JVM 与 115 项设备测试通过，`lintDebug` 和 `assembleDebug` 通过；Room Schema v4 未变化。
 
 ## In Progress
 
-- 当前没有实施中的业务模块；Module 3B Task 1 已完成，Task 2 尚未获授权。
+- 当前没有实施中的业务模块；Module 3B Task 2 已实现，等待独立验收。
 
 ## Frozen Phase 2 Baseline
 
@@ -102,7 +105,7 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## Pending
 
-- Phase 3｜Module 3B Task 2–6：DND、Usage Access、Foreground Service 等 Android capability 尚未开始；仍须逐段授权、验收。真实监测缺口不得回填为 FULL。
+- Phase 3｜Module 3B Task 3–6：monitored Session 握手、Segment 事实、风险 App 干预及 DND ownership 尚未开始；仍须逐段授权、验收。真实监测缺口不得回填为 FULL。
 
 ## Known Risks / Unknowns
 
@@ -122,10 +125,10 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## Git
 
-- Current branch: `codex/phase-3b-task1-domain-monitoring`
+- Current branch: `codex/phase-3b-task2-platform-monitoring`
 - Frozen Phase 3 planning base: `882d649cf600cd3f6f3b59d0be8a7911f3e42c70`
 - Room Schema: v4
 
 ## Next Recommended Task
 
-验收 Module 3B Task 1；随后仅在单独授权后执行 Task 2。3C/Overlay/有效专注指标留在后续模块。
+验收 Module 3B Task 2；随后仅在单独授权后执行 Task 3。3C/Overlay/有效专注指标留在后续模块。
