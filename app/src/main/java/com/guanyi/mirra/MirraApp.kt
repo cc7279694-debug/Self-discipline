@@ -154,6 +154,7 @@ fun MirraApp(
                                 )
                             }),
                             debugMonitoring = debugMonitoring,
+                            riskRepository = container.focusRepository,
                         )
                     }
                 }

@@ -18,6 +18,7 @@ data class MonitorSnapshot(
     val continuityEpoch: Long = 0,
     val lastForegroundEvidenceElapsed: Long? = null,
     val cursorWallMillis: Long? = null,
+    val lastEventWallMillis: Long? = null,
     val observation: ForegroundObservation = ForegroundObservation.Unknown("not queried"),
     val signals: Set<MonitoringSignal> = emptySet(),
     val lastPlatformError: String? = null,

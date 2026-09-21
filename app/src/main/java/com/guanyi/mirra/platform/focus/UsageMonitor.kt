@@ -56,6 +56,7 @@ class UsageMonitor(
             continuityEpoch = previous.continuityEpoch + if (!healthy && previous.running) 1 else 0,
             lastForegroundEvidenceElapsed = reduction.state.lastForegroundEvidenceElapsed,
             cursorWallMillis = reduction.state.cursorWallMillis,
+            lastEventWallMillis = reduction.state.lastEventWallMillis,
             observation = reduction.state.observation,
             signals = reduction.signals,
             lastPlatformError = (result as? QueryResult.Failure)?.reason?.name,

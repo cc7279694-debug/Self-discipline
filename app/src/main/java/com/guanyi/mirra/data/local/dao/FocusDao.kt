@@ -30,6 +30,9 @@ interface FocusDao {
     @Query("SELECT * FROM risk_apps ORDER BY packageName")
     suspend fun listRiskApps(): List<RiskAppEntity>
 
+    @Query("SELECT packageName FROM session_risk_app_snapshots WHERE sessionId = :sessionId")
+    suspend fun listSessionRiskPackages(sessionId: String): List<String>
+
     @Query("SELECT * FROM session_focus_contexts WHERE sessionId = :sessionId")
     suspend fun getContext(sessionId: String): SessionFocusContextEntity?
 
@@ -51,6 +54,10 @@ interface FocusDao {
     @Query("SELECT * FROM focus_events WHERE sessionId = :sessionId ORDER BY occurredAt, id")
     suspend fun listEvents(sessionId: String): List<FocusEventEntity>
 
+    @Query("SELECT COUNT(*) FROM focus_events WHERE sessionId = :sessionId AND type = :type AND packageName = :packageName AND occurredAt = :at")
+    suspend fun countMatchingEvent(sessionId: String, type: com.guanyi.mirra.data.local.entity.FocusEventType,
+        packageName: String, at: Long): Int
+
     @Query("""
         UPDATE session_segments SET endedAt = :endedAt, activeSlot = NULL
         WHERE id = :id AND sessionId = :sessionId AND activeSlot = 1
@@ -71,10 +78,15 @@ interface FocusDao {
     ): Int
 
     @Query("""
-        UPDATE session_segments SET type = :type
+        UPDATE session_segments SET type = :type, packageName = NULL, reason = NULL,
+            plannedEndAt = NULL, relatedSegmentId = NULL
         WHERE id = :id AND sessionId = :sessionId AND activeSlot = 1
     """)
     suspend fun changeActiveSegmentType(id: String, sessionId: String, type: SessionSegmentType): Int
+
+    @Query("UPDATE session_segments SET type = :type, packageName = :packageName WHERE id = :id AND sessionId = :sessionId AND activeSlot = 1")
+    suspend fun changeActiveSegmentToRisk(id: String, sessionId: String, type: SessionSegmentType,
+        packageName: String): Int
 
     @Query("DELETE FROM session_segments WHERE id = :id AND sessionId = :sessionId AND activeSlot = 1")
     suspend fun deleteActiveSegment(id: String, sessionId: String): Int

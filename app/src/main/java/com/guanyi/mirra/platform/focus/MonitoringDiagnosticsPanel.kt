@@ -39,6 +39,13 @@ fun MonitoringDiagnosticsPanel(runtime: MonitoringPlatformRuntime, modifier: Mod
         Text("Last query elapsed: ${state.monitor.lastSuccessfulQueryElapsed ?: "—"}")
         Text("Last foreground evidence elapsed: ${state.monitor.lastForegroundEvidenceElapsed ?: "—"}")
         Text("Cursor wall: ${state.monitor.cursorWallMillis ?: "—"} / query generation: ${state.monitor.queryGeneration}")
+        runtime.factDiagnostics?.let { facts ->
+            Text("Bound Session: ${facts.sessionId ?: "—"} / generation: ${facts.generation ?: "—"}")
+            Text("Segment: ${facts.segment ?: "—"} / Coverage: ${facts.coverage ?: "—"}")
+            Text("Risk snapshot: ${facts.riskSnapshotCount} / candidate: ${facts.candidatePackage ?: "—"}")
+            Text("Candidate token: ${facts.candidateToken ?: "—"} / elapsed start: ${facts.candidateFirstSeenElapsed ?: "—"}")
+            Text("Room heartbeat: ${facts.lastHeartbeatAt ?: "—"} / gap: ${facts.gapAt ?: "—"} ${facts.gapReason ?: ""}")
+        }
         Text("Observation: ${state.monitor.observation}")
         Text("Device signal: ${state.monitor.lastDeviceSignal ?: "—"}")
         Text("Last error: ${state.monitor.lastPlatformError ?: state.service.lastError ?: "—"}")

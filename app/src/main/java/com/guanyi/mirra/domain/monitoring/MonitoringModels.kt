@@ -32,6 +32,7 @@ sealed interface ForegroundObservation {
         val name: String,
         val observedAtElapsedMillis: Long,
         val sourceEventAtWallMillis: Long,
+        val activityClassName: String? = null,
     ) : ForegroundObservation
 
     data class ScreenOff(val observedAtElapsedMillis: Long) : ForegroundObservation
@@ -66,6 +67,10 @@ data class CandidateInput(
     val sourceFocusSegmentId: String?,
     val queryContinuous: Boolean,
     val foregroundFresh: Boolean,
+    val wallNowMillis: Long? = null,
+    val generation: String = "",
+    val sourceFocusStartedAt: Long? = null,
+    val departureEventAtWallMillis: Long? = null,
 )
 
 sealed interface RiskCandidateState {
@@ -76,6 +81,8 @@ sealed interface RiskCandidateState {
         val firstSeenElapsed: Long,
         val firstQueryGeneration: Long,
         val sourceFocusSegmentId: String,
+        val firstSeenWall: Long = 0,
+        val generation: String = "",
     ) : RiskCandidateState
     data class Confirmed(val candidate: Candidate) : RiskCandidateState
 }
@@ -86,5 +93,8 @@ sealed interface RiskDecision {
         val packageName: String,
         val firstSeenElapsed: Long,
         val sourceFocusSegmentId: String,
+        val firstSeenWall: Long = 0,
+        val generation: String = "",
     ) : RiskDecision
+    data class BriefVisit(val candidate: RiskCandidateState.Candidate, val exitedAtWall: Long) : RiskDecision
 }

@@ -80,6 +80,8 @@ class ForegroundObservationReducer(
                     val active = observation as? ForegroundObservation.Package
                     if (active != null && group.any {
                             it.packageName == active.name &&
+                                (active.activityClassName == null || it.className == null ||
+                                    it.className == active.activityClassName) &&
                                 (it.kind == UsageEventKind.ACTIVITY_PAUSED || it.kind == UsageEventKind.ACTIVITY_STOPPED)
                         }
                     ) {
@@ -90,7 +92,14 @@ class ForegroundObservationReducer(
                 }
                 val distinct = group.toSet() - if (at == lastEventWall) lastKeys else emptySet()
                 if (distinct.isEmpty()) return@forEach
-                if (at == lastEventWall || distinct.size > 1) {
+                val screenSignal = distinct.map { it.kind }.toSet()
+                if (UsageEventKind.DEVICE_LOCKED in screenSignal ||
+                        UsageEventKind.SCREEN_OFF in screenSignal) {
+                    observation = if (UsageEventKind.DEVICE_LOCKED in screenSignal)
+                        ForegroundObservation.DeviceLocked(clock.elapsedNowMillis)
+                    else ForegroundObservation.ScreenOff(clock.elapsedNowMillis)
+                    lastEvidence = null
+                } else if (at == lastEventWall || distinct.size > 1) {
                     observation = ForegroundObservation.Unknown("conflicting same-time events")
                     lastEvidence = null
                 } else {
@@ -98,11 +107,14 @@ class ForegroundObservationReducer(
                     observation = when (event.kind) {
                         UsageEventKind.ACTIVITY_RESUMED -> {
                             if (event.packageName.isNullOrBlank()) ForegroundObservation.Unknown("missing package")
-                            else ForegroundObservation.Package(event.packageName, clock.elapsedNowMillis, at)
+                            else ForegroundObservation.Package(event.packageName, clock.elapsedNowMillis, at,
+                                event.className)
                         }
                         UsageEventKind.ACTIVITY_PAUSED, UsageEventKind.ACTIVITY_STOPPED -> {
                             if (observation is ForegroundObservation.Package &&
-                                observation.name == event.packageName
+                                observation.name == event.packageName &&
+                                (observation.activityClassName == null || event.className == null ||
+                                    observation.activityClassName == event.className)
                             ) ForegroundObservation.Unknown("foreground exited") else observation
                         }
                         UsageEventKind.SCREEN_OFF -> ForegroundObservation.ScreenOff(clock.elapsedNowMillis)

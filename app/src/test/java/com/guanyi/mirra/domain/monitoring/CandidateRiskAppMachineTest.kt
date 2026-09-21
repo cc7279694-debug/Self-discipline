@@ -73,6 +73,35 @@ class CandidateRiskAppMachineTest {
         assertTrue(machine.state is RiskCandidateState.Idle)
     }
 
+    @Test fun `candidate retains actual event wall boundary and emits one brief visit only on trusted exit`() {
+        val machine = machine()
+        machine.accept(input("risk", 1_000, 1).copy(wallNowMillis = 2_000))
+        val candidate = machine.state as RiskCandidateState.Candidate
+        assertEquals(1_500L, candidate.firstSeenWall)
+        val brief = machine.accept(input("normal", 5_000, 2).copy(
+            observation = ForegroundObservation.Package("normal", 5_000, 5_500), wallNowMillis = 6_000))
+        assertEquals(1, brief.size)
+        assertTrue(brief.single() is RiskDecision.BriefVisit)
+        assertEquals(5_500L, (brief.single() as RiskDecision.BriefVisit).exitedAtWall)
+        assertTrue(machine.accept(input("normal", 6_000, 3)).isEmpty())
+    }
+
+    @Test fun `loss and stale evidence never fabricate brief visit`() {
+        val machine = machine()
+        machine.accept(input("risk", 1_000, 1))
+        assertTrue(machine.accept(input("risk", 5_000, 2).copy(queryContinuous = false)).isEmpty())
+        machine.accept(input("risk", 6_000, 3))
+        assertTrue(machine.accept(input("risk", 7_000, 4).copy(foregroundFresh = false)).isEmpty())
+    }
+
+    @Test fun `foreground event before Session start is clamped to open Focus boundary`() {
+        val machine = machine()
+        machine.accept(input("risk", 5_000, 1).copy(wallNowMillis = 6_000,
+            sourceFocusStartedAt = 4_000,
+            observation = ForegroundObservation.Package("risk", 5_000, 2_000)))
+        assertEquals(4_000L, (machine.state as RiskCandidateState.Candidate).firstSeenWall)
+    }
+
     private fun input(name: String, elapsed: Long, query: Long) = CandidateInput(
         ForegroundObservation.Package(name, elapsed, 1_500), elapsed, query, "segment-42", true, true,
     )

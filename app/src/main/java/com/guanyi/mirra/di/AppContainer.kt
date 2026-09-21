@@ -89,6 +89,7 @@ class DefaultAppContainer(context: Context, monitoringRuntime: MonitoringPlatfor
     override val searchRepository: SearchRepository = DefaultSearchRepository(database, searchEngine, searchIndexRebuilder)
     override val readingAnalyticsRepository: ReadingAnalyticsRepository = DefaultReadingAnalyticsRepository(database)
     override val focusRepository: FocusRepository = DefaultFocusRepository(database)
+    init { monitoringRuntime.attachFacts(focusRepository) }
     override val readingAnalyticsService = ReadingAnalyticsService()
     override val completionPredictionService = CompletionPredictionService()
     override val analyticsTimeProvider = AnalyticsTimeProvider()

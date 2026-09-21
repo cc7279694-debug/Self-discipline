@@ -4,6 +4,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.HorizontalDivider
@@ -26,12 +33,32 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import com.guanyi.mirra.data.repository.FocusRepository
+import com.guanyi.mirra.platform.focus.RiskAppCatalog
+import com.guanyi.mirra.platform.focus.LaunchableRiskApp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
-fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier, debugMonitoring: MonitoringPlatformRuntime? = null) {
+fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier,
+    debugMonitoring: MonitoringPlatformRuntime? = null, riskRepository: FocusRepository? = null) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     var showDiagnostics by remember { mutableStateOf(false) }
+    var showRiskApps by remember { mutableStateOf(false) }
+    var launchableApps by remember { mutableStateOf<List<LaunchableRiskApp>>(emptyList()) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    val riskAppsFlow = remember(riskRepository) { riskRepository?.observeRiskApps() }
+    val selectedRiskApps = riskAppsFlow?.collectAsStateWithLifecycle(initialValue = emptyList())
+        ?.value.orEmpty().map { it.packageName }.toSet()
+    LaunchedEffect(showRiskApps) {
+        if (showRiskApps) launchableApps = withContext(Dispatchers.IO) { RiskAppCatalog(context).list() }
+    }
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshTimeContext()
@@ -52,6 +79,11 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier, de
             color = MirraTheme.colors.textSecondary,
         )
         ProfileSummaryContent(state, Modifier.padding(top = 28.dp))
+        if (riskRepository != null) {
+            TextButton(onClick = { showRiskApps = true }, modifier = Modifier.padding(top = 20.dp)) {
+                Text("风险 App")
+            }
+        }
         if (debugMonitoring != null) {
             TextButton(onClick = { showDiagnostics = true }, modifier = Modifier.padding(top = 20.dp)) {
                 Text("监测诊断（开发版）")
@@ -64,6 +96,36 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier, de
             title = { Text("本地监测诊断") },
             text = { MonitoringDiagnosticsPanel(debugMonitoring) },
             confirmButton = { TextButton(onClick = { showDiagnostics = false }) { Text("关闭") } },
+        )
+    }
+    if (showRiskApps && riskRepository != null) {
+        AlertDialog(
+            onDismissRequest = { showRiskApps = false },
+            title = { Text("选择风险 App") },
+            text = {
+                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                    Text("仅影响下一次学习；当前学习使用开始时的选择。",
+                        color = MirraTheme.colors.textSecondary)
+                    if (launchableApps.isEmpty()) Text("没有可选的 App")
+                    launchableApps.forEach { app ->
+                        Row(Modifier.fillMaxWidth().clickable {
+                            scope.launch {
+                                if (app.packageName in selectedRiskApps) riskRepository.removeRiskApp(app.packageName)
+                                else riskRepository.replaceRiskApp(app.packageName, app.label)
+                            }
+                        }.padding(vertical = 6.dp)) {
+                            Checkbox(checked = app.packageName in selectedRiskApps, onCheckedChange = null)
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Text(app.label, color = MirraTheme.colors.textPrimary)
+                                Text(app.packageName, style = MaterialTheme.typography.bodySmall,
+                                    color = MirraTheme.colors.textTertiary)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showRiskApps = false }) { Text("完成") } },
         )
     }
 }

@@ -34,6 +34,22 @@ data class FocusEventInput(
     val deliveryChannel: InterventionDeliveryChannel? = null,
 )
 
+data class RuntimeFocusFacts(
+    val sessionStartedAt: Long,
+    val activeSegment: SessionSegmentEntity,
+    val coverage: MonitoringCoverage,
+    val lastHeartbeatAt: Long,
+    val riskPackages: Set<String>,
+)
+
+data class RiskConfirmation(
+    val sessionId: String,
+    val sourceSegmentId: String,
+    val packageName: String,
+    val candidateStartedAt: Long,
+    val confirmedAt: Long,
+)
+
 interface FocusRepository {
     fun observeContext(sessionId: String): Flow<SessionFocusContextEntity?>
     fun observeActiveSegment(sessionId: String): Flow<SessionSegmentEntity?>
@@ -47,6 +63,10 @@ interface FocusRepository {
     suspend fun markMonitoringLost(sessionId: String, lastTrustedAt: Long, detectedAt: Long)
     suspend fun markStableStarted(sessionId: String, at: Long)
     suspend fun completeRecovery(sessionId: String, at: Long): SessionSegmentEntity
+    suspend fun runtimeFacts(sessionId: String): RuntimeFocusFacts?
+    suspend fun confirmRisk(candidate: RiskConfirmation): Boolean
+    suspend fun recordBriefRiskVisit(sessionId: String, packageName: String, exitedAt: Long): Boolean
+    suspend fun exitRisk(sessionId: String, packageName: String, at: Long): Boolean
 }
 
 class DefaultFocusRepository(
@@ -62,6 +82,65 @@ class DefaultFocusRepository(
     override fun observeActiveSegment(sessionId: String) = dao.observeActiveSegment(sessionId)
     override fun observeSegments(sessionId: String) = dao.observeSegments(sessionId)
     override fun observeRiskApps() = dao.observeRiskApps()
+
+    override suspend fun runtimeFacts(sessionId: String): RuntimeFocusFacts? = database.withTransaction {
+        val session = sessions.get(sessionId)?.takeIf { it.activeSlot == 1 && it.endedAt == null } ?: return@withTransaction null
+        val context = dao.getContext(sessionId) ?: return@withTransaction null
+        val active = dao.getActiveSegment(sessionId) ?: return@withTransaction null
+        RuntimeFocusFacts(session.startedAt, active, context.monitoringStatus, context.lastHeartbeatAt,
+            dao.listSessionRiskPackages(sessionId).toSet())
+    }
+
+    override suspend fun confirmRisk(candidate: RiskConfirmation): Boolean = database.withTransaction {
+        val session = sessions.get(candidate.sessionId)?.takeIf { it.activeSlot == 1 && it.endedAt == null }
+            ?: return@withTransaction false
+        val context = dao.getContext(candidate.sessionId) ?: return@withTransaction false
+        val active = dao.getActiveSegment(candidate.sessionId) ?: return@withTransaction false
+        if (context.monitoringStatus == MonitoringCoverage.NONE || active.id != candidate.sourceSegmentId ||
+            !active.type.countsAsFocus || candidate.packageName !in dao.listSessionRiskPackages(candidate.sessionId) ||
+            candidate.candidateStartedAt < active.startedAt || candidate.candidateStartedAt < session.startedAt ||
+            candidate.confirmedAt - candidate.candidateStartedAt < context.riskConfirmMillis ||
+            candidate.confirmedAt > clock() ||
+            dao.listEvents(candidate.sessionId).any { it.type == FocusEventType.RISK_APP_CONFIRMED &&
+                it.segmentId == candidate.sourceSegmentId }
+        ) return@withTransaction false
+        if (candidate.candidateStartedAt == active.startedAt) {
+            check(dao.changeActiveSegmentToRisk(active.id, candidate.sessionId,
+                SessionSegmentType.DISTRACTION, candidate.packageName) == 1)
+        } else {
+            check(dao.closeActiveSegment(active.id, candidate.sessionId, candidate.candidateStartedAt) == 1)
+            dao.insertSegment(segment(candidate.sessionId, SessionSegmentType.DISTRACTION,
+                candidate.candidateStartedAt, packageName = candidate.packageName, active = true))
+        }
+        dao.insertEvent(FocusEventEntity(newId(), candidate.sessionId, FocusEventType.RISK_APP_CONFIRMED,
+            candidate.confirmedAt, candidate.packageName, active.id, null))
+        true
+    }
+
+    override suspend fun recordBriefRiskVisit(sessionId: String, packageName: String, exitedAt: Long): Boolean =
+        database.withTransaction {
+            val session = sessions.get(sessionId)?.takeIf { it.activeSlot == 1 && it.endedAt == null }
+                ?: return@withTransaction false
+            if (exitedAt !in session.startedAt..clock() ||
+                packageName !in dao.listSessionRiskPackages(sessionId) ||
+                dao.countMatchingEvent(sessionId, FocusEventType.RISK_APP_BRIEF_VISIT, packageName, exitedAt) > 0
+            ) return@withTransaction false
+            dao.insertEvent(FocusEventEntity(newId(), sessionId, FocusEventType.RISK_APP_BRIEF_VISIT,
+                exitedAt, packageName, null, null))
+            true
+        }
+
+    override suspend fun exitRisk(sessionId: String, packageName: String, at: Long): Boolean = database.withTransaction {
+        val session = sessions.get(sessionId)?.takeIf { it.activeSlot == 1 && it.endedAt == null }
+            ?: return@withTransaction false
+        val active = dao.getActiveSegment(sessionId) ?: return@withTransaction false
+        if (active.type != SessionSegmentType.DISTRACTION || active.packageName != packageName ||
+            at <= active.startedAt || at > clock() || at < session.startedAt) return@withTransaction false
+        check(dao.closeActiveSegment(active.id, sessionId, at) == 1)
+        dao.insertSegment(segment(sessionId, SessionSegmentType.RECOVERY, at,
+            relatedSegmentId = active.id, active = true))
+        true
+    }
 
     override suspend fun replaceRiskApp(packageName: String, label: String) {
         require(packageName.isNotBlank()) { "Package name 不能为空" }
@@ -109,6 +188,8 @@ class DefaultFocusRepository(
 
     override suspend fun markMonitoringLost(sessionId: String, lastTrustedAt: Long, detectedAt: Long) {
         database.withTransaction {
+            val session = checkNotNull(sessions.get(sessionId)) { "Session 不存在" }
+            check(session.activeSlot == 1 && session.endedAt == null) { "Session 已结束" }
             val current = checkNotNull(dao.getActiveSegment(sessionId))
             val context = checkNotNull(dao.getContext(sessionId))
             val targetCoverage = if (context.monitoringStatus == MonitoringCoverage.FULL) {
@@ -116,7 +197,9 @@ class DefaultFocusRepository(
             } else {
                 context.monitoringStatus
             }
-            require(detectedAt <= clock() && lastTrustedAt <= detectedAt) { "监测缺口时间非法" }
+            // After a backward wall-clock jump, the last trusted persisted boundary may be
+            // ahead of the new wall time. Preserve that boundary; never write time backwards.
+            require(detectedAt <= maxOf(clock(), lastTrustedAt) && lastTrustedAt <= detectedAt) { "监测缺口时间非法" }
             require(lastTrustedAt >= current.startedAt) { "监测缺口越过当前 Segment" }
             if (current.type == SessionSegmentType.UNMONITORED) {
                 // Repeated loss signals retain the same open unknown interval.

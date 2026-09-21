@@ -32,9 +32,9 @@ class FocusMonitoringService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val runtime get() = (application as MirraApplication).monitoringPlatform
     private var pollingJob: Job? = null
+    private var watchdogJob: Job? = null
     private var monitor: UsageMonitor? = null
     private var registered = false
-    private var lastHeartbeatElapsed = 0L
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -44,7 +44,7 @@ class FocusMonitoringService : Service() {
                     val at = System.currentTimeMillis()
                     current.deviceSignal("SCREEN_OFF", at, UsageEventKind.SCREEN_OFF)
                     val keyguard = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-                    if (keyguard.isDeviceLocked) current.deviceSignal("DEVICE_LOCKED", at + 1, UsageEventKind.DEVICE_LOCKED)
+                    if (keyguard.isDeviceLocked) current.deviceSignal("DEVICE_LOCKED", at, UsageEventKind.DEVICE_LOCKED)
                 }
                 Intent.ACTION_USER_PRESENT -> current.deviceSignal("USER_PRESENT") // unlock is not distraction
             }
@@ -90,7 +90,6 @@ class FocusMonitoringService : Service() {
         runtime.capabilities.updateService(lifecycle.state.value)
         monitor = runtime.createMonitor()
         registerScreenReceiver()
-        lastHeartbeatElapsed = SystemClock.elapsedRealtime()
         pollingJob = scope.launch {
             while (isActive) {
                 runtime.recheckUsageWithoutQuery()
@@ -104,6 +103,7 @@ class FocusMonitoringService : Service() {
                 val sample = ClockSample(System.currentTimeMillis(), SystemClock.elapsedRealtime())
                 val snapshot = current.poll(sample)
                 runtime.capabilities.updateMonitor(snapshot)
+                runtime.onMonitorSample(generation, snapshot, sample)
                 if (!snapshot.running) {
                     if (MonitoringSignal.WALL_CLOCK_JUMP in snapshot.signals) {
                         lifecycle.monitorInterrupted(generation)
@@ -120,10 +120,22 @@ class FocusMonitoringService : Service() {
                     lifecycle.monitorReady(generation)
                     runtime.capabilities.updateService(lifecycle.state.value)
                 }
-                if (sample.elapsedNowMillis - lastHeartbeatElapsed >= HEARTBEAT_MILLIS) {
-                    lastHeartbeatElapsed = sample.elapsedNowMillis // runtime only; no Room writes in Task 2
-                }
                 delay(POLL_MILLIS)
+            }
+        }
+        watchdogJob = scope.launch {
+            while (isActive) {
+                delay(POLL_MILLIS)
+                val lastQuery = runtime.capabilities.state.value.monitor.lastSuccessfulQueryElapsed
+                val nowElapsed = SystemClock.elapsedRealtime()
+                if (runtime.binding?.generation == generation && lastQuery != null &&
+                    nowElapsed - lastQuery >= 6_000L) {
+                    runtime.onMonitoringDeadline(generation, ClockSample(System.currentTimeMillis(), nowElapsed))
+                    lifecycle.failed(generation, "query deadline")
+                    runtime.capabilities.updateService(lifecycle.state.value)
+                    stopSelf()
+                    break
+                }
             }
         }
         return START_NOT_STICKY
@@ -159,6 +171,8 @@ class FocusMonitoringService : Service() {
         val generation = runtime.lifecycle.state.value.generation
         pollingJob?.cancel()
         pollingJob = null
+        watchdogJob?.cancel()
+        watchdogJob = null
         monitor?.stop()
         monitor?.let { runtime.capabilities.updateMonitor(it.state.value) }
         monitor = null
@@ -177,7 +191,6 @@ class FocusMonitoringService : Service() {
         private const val EXTRA_GENERATION = "generation"
         private const val NOTIFICATION_ID = 3001
         private const val POLL_MILLIS = 1_000L
-        private const val HEARTBEAT_MILLIS = 15_000L
 
         fun startIntent(context: Context, generation: String): Intent = Intent(context, FocusMonitoringService::class.java)
             .setAction(ACTION_START).putExtra(EXTRA_GENERATION, generation)

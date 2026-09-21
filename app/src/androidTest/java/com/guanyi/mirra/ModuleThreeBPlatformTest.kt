@@ -11,6 +11,7 @@ import com.guanyi.mirra.domain.monitoring.UsageEventKind
 import com.guanyi.mirra.platform.focus.AndroidNotificationGateway
 import com.guanyi.mirra.platform.focus.AndroidUsageEventSource
 import com.guanyi.mirra.platform.focus.FocusMonitoringService
+import com.guanyi.mirra.platform.focus.RiskAppCatalog
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -48,5 +49,14 @@ class ModuleThreeBPlatformTest {
         gateway.ensureChannel()
         val manager = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         if (Build.VERSION.SDK_INT >= 26) assertNotNull(manager.getNotificationChannel(AndroidNotificationGateway.CHANNEL_ID))
+    }
+
+    @Test fun riskCatalogOnlyListsUniqueLaunchableAppsAndExcludesMirraAndSystem() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val packages = RiskAppCatalog(context).list().map { it.packageName }
+        assertEquals(packages.size, packages.toSet().size)
+        assertFalse(context.packageName in packages)
+        assertFalse("com.android.systemui" in packages)
+        assertFalse("com.android.settings" in packages)
     }
 }

@@ -6,8 +6,14 @@ import android.content.Intent
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.guanyi.mirra.domain.MonitoredStartPort
+import com.guanyi.mirra.domain.monitoring.BoundSessionMonitoringController
+import com.guanyi.mirra.domain.monitoring.ClockSample
+import com.guanyi.mirra.data.repository.FocusRepository
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -16,6 +22,22 @@ data class MonitoringBinding(val sessionId: String, val generation: String, val 
 
 /** Process-local platform facts. No Session, Room, or risk state is owned here. */
 class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPort {
+    private val factsScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var factController: BoundSessionMonitoringController? = null
+    val factDiagnostics get() = factController?.diagnostics
+
+    fun attachFacts(repository: FocusRepository) {
+        check(factController == null) { "Runtime facts already attached" }
+        factController = BoundSessionMonitoringController(repository)
+    }
+
+    suspend fun onMonitorSample(generation: String, snapshot: MonitorSnapshot, sample: ClockSample) {
+        factController?.onSample(binding?.takeIf { it.generation == generation }, snapshot, sample)
+    }
+
+    suspend fun onMonitoringDeadline(generation: String, sample: ClockSample) {
+        factController?.onServiceLost(binding?.takeIf { it.generation == generation }, sample, "query deadline")
+    }
     val lifecycle = MonitoringLifecycle()
     val capabilities = MonitoringCapabilityManager()
     val notificationGateway = AndroidNotificationGateway(context)
@@ -55,14 +77,27 @@ class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPo
         return generation
     }
 
-    fun stopFromUserAction() {
+    @Synchronized fun stopFromUserAction() {
         val generation = lifecycle.state.value.generation ?: return
-        stopUnbound(generation)
+        if (binding?.generation != generation) {
+            stopUnbound(generation)
+            return
+        }
+        // Keep the binding until onDestroy captures it; a user-requested stop is
+        // monitoring loss for an active Session, not an unbound-lease cleanup.
+        if (!context.stopService(Intent(context, FocusMonitoringService::class.java))) {
+            onServiceDestroyed(generation)
+        }
     }
 
     @Synchronized fun acceptsGeneration(generation: String): Boolean = requestedGeneration == generation
 
     @Synchronized fun onServiceDestroyed(generation: String?) {
+        val lostBinding = binding?.takeIf { it.generation == generation }
+        if (lostBinding != null) factsScope.launch {
+            factController?.onServiceLost(lostBinding,
+                ClockSample(System.currentTimeMillis(), SystemClock.elapsedRealtime()), "service stopped")
+        }
         if (requestedGeneration == generation) requestedGeneration = null
         if (binding?.generation == generation) binding = null
     }
@@ -117,6 +152,7 @@ class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPo
 
     @Synchronized fun releaseSession(sessionId: String) {
         val current = binding?.takeIf { it.sessionId == sessionId } ?: return
+        factController?.onNormalRelease(sessionId)
         binding = null
         if (requestedGeneration == current.generation) requestedGeneration = null
         runCatching { context.stopService(Intent(context, FocusMonitoringService::class.java)) }

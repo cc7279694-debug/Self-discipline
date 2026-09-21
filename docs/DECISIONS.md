@@ -1,5 +1,29 @@
 # Decisions
 
+## 2026-09-21 — 3B Task 4 的风险事实只由可信观察推进
+
+### Decision
+
+已绑定 Session 的持续监测由独立 application/domain controller 消费 Usage observation，FGS 只负责生命周期与查询。当前 Session 使用启动时的风险 App 快照；Candidate 保存可信事件的 wall 起点和单调计时，并以 generation、token、来源 Focus Segment 限制确认。可信短访才记录 brief；确认时 Room 事务再次核对活动 Session、风险包与未切换的 Focus Segment，`DISTRACTION` 从 Candidate 起点开始，确认 Event 使用确认时刻。风险 App 可信退出只开始 `RECOVERY`，不在 Task 4 自动判定恢复成功。
+
+15 秒 heartbeat 使用成功查询的可信时刻；6 秒 watchdog 只看最近成功查询，不以“多久没出现新 App 事件”制造缺口。空查询不延长旧前台包，但维持查询连续性。真实能力丢失、Service 停止或 wall clock jump 从最后可信边界降为 `PARTIAL + UNMONITORED`，不回填 Focus；本任务不在当前 Session 中途自动重连。Android 的同包不同 Activity 停止事件不得错误结束仍在前台的新 Activity。
+
+### Context
+
+Task 3 已证明 Session 起点可原子获得 FULL，但未处理绑定后不断到来的 Usage 事实和突然失监。Android UsageEvents 可能迟到、重复，且同一 App 内部 Activity 切换时旧 Activity 会在新 Activity resumed 后停止。
+
+### Alternatives
+
+在 Service 内直接写 Room、按轮询次数确认风险、成功空查询后长期沿用旧包、失监时默认 Focus、为每次候选不经事务回写历史，或中途重新授权后把 PARTIAL 升回 FULL。
+
+### Reason
+
+业务事实需要可重复测试的纯观察/决策层和事务边界；将查询连续性与前台证据新鲜度分离，才能既不制造虚假 gap，也不把过期包当成分心证据。
+
+### Consequences
+
+首版可能因 OEM 缺失或矛盾事件而保守地不记录风险访问；这比伪造 DISTRACTION 更安全。Task 4 不提供干预、DND ownership、Recovery 成功或 effective 指标，后续模块必须继承 FULL/PARTIAL 的不可逆数据语义。
+
 ## 2026-09-19 — Module 3B 实施计划冻结补充约束
 
 ### Decision

@@ -1,10 +1,10 @@
 # Current State
 
-更新日期：2026-09-20
+更新日期：2026-09-21
 
 ## Current Stage
 
-Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B 调研及详细实施计划已冻结；Task 1–2 已验收，Task 3 monitored Session start handshake 已实现并完成本地验证，等待独立验收；Task 4 尚未开始。
+Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B 调研及详细实施计划已冻结；Task 1–3 已验收，Task 4 runtime monitoring facts 已实现并完成本地验证，等待用户独立验收；Task 5 尚未开始。
 
 ## Verified Completed
 
@@ -92,10 +92,16 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 - 事务返回是否由本次新建，并使用预留 Session ID 核对取消后的提交归属；重入不会绑定别人的 Session。监测失败回退普通启动，业务拒绝不回退。提交后绑定前失监使用既有 `markMonitoringLost` 保守降为 `PARTIAL + UNMONITORED`。
 - Service 轮询已收敛为每轮一次 UsageEvents 主查询加轻量 AppOps/解锁复核；完整 capability probe 只在 Activity onResume 或握手 preflight 执行。Session 正常结束后会释放其绑定的 FGS。
 - Task 3 最终验证：109 项 JVM、123 项 API 37 设备/Compose 测试通过，`lintDebug`、`assembleDebug` 通过；APK 覆盖安装、授权/未授权启动、双击、断网冷启动、强停后 `ABNORMAL/PARTIAL` 均在模拟器验证。Room Schema 仍为 v4，未增 Migration。
+- Module 3B Task 4 已把已绑定 Session 的 Usage observation 接入独立的 `BoundSessionMonitoringController`，由它协调风险候选、Room 事实、约 15 秒 heartbeat 与 6 秒查询缺口 watchdog；FGS 仍不承载业务状态机。
+- Candidate 同时保存可信 UsageEvent wall 起点、单调时间、generation、token 与原 Focus Segment；可信短暂退出记录 `RISK_APP_BRIEF_VISIT`，约 10 秒确认在事务中复核 Session、风险快照和同一活动 Focus Segment 后回写 `DISTRACTION` 起点。确认事件使用真正确认时刻；可信退出转入关联的 `RECOVERY`，本任务不自动完成恢复。
+- 正常空查询维持监测连续性而不无限延长旧前台包；权限撤销、Service 非正常停止、wall clock jump 与查询缺口会清候选，并将真实失监区间落为 `PARTIAL + UNMONITORED`，不会回填 Focus 或把 NONE 升级 FULL。
+- “我的”开发版提供最小风险 App 选择与监测诊断。仅列可见可启动 App，不使用 `QUERY_ALL_PACKAGES`，Mirra、Launcher、SystemUI、Settings 不可选；当前 Session 使用起点风险快照，配置变化只影响下一次 Session。
+- API 37 模拟器已验证真实 Chrome 风险 App 的短暂访问、持续访问确认、退出后 RECOVERY、15 秒 heartbeat、空查询不断监、运行中撤销 Usage Access，以及用户主动停止监测后立即降级。Chrome 内部 Activity 切换的旧 Activity STOPPED 不再误撤销新 Activity 的前台证据；相关纯状态机回归测试已增加。
+- Task 4 完整回归为 121 项 JVM 与 127 项 API 37 Room/Instrumented/Compose 测试通过，`lintDebug`、`assembleDebug` 通过；APK 覆盖安装、离线冷启动与强停恢复在模拟器验证。Room Schema v4 与历史 Schema 文件均未变化。
 
 ## In Progress
 
-- Module 3B Task 3 已实现并完成本地验证，等待用户独立验收；尚未进入 Task 4。
+- Module 3B Task 4 已实现并完成本地验证，等待用户独立验收；尚未进入 Task 5。
 
 ## Frozen Phase 2 Baseline
 
@@ -110,7 +116,7 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## Pending
 
-- Phase 3｜Module 3B Task 4–6：持续运行中的 Segment 事实/失监降级、风险 App 干预及 DND ownership 尚未开始；仍须逐段授权、验收。真实监测缺口不得回填为 FULL。
+- Phase 3｜Module 3B Task 5–6：DND ownership、后续专注干预与实体设备/OEM 验收尚未开始；仍须逐段授权、验收。真实监测缺口不得回填为 FULL。
 
 ## Known Risks / Unknowns
 
@@ -127,14 +133,14 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 - 文件系统与 SQLite 无法形成真正的跨资源原子事务；当前通过 trash、补偿和启动清理实现最终一致。若设备在文件系统持续故障时终止进程，文件会保留供后续启动再次恢复或清理。
 - Android Instrumented 测试为兼容 Room 2.8.5 Migration Schema 验证，在 androidTest 配置中固定 kotlinx-serialization 1.8.1；生产运行时依赖未因此替换。
 - Mono / Night 尚未进行全页面、字号放大、TalkBack 与主题切换视觉验收，因此本阶段不向用户开放主题选择入口。
-- Task 3 仅对 monitored start 提交后、绑定前的连续性失败做即时补偿；已绑定 Session 中途 Service/权限丢失的持续降级、周期性 heartbeat 和 runtime gap watchdog 属于尚未授权的 Task 4。当前强停冷启动会保守以 `ABNORMAL/PARTIAL` 收尾，不应将 Task 3 的 FULL 解释为已具备最终有效专注统计能力。
+- Task 4 已覆盖绑定后的风险事实、heartbeat 与失监降级；首版中途重新授权不自动恢复当前 Session 监测，保持 PARTIAL。Recovery 的 90 秒成功判定、Stable Start 自动判定、干预 UI 和有效专注指标仍未实现；不得把本任务记录的 FULL 当作这些后续能力已经交付。
 
 ## Git
 
-- Current branch: `codex/phase-3b-task3-monitored-start`
+- Current branch: `codex/phase-3b-task4-runtime-facts`
 - Frozen Phase 3 planning base: `882d649cf600cd3f6f3b59d0be8a7911f3e42c70`
 - Room Schema: v4
 
 ## Next Recommended Task
 
-独立验收 Module 3B Task 3；之后仅在单独授权下进入 Task 4。3C/Overlay/有效专注指标留在后续模块。
+独立验收 Module 3B Task 4；之后仅在单独授权下进入 Task 5。3C/Overlay/有效专注指标留在后续模块。

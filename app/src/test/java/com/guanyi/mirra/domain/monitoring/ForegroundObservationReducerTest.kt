@@ -23,6 +23,20 @@ class ForegroundObservationReducerTest {
         assertTrue(result.state.observation is ForegroundObservation.Unknown)
     }
 
+    @Test fun `stopping an older activity does not end a newer activity in the same app`() {
+        var state = reducer.reduce(ObservationState(), success(1_000, 2_000, 1_000,
+            UsageEventFact(1_500, UsageEventKind.ACTIVITY_RESUMED, "risk", "OldActivity"))).state
+        state = reducer.reduce(state, success(1_500, 3_000, 2_000,
+            UsageEventFact(2_500, UsageEventKind.ACTIVITY_RESUMED, "risk", "NewActivity"))).state
+        state = reducer.reduce(state, success(2_500, 4_000, 3_000,
+            UsageEventFact(3_500, UsageEventKind.ACTIVITY_STOPPED, "risk", "OldActivity"))).state
+        assertEquals("risk", (state.observation as ForegroundObservation.Package).name)
+        assertEquals(2_500L, state.observation.sourceEventAtWallMillis)
+        state = reducer.reduce(state, success(3_500, 5_000, 4_000,
+            UsageEventFact(4_500, UsageEventKind.ACTIVITY_PAUSED, "risk", "NewActivity"))).state
+        assertTrue(state.observation is ForegroundObservation.Unknown)
+    }
+
     @Test fun `late exit of current package revokes confidence but late exit of old package does not`() {
         var state = reducer.reduce(ObservationState(), success(1_000, 2_000, 1_000,
             event(1_500, UsageEventKind.ACTIVITY_RESUMED, "a"))).state
@@ -83,6 +97,18 @@ class ForegroundObservationReducerTest {
         assertTrue(state.observation is ForegroundObservation.ScreenOff)
         state = reducer.reduce(state, success(1_500, 3_000, 2_000, event(2_500, UsageEventKind.DEVICE_LOCKED))).state
         assertTrue(state.observation is ForegroundObservation.DeviceLocked)
+    }
+
+    @Test fun `screen and lock at same physical timestamp need no fabricated millisecond`() {
+        val result = reducer.reduce(ObservationState(), success(1_000, 2_000, 1_000,
+            event(1_500, UsageEventKind.SCREEN_OFF), event(1_500, UsageEventKind.DEVICE_LOCKED)))
+        assertTrue(result.state.observation is ForegroundObservation.DeviceLocked)
+        assertEquals(1_500L, result.state.lastEventWallMillis)
+        val screenOnly = reducer.reduce(ObservationState(), success(1_000, 2_000, 1_000,
+            event(1_500, UsageEventKind.SCREEN_OFF))).state
+        val delayedLock = reducer.reduce(screenOnly, success(1_000, 3_000, 2_000,
+            event(1_500, UsageEventKind.DEVICE_LOCKED)))
+        assertTrue(delayedLock.state.observation is ForegroundObservation.DeviceLocked)
     }
 
     @Test fun `forward and backward wall jumps invalidate cursor and foreground`() {
