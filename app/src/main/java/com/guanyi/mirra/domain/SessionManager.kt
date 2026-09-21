@@ -13,6 +13,7 @@ interface SessionManager {
 class DefaultSessionManager(
     private val workflowRepository: StudyWorkflowRepository,
     private val onSessionFinished: (String) -> Unit = {},
+    private val finishWithMonitoringFacts: suspend (suspend () -> StudySessionEntity) -> StudySessionEntity = { it() },
 ) : SessionManager {
     override suspend fun start(intentId: String, startPage: Int) =
         workflowRepository.startSession(intentId, startPage)
@@ -20,10 +21,10 @@ class DefaultSessionManager(
     override suspend fun updatePage(sessionId: String, page: Int) =
         workflowRepository.updateCurrentPage(sessionId, page)
 
-    override suspend fun finish(sessionId: String, endPage: Int): StudySessionEntity {
+    override suspend fun finish(sessionId: String, endPage: Int): StudySessionEntity = finishWithMonitoringFacts {
         val finished = workflowRepository.finishSession(sessionId, endPage)
         onSessionFinished(sessionId) // Room has committed before the owned monitor is released.
-        return finished
+        finished
     }
 
     override suspend fun recoverInterruptedSession() =

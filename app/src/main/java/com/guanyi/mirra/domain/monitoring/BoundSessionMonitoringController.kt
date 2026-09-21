@@ -54,8 +54,15 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
     private var lastTrustedWall: Long? = null
     private var lastHeartbeatElapsed: Long? = null
     private var lost = false
+    private var unresolvedLoss = false
     var diagnostics = RuntimeFactDiagnostics()
         private set
+
+    /** Finish and durable monitoring-loss transitions share one ordering boundary. */
+    suspend fun <T> finishWithFacts(block: suspend () -> T): T = mutex.withLock {
+        check(!unresolvedLoss) { "Monitoring loss has not been saved" }
+        block()
+    }
 
     suspend fun onSample(binding: MonitoringBinding?, snapshot: MonitorSnapshot, sample: ClockSample) = mutex.withLock {
         if (binding == null) return@withLock
@@ -157,7 +164,13 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
         val facts = factsPort.read(binding.sessionId) ?: return
         if (facts.coverage == MonitoringCoverage.NONE) return
         val trusted = (lastTrustedWall ?: facts.lastHeartbeatAt).coerceAtLeast(facts.activeSegment.startedAt)
-        factsPort.lose(binding.sessionId, trusted, maxOf(trusted, sample.wallNowMillis))
+        try {
+            factsPort.lose(binding.sessionId, trusted, maxOf(trusted, sample.wallNowMillis))
+        } catch (failure: Throwable) {
+            unresolvedLoss = true
+            throw failure
+        }
+        unresolvedLoss = false
         lost = true
         diagnostics = diagnostics.copy(gapAt = trusted, gapReason = reason, candidatePackage = null,
             candidateToken = null, candidateFirstSeenElapsed = null,

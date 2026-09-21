@@ -93,7 +93,8 @@ class DefaultAppContainer(context: Context, monitoringRuntime: MonitoringPlatfor
     override val readingAnalyticsService = ReadingAnalyticsService()
     override val completionPredictionService = CompletionPredictionService()
     override val analyticsTimeProvider = AnalyticsTimeProvider()
-    override val sessionManager: SessionManager = DefaultSessionManager(studyWorkflowRepository, monitoringRuntime::releaseSession)
+    override val sessionManager: SessionManager = DefaultSessionManager(studyWorkflowRepository,
+        monitoringRuntime::releaseSession, monitoringRuntime::finishWithMonitoringFacts)
     override val sessionStartCoordinator: SessionStartCoordinator = SessionStartCoordinator(
         RepositoryMonitoredStartStore(studyWorkflowRepository, focusRepository), monitoringRuntime,
     )

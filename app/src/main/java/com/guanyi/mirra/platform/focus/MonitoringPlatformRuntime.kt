@@ -9,9 +9,11 @@ import com.guanyi.mirra.domain.MonitoredStartPort
 import com.guanyi.mirra.domain.monitoring.BoundSessionMonitoringController
 import com.guanyi.mirra.domain.monitoring.ClockSample
 import com.guanyi.mirra.data.repository.FocusRepository
+import com.guanyi.mirra.data.local.entity.StudySessionEntity
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
@@ -31,12 +33,16 @@ class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPo
         factController = BoundSessionMonitoringController(repository)
     }
 
+    suspend fun finishWithMonitoringFacts(block: suspend () -> StudySessionEntity): StudySessionEntity =
+        checkNotNull(factController) { "Runtime facts not attached" }.finishWithFacts(block)
+
     suspend fun onMonitorSample(generation: String, snapshot: MonitorSnapshot, sample: ClockSample) {
         factController?.onSample(binding?.takeIf { it.generation == generation }, snapshot, sample)
     }
 
-    suspend fun onMonitoringDeadline(generation: String, sample: ClockSample) {
-        factController?.onServiceLost(binding?.takeIf { it.generation == generation }, sample, "query deadline")
+    suspend fun onMonitoringDeadline(generation: String, sample: ClockSample, reason: String = "query deadline") {
+        checkNotNull(factController) { "Runtime facts not attached" }
+            .onServiceLost(binding?.takeIf { it.generation == generation }, sample, reason)
     }
     val lifecycle = MonitoringLifecycle()
     val capabilities = MonitoringCapabilityManager()
@@ -83,10 +89,19 @@ class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPo
             stopUnbound(generation)
             return
         }
-        // Keep the binding until onDestroy captures it; a user-requested stop is
-        // monitoring loss for an active Session, not an unbound-lease cleanup.
-        if (!context.stopService(Intent(context, FocusMonitoringService::class.java))) {
-            onServiceDestroyed(generation)
+        // Reserve the controller's facts/finish mutex before returning to the UI.
+        factsScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            val result = runCatching {
+                onMonitoringDeadline(generation,
+                    ClockSample(System.currentTimeMillis(), SystemClock.elapsedRealtime()), "user stopped monitoring")
+            }
+            if (result.isSuccess && binding?.generation == generation &&
+                !context.stopService(Intent(context, FocusMonitoringService::class.java))) {
+                onServiceDestroyed(generation)
+            } else if (result.isFailure) {
+                lifecycle.failed(generation, "monitoring loss not saved")
+                capabilities.updateService(lifecycle.state.value)
+            }
         }
     }
 

@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B 调研及详细实施计划已冻结；Task 1–3 已验收，Task 4 runtime monitoring facts 已实现并完成本地验证，等待用户独立验收；Task 5 尚未开始。
+Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B 调研及详细实施计划已冻结；Task 1–3 已验收。Task 4 的 durable-loss acceptance patch 已实现并完成本地验证，等待用户复验；Task 5 尚未开始。
 
 ## Verified Completed
 
@@ -98,10 +98,12 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 - “我的”开发版提供最小风险 App 选择与监测诊断。仅列可见可启动 App，不使用 `QUERY_ALL_PACKAGES`，Mirra、Launcher、SystemUI、Settings 不可选；当前 Session 使用起点风险快照，配置变化只影响下一次 Session。
 - API 37 模拟器已验证真实 Chrome 风险 App 的短暂访问、持续访问确认、退出后 RECOVERY、15 秒 heartbeat、空查询不断监、运行中撤销 Usage Access，以及用户主动停止监测后立即降级。Chrome 内部 Activity 切换的旧 Activity STOPPED 不再误撤销新 Activity 的前台证据；相关纯状态机回归测试已增加。
 - Task 4 完整回归为 121 项 JVM 与 127 项 API 37 Room/Instrumented/Compose 测试通过，`lintDebug`、`assembleDebug` 通过；APK 覆盖安装、离线冷启动与强停恢复在模拟器验证。Room Schema v4 与历史 Schema 文件均未变化。
+- Task 4 acceptance patch 将已绑定监测的受控停止改为先同步等待失监事实落库，再停 Service；正常 Session 结束则先提交结束事务、再释放其绑定监测。两条路径由同一控制器串行化；失监写入失败会阻止正常结束保留虚假 FULL。通知停止、开发诊断停止、运行中 Usage Access 撤销、已知查询故障和 watchdog 均沿用该顺序；`onDestroy` 仅作异常兜底。
+- Acceptance patch 的 122 项 JVM、131 项 API 37 Room/Instrumented/Compose 测试以及 `lintDebug`、`assembleDebug` 通过。模拟器覆盖安装并冷启动后，实测 FULL Session 从通知栏停止监测、随即结束为 NORMAL，最终数据库为 PARTIAL，FOCUS 后有连续 UNMONITORED 区间；Room Schema v4 未变化。实体 OEM 真机仍待 Task 6 验证。
 
 ## In Progress
 
-- Module 3B Task 4 已实现并完成本地验证，等待用户独立验收；尚未进入 Task 5。
+- Module 3B Task 4 acceptance patch 已实现并完成本地验证，等待用户复验；尚未进入 Task 5。
 
 ## Frozen Phase 2 Baseline
 
@@ -143,4 +145,4 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## Next Recommended Task
 
-独立验收 Module 3B Task 4；之后仅在单独授权下进入 Task 5。3C/Overlay/有效专注指标留在后续模块。
+独立复验 Module 3B Task 4 acceptance patch；之后仅在单独授权下进入 Task 5。3C/Overlay/有效专注指标留在后续模块。

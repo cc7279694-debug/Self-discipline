@@ -9,7 +9,9 @@ import com.guanyi.mirra.platform.focus.MonitorSnapshot
 import com.guanyi.mirra.platform.focus.MonitoringBinding
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class BoundSessionMonitoringControllerTest {
@@ -111,6 +113,27 @@ class BoundSessionMonitoringControllerTest {
         assertEquals(MonitoringCoverage.PARTIAL, controller.diagnostics.coverage)
     }
 
+    @Test fun `failed durable loss blocks normal finish until a retry succeeds`() = runTest {
+        val port = FakeFacts(segment)
+        val controller = BoundSessionMonitoringController(port)
+        port.failLoss = true
+        try {
+            controller.onServiceLost(binding, ClockSample(4_000, 3_000), "permission revoked")
+            fail("Loss should fail")
+        } catch (_: IllegalStateException) { }
+        var finished = false
+        try {
+            controller.finishWithFacts { finished = true }
+            fail("Finish must not leave an unrecorded loss as FULL")
+        } catch (_: IllegalStateException) { }
+        assertFalse(finished)
+        port.failLoss = false
+        controller.onServiceLost(binding, ClockSample(5_000, 4_000), "retry")
+        controller.finishWithFacts { finished = true }
+        assertTrue(finished)
+        assertEquals(1, port.losses.size)
+    }
+
     private fun snapshot(wall: Long, elapsed: Long,
         observation: ForegroundObservation = ForegroundObservation.Unknown("no event"),
         eventWall: Long? = null,
@@ -120,6 +143,7 @@ class BoundSessionMonitoringControllerTest {
 
     private class FakeFacts(segment: SessionSegmentEntity) : RuntimeFactsPort {
         var current = RuntimeFocusFacts(1_000, segment, MonitoringCoverage.FULL, 1_000, setOf("risk"))
+        var failLoss = false
         val heartbeats = mutableListOf<Long>()
         val losses = mutableListOf<Triple<String, Long, Long>>()
         val confirmations = mutableListOf<RiskConfirmation>()
@@ -127,6 +151,7 @@ class BoundSessionMonitoringControllerTest {
         override suspend fun read(sessionId: String) = current
         override suspend fun heartbeat(sessionId: String, at: Long) { heartbeats += at }
         override suspend fun lose(sessionId: String, trustedAt: Long, detectedAt: Long) {
+            if (failLoss) throw IllegalStateException("storage unavailable")
             losses += Triple(sessionId, trustedAt, detectedAt)
             current = current.copy(coverage = MonitoringCoverage.PARTIAL,
                 activeSegment = current.activeSegment.copy(type = SessionSegmentType.UNMONITORED))

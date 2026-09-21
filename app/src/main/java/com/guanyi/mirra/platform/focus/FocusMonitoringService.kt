@@ -19,6 +19,7 @@ import com.guanyi.mirra.domain.monitoring.ClockSample
 import com.guanyi.mirra.domain.monitoring.MonitoringSignal
 import com.guanyi.mirra.domain.monitoring.UsageEventKind
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -26,6 +27,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** A short-lived platform container; it never creates or mutates a Study Session. */
 class FocusMonitoringService : Service() {
@@ -57,7 +59,20 @@ class FocusMonitoringService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val generation = intent?.getStringExtra(EXTRA_GENERATION)
         if (intent?.action == ACTION_STOP) {
-            if (generation != null && runtime.lifecycle.state.value.generation == generation) stopSelf()
+            if (generation != null && runtime.lifecycle.state.value.generation == generation) {
+                scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                    val loss = runCatching {
+                        runtime.onMonitoringDeadline(generation,
+                            ClockSample(System.currentTimeMillis(), SystemClock.elapsedRealtime()),
+                            "notification stop")
+                    }
+                    if (loss.isSuccess) withContext(Dispatchers.Main.immediate) { stopSelf() }
+                    else {
+                        runtime.lifecycle.failed(generation, "monitoring loss not saved")
+                        runtime.capabilities.updateService(runtime.lifecycle.state.value)
+                    }
+                }
+            }
             return START_NOT_STICKY
         }
         if (intent?.action != ACTION_START || generation.isNullOrBlank()) {
@@ -94,6 +109,14 @@ class FocusMonitoringService : Service() {
             while (isActive) {
                 runtime.recheckUsageWithoutQuery()
                 if (runtime.capabilities.state.value.usage != CapabilityStatus.AVAILABLE) {
+                    val sample = ClockSample(System.currentTimeMillis(), SystemClock.elapsedRealtime())
+                    val saved = runCatching {
+                        runtime.onMonitoringDeadline(generation, sample, "usage access unavailable")
+                    }.isSuccess
+                    if (!saved) {
+                        delay(POLL_MILLIS)
+                        continue
+                    }
                     lifecycle.failed(generation, "usage access unavailable")
                     runtime.capabilities.updateService(lifecycle.state.value)
                     stopSelf()
@@ -111,6 +134,10 @@ class FocusMonitoringService : Service() {
                         delay(POLL_MILLIS)
                         continue // the next query uses the reducer's new wall cursor
                     }
+                    // onMonitorSample has already persisted the gap; repeat is idempotent
+                    // and protects against an unbound-to-bound transition during the sample.
+                    runtime.onMonitoringDeadline(generation, sample,
+                        snapshot.lastPlatformError ?: "monitor query interrupted")
                     lifecycle.failed(generation, snapshot.lastPlatformError ?: "monitor query interrupted")
                     runtime.capabilities.updateService(lifecycle.state.value)
                     stopSelf()
