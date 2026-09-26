@@ -113,7 +113,7 @@ READY **不要求前台 package**；锁屏/息屏下首次成功查询可以为�
 ## 8. DND ownership 与正常结束
 
 - API 35+：有 policy access 且用户启用时，优先**复用一条稳定、可重复识别的 Mirra-owned `AutomaticZenRule`**，不为每个 Session 创建新 rule。以 Mirra 自己的 owner/component 与固定用途标识识别；先查询并复用已有 own rule，需要时才创建，持久化 rule ID 后再激活。冷启动若发现“系统已创建规则但尚未保存 rule ID”，须从系统可见的 Mirra-owned rule 中重新发现、记录并幂等停用/复用；识别不充分时不能触碰用户或其他 App 的规则。Session context 的 `dndRuleId/dndLifecycle` 记录该次关联。结束/异常启动恢复只停用 Mirra 自己的 rule，**不**调用“把全局 DND 改为 ALL”、不修改用户睡眠/会议或别的 App rule。用户在系统设置主动停用规则时，不强行重新启用。[Android 15 行为](https://developer.android.com/about/versions/15/behavior-changes-15)。
-- API 23–34：保存 Session 前 interruption filter 到现有 `priorDndInterruptionFilter`，写入意图状态后再调用旧 API；正常结束仅在当前 filter 仍等于 Mirra 当时施加值、且未观察到用户改变/ownership 不确定时才恢复快照。用户中途手动改 DND 时保留新值；进程死亡导致 ownership 无法证明时宁可提示检查系统设置，不盲写全局。系统调用失败/撤权捕获并标 `APPLY_FAILED/RELEASE_FAILED`，保持 Session 正常可结束。
+- API 29–34：与 API 35+ 一样复用 Mirra-owned `AutomaticZenRule + ZenPolicy`，使用 `setAutomaticZenRuleState()`；不修改用户全局 Policy。API 35+ 额外尊重 user-managed/manual override。API 23–28 才使用 legacy `PRIORITY` filter，沿用用户原有 Priority Policy，不调用 `setNotificationPolicy()`，不承诺隐藏通知列表；仅在同进程中确认 Mirra 施加的 filter 未被用户改动时恢复 prior filter，进程死亡或归属不确定则宁可不恢复。系统调用失败/撤权捕获并标 `APPLY_FAILED/RELEASE_FAILED`，保持 Session 正常可结束。该兼容矩阵覆盖本计划中旧的“API 23–34 统一 legacy”描述。
 - 3B 尚无 3D Closeout：**暂在既有 `finishSession()` 正常提交后**执行 Mirra DND release，并在失败时提供重试/系统设置入口；不得在保存 Session 的 Room 事务中调用系统 API。3D 获授权后再把 release 时点移至 Closeout Complete。此阶段必须保证 App 已结束 Session 时不留下 Mirra 施加的 DND。DND 状态写入与外部调用用幂等重试补偿，尤其覆盖“规则已激活、DB ACTIVE 写入前崩溃”。
 - DND 不作为 Monitoring READY 必需条件，撤销 DND access 不降 coverage；撤销 Usage Access 才产生监测缺口。
 

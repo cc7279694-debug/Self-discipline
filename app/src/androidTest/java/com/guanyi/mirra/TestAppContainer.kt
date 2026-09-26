@@ -55,14 +55,17 @@ class TestAppContainer(
     override val appPreferencesRepository: AppPreferencesRepository = object : AppPreferencesRepository {
         private val destination = MutableStateFlow(TopLevelDestination.Start)
         private val theme = MutableStateFlow(MirraThemeId.BLUE)
+        private val dnd = MutableStateFlow(false)
         override val lastDestination: Flow<TopLevelDestination> = destination
         override val themeId: Flow<MirraThemeId> = theme
+        override val dndEnabled: Flow<Boolean> = dnd
         override suspend fun setLastDestination(destination: TopLevelDestination) {
             this.destination.value = destination
         }
         override suspend fun setThemeId(themeId: MirraThemeId) {
             theme.value = themeId
         }
+        override suspend fun setDndEnabled(enabled: Boolean) { dnd.value = enabled }
     }
     override val learningItemRepository: LearningItemRepository = DefaultLearningItemRepository(database, searchIndexWriter = searchIndexWriter)
     override val studyWorkflowRepository: StudyWorkflowRepository = DefaultStudyWorkflowRepository(

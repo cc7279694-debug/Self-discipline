@@ -77,6 +77,7 @@ class SessionStartCoordinator(
     private val monitor: MonitoredStartPort,
     private val readyTimeoutMillis: Long = 5_000,
     private val newSessionId: () -> String = { UUID.randomUUID().toString() },
+    private val onSessionCreated: suspend (StudySessionEntity) -> Unit = {},
 ) {
     private val mutex = Mutex()
     private val mutableState = MutableStateFlow(CoordinatorState())
@@ -118,6 +119,7 @@ class SessionStartCoordinator(
             }
             val session = started.session
             mutableState.value = CoordinatorState(CoordinatorPhase.COMMITTED, activeGeneration, session.id)
+            withContext(NonCancellable) { onSessionCreated(session) }
             if (!monitor.verifyAfterCommit(lease) || !monitor.bind(session.id, activeGeneration)) {
                 store.markMonitoringLost(session.id, lease.readyAtWall, maxOf(lease.readyAtWall, monitor.nowWall()))
                 monitor.stopUnbound(activeGeneration)
@@ -140,7 +142,9 @@ class SessionStartCoordinator(
     private suspend fun fallback(intentId: String, page: Int, generation: String?): SessionStartOutcome {
         if (generation != null) monitor.stopUnbound(generation)
         mutableState.value = CoordinatorState()
-        return SessionStartOutcome(store.startUnmonitored(intentId, page), StartMonitoringResult.UNMONITORED)
+        val session = store.startUnmonitored(intentId, page)
+        withContext(NonCancellable) { onSessionCreated(session) }
+        return SessionStartOutcome(session, StartMonitoringResult.UNMONITORED)
     }
 
     private suspend fun reconcileUnknownCommit(

@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.guanyi.mirra.navigation.TopLevelDestination
 import java.io.IOException
@@ -14,9 +15,11 @@ import kotlinx.coroutines.flow.map
 interface AppPreferencesRepository {
     val lastDestination: Flow<TopLevelDestination>
     val themeId: Flow<MirraThemeId>
+    val dndEnabled: Flow<Boolean>
 
     suspend fun setLastDestination(destination: TopLevelDestination)
     suspend fun setThemeId(themeId: MirraThemeId)
+    suspend fun setDndEnabled(enabled: Boolean)
 }
 
 class DefaultAppPreferencesRepository(
@@ -38,6 +41,10 @@ class DefaultAppPreferencesRepository(
             }
             .map { preferences -> MirraThemeId.fromStorageValue(preferences[THEME_ID]) }
 
+    override val dndEnabled: Flow<Boolean> = dataStore.data
+        .catch { throwable -> if (throwable is IOException) emit(emptyPreferences()) else throw throwable }
+        .map { preferences -> preferences[DND_ENABLED] ?: false }
+
     override suspend fun setLastDestination(destination: TopLevelDestination) {
         dataStore.edit { preferences ->
             preferences[LAST_DESTINATION] = destination.storageValue
@@ -48,8 +55,13 @@ class DefaultAppPreferencesRepository(
         dataStore.edit { preferences -> preferences[THEME_ID] = themeId.storageValue }
     }
 
+    override suspend fun setDndEnabled(enabled: Boolean) {
+        dataStore.edit { preferences -> preferences[DND_ENABLED] = enabled }
+    }
+
     private companion object {
         val LAST_DESTINATION = stringPreferencesKey("last_destination")
         val THEME_ID = stringPreferencesKey("theme_id")
+        val DND_ENABLED = booleanPreferencesKey("dnd_enabled")
     }
 }

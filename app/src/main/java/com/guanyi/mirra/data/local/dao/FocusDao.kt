@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.guanyi.mirra.data.local.entity.FocusEventEntity
+import com.guanyi.mirra.data.local.entity.DndLifecycle
 import com.guanyi.mirra.data.local.entity.MonitoringCoverage
 import com.guanyi.mirra.data.local.entity.RiskAppEntity
 import com.guanyi.mirra.data.local.entity.SessionFocusContextEntity
@@ -15,6 +16,18 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface FocusDao {
+    @Query("""UPDATE session_focus_contexts SET priorDndInterruptionFilter = :prior,
+        dndRuleId = :ruleId, dndLifecycle = 'NOT_APPLIED', dndAccessAtStart = 1, updatedAt = :at
+        WHERE sessionId = :sessionId""")
+    suspend fun prepareDnd(sessionId: String, prior: Int?, ruleId: String?, at: Long): Int
+
+    @Query("UPDATE session_focus_contexts SET dndLifecycle = :lifecycle, updatedAt = :at WHERE sessionId = :sessionId")
+    suspend fun setDndLifecycle(sessionId: String, lifecycle: DndLifecycle, at: Long): Int
+
+    @Query("""SELECT c.* FROM session_focus_contexts c JOIN study_sessions s ON s.id = c.sessionId
+        WHERE s.activeSlot IS NULL AND (c.dndRuleId IS NOT NULL OR c.priorDndInterruptionFilter IS NOT NULL)
+          AND c.dndLifecycle != 'RELEASED'""")
+    suspend fun listDndRecoveryContexts(): List<SessionFocusContextEntity>
     @Insert suspend fun insertContext(context: SessionFocusContextEntity)
     @Insert suspend fun insertSegment(segment: SessionSegmentEntity)
     @Insert suspend fun insertEvent(event: FocusEventEntity)

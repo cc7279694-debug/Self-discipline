@@ -8,6 +8,8 @@ import java.io.File
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppPreferencesThemeTest {
@@ -19,6 +21,9 @@ class AppPreferencesThemeTest {
         val repository = DefaultAppPreferencesRepository(store)
 
         assertEquals(MirraThemeId.BLUE, repository.themeId.first())
+        assertFalse(repository.dndEnabled.first())
+        repository.setDndEnabled(true)
+        assertTrue(repository.dndEnabled.first())
         repository.setLastDestination(com.guanyi.mirra.navigation.TopLevelDestination.Knowledge)
         repository.setThemeId(MirraThemeId.NIGHT)
 
@@ -27,5 +32,6 @@ class AppPreferencesThemeTest {
 
         store.edit { preferences -> preferences[stringPreferencesKey("theme_id")] = "unknown-theme" }
         assertEquals(MirraThemeId.BLUE, repository.themeId.first())
+        assertTrue(repository.dndEnabled.first())
     }
 }

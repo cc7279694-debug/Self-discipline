@@ -1,5 +1,31 @@
 # Decisions
 
+## 2026-09-21 — Module 3B Task 5A DND 兼容矩阵与归属安全
+
+### Decision
+
+- API 23–28：仅在用户显式启用且授予 policy access 后，把 interruption filter 切到 `PRIORITY`，沿用用户已有的 Priority Policy；**不**调用 `setNotificationPolicy()`，不承诺隐藏通知列表。开始前保存 `priorDndInterruptionFilter`；同进程中仅在仍能证明 Mirra 施加的 Priority 未被用户改变时恢复。进程死亡后不能证明旧全局状态的归属，保留 `RELEASE_FAILED` 供检查，绝不盲写全局 DND。用户文案应是“学习期间启用系统勿扰；允许的联系人、应用和通知显示方式取决于你的系统勿扰设置”。
+- API 29–34：复用稳定 condition URI 标识的 Mirra-owned `AutomaticZenRule`，以 per-rule `ZenPolicy` 拦截普通消息并抑制被拦截通知的视觉效果；来电及重复来电保持未指定，由 Android/用户原有系统规则决定。不修改用户的 global Policy。
+- API 35+：沿用自有规则路径，尊重 `areAutomaticZenRulesUserManaged()`、用户修改规则策略和手动 deactivate/override；同一 Session 不因观察到规则被关掉而重新激活。不调用旧全局 DND 写 API。任何版本均不碰其他 App 或用户规则。
+- Room v4 既有 `priorDndInterruptionFilter`、`dndRuleId`、`dndLifecycle` 足够表达 DND intention、ACTIVE、release/retry；API 29+ 创建前先持久化可发现的 creation intent，成功后记录 ID，再激活。数据库事务与 Android API 分开，失败补偿与冷启动对账保证最终一致。DND 和 MonitoringCoverage 正交。
+- Task 5A 临时在正常 Session finish 事务提交后释放 DND；Phase 3D 获授权后才移至 Closeout Complete。Task 5B 才提供面向用户的设置、提示和重试 UI；当前偏好默认关闭。
+
+### Context
+
+`AutomaticZenRule` 在 API 24 已存在，但 per-rule `ZenPolicy` 与 `setAutomaticZenRuleState()` 从 API 29 才可用。API 28 虽能通过全局 Policy 隐藏通知列表，现有 v4 Schema 无法安全恢复完整旧 Policy；target API 35+ 也不得把全局 DND 当作 Mirra 自己的状态。参见 [AutomaticZenRule](https://developer.android.com/reference/android/app/AutomaticZenRule)、[ZenPolicy.Builder](https://developer.android.com/reference/android/service/notification/ZenPolicy.Builder) 与 [Android 15 行为变更](https://developer.android.com/about/versions/15/behavior-changes-15)。
+
+### Alternatives
+
+API 23–34 统一使用旧全局 DND；为 API 28 修改全局 Policy；为每次 Session 创建新规则；强制恢复 `ALL` 或覆盖用户手动操作。
+
+### Reason
+
+按平台能力分流可在 API 29+ 获得独立规则策略，同时避免旧版本不可证明的全局 Policy 恢复。归属不确定时保守失败优先于覆盖用户选择。
+
+### Consequences
+
+API 23–28 只承诺尽力静音；API 29+ 的效果还可能受其他规则合并、用户手动 override 和 OEM 行为影响。Task 5A 不改 Room Schema；真实多规则/OEM 行为继续留待 Task 6 真机验收。
+
 ## 2026-09-21 — 3B Task 4 的风险事实只由可信观察推进
 
 ### Decision

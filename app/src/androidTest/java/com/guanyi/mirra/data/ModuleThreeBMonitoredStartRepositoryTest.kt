@@ -163,6 +163,22 @@ class ModuleThreeBMonitoredStartRepositoryTest {
         assertEquals(listOf(SessionSegmentType.FOCUS), db.focusDao().listSegments(session.id).map { it.type })
     }
 
+    @Test fun dndReleaseHookRunsOnlyAfterSessionCommitAndDoesNotChangeCoverage() = runTest {
+        val intent = workflow.createIntent(items.create("书", 100, 10).id)
+        now = 1_005_100
+        val session = monitored(intent.id, 10).session
+        var releaseSawCommitted = false
+        val manager = DefaultSessionManager(workflow,
+            onSessionCommitted = { id ->
+                releaseSawCommitted = db.sessionDao().get(id)?.endedAt != null &&
+                    db.sessionDao().getActive() == null
+            })
+        now = 1_010_000
+        manager.finish(session.id, 11)
+        assertTrue(releaseSawCommitted)
+        assertEquals(MonitoringCoverage.FULL, db.focusDao().getContext(session.id)?.monitoringStatus)
+    }
+
     @Test fun boundUserStopPersistsLossBeforeNormalFinishAndDuplicateDestroyDoesNotAddFacts() = runTest {
         val intent = workflow.createIntent(items.create("书", 100, 10).id)
         now = 1_005_100

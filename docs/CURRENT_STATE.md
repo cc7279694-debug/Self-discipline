@@ -1,10 +1,10 @@
 # Current State
 
-更新日期：2026-09-21
+更新日期：2026-09-26
 
 ## Current Stage
 
-Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B 调研及详细实施计划已冻结；Task 1–3 已验收。Task 4 的 durable-loss acceptance patch 已实现并完成本地验证，等待用户复验；Task 5 尚未开始。
+Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B 调研及详细实施计划、Task 1–4 已正式验收并冻结。Task 5A 的 ownership-safe DND 核心已实现并完成本地验证；等待用户复验后再切换模型进入 Task 5B。
 
 ## Verified Completed
 
@@ -100,10 +100,13 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 - Task 4 完整回归为 121 项 JVM 与 127 项 API 37 Room/Instrumented/Compose 测试通过，`lintDebug`、`assembleDebug` 通过；APK 覆盖安装、离线冷启动与强停恢复在模拟器验证。Room Schema v4 与历史 Schema 文件均未变化。
 - Task 4 acceptance patch 将已绑定监测的受控停止改为先同步等待失监事实落库，再停 Service；正常 Session 结束则先提交结束事务、再释放其绑定监测。两条路径由同一控制器串行化；失监写入失败会阻止正常结束保留虚假 FULL。通知停止、开发诊断停止、运行中 Usage Access 撤销、已知查询故障和 watchdog 均沿用该顺序；`onDestroy` 仅作异常兜底。
 - Acceptance patch 的 122 项 JVM、131 项 API 37 Room/Instrumented/Compose 测试以及 `lintDebug`、`assembleDebug` 通过。模拟器覆盖安装并冷启动后，实测 FULL Session 从通知栏停止监测、随即结束为 NORMAL，最终数据库为 PARTIAL，FOCUS 后有连续 UNMONITORED 区间；Room Schema v4 未变化。实体 OEM 真机仍待 Task 6 验证。
+- Module 3B Task 5A 已新增与 MonitoringCoverage 正交的 `DndController`、Room v4 状态存储和 Android DND adapter。用户偏好默认关闭；只有已提交 Session 才会在偏好开启且授权可用时尝试 DND，失败不阻止 Session，也不改变 FULL / PARTIAL / NONE。
+- DND 兼容矩阵已冻结：API 23–28 仅使用用户现有 Priority Policy 的 legacy interruption filter，不修改全局 Notification Policy；API 29–34 使用可重复识别的 Mirra-owned `AutomaticZenRule + ZenPolicy`；API 35+ 同样只管理 Mirra rule，并尊重 user-managed policy 与用户 override。
+- API 29+ 规则以稳定 condition URI 重新发现和复用，创建前先持久化 creation intent，覆盖“规则创建成功但 ID 尚未写入”的 crash gap。正常结束在 Session commit 后释放；冷启动先完成既有 ABNORMAL recovery，再对账已结束 Session 的 ACTIVE / RELEASE_PENDING / RELEASE_FAILED。旧版跨进程无法证明 ownership 时保守保留 RELEASE_FAILED，不盲写全局 DND。
 
 ## In Progress
 
-- Module 3B Task 4 acceptance patch 已实现并完成本地验证，等待用户复验；尚未进入 Task 5。
+- Module 3B Task 5A 已实现并完成本地验证，等待用户复验；本轮停在模型切换点，尚未进入 Task 5B。
 
 ## Frozen Phase 2 Baseline
 
@@ -118,7 +121,7 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## Pending
 
-- Phase 3｜Module 3B Task 5–6：DND ownership、后续专注干预与实体设备/OEM 验收尚未开始；仍须逐段授权、验收。真实监测缺口不得回填为 FULL。
+- Phase 3｜Module 3B Task 5B–6：DND 设置/权限引导 UI、后续专注干预与实体设备/OEM 验收尚未开始；仍须逐段授权、验收。真实监测缺口不得回填为 FULL。
 
 ## Known Risks / Unknowns
 
@@ -139,10 +142,10 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## Git
 
-- Current branch: `codex/phase-3b-task4-runtime-facts`
+- Current branch: `codex/phase-3b-task5a-dnd-core`
 - Frozen Phase 3 planning base: `882d649cf600cd3f6f3b59d0be8a7911f3e42c70`
 - Room Schema: v4
 
 ## Next Recommended Task
 
-独立复验 Module 3B Task 4 acceptance patch；之后仅在单独授权下进入 Task 5。3C/Overlay/有效专注指标留在后续模块。
+独立复验 Module 3B Task 5A；验收后按模型切换说明，仅在单独授权下进入 Task 5B。3C/Overlay/有效专注指标留在后续模块。

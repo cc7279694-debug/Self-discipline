@@ -35,6 +35,9 @@ import com.guanyi.mirra.domain.SessionManager
 import com.guanyi.mirra.domain.DefaultSearchEngine
 import com.guanyi.mirra.domain.AnalyticsTimeProvider
 import com.guanyi.mirra.domain.SessionStartCoordinator
+import com.guanyi.mirra.domain.DndController
+import com.guanyi.mirra.data.repository.RoomDndStateStore
+import com.guanyi.mirra.platform.focus.AndroidDndSystem
 import com.guanyi.mirra.domain.RepositoryMonitoredStartStore
 import com.guanyi.mirra.platform.focus.MonitoringPlatformRuntime
 import com.guanyi.mirra.domain.CompletionPredictionService
@@ -44,6 +47,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 
 private val Context.mirraPreferences by preferencesDataStore(name = "mirra_preferences")
 
@@ -89,17 +93,25 @@ class DefaultAppContainer(context: Context, monitoringRuntime: MonitoringPlatfor
     override val searchRepository: SearchRepository = DefaultSearchRepository(database, searchEngine, searchIndexRebuilder)
     override val readingAnalyticsRepository: ReadingAnalyticsRepository = DefaultReadingAnalyticsRepository(database)
     override val focusRepository: FocusRepository = DefaultFocusRepository(database)
+    private val dndController = DndController(RoomDndStateStore(database), AndroidDndSystem(context))
+    private suspend fun applyDndIfEnabled(sessionId: String) {
+        runCatching { dndController.apply(sessionId, appPreferencesRepository.dndEnabled.first()) }
+    }
     init { monitoringRuntime.attachFacts(focusRepository) }
     override val readingAnalyticsService = ReadingAnalyticsService()
     override val completionPredictionService = CompletionPredictionService()
     override val analyticsTimeProvider = AnalyticsTimeProvider()
     override val sessionManager: SessionManager = DefaultSessionManager(studyWorkflowRepository,
-        monitoringRuntime::releaseSession, monitoringRuntime::finishWithMonitoringFacts)
+        monitoringRuntime::releaseSession, monitoringRuntime::finishWithMonitoringFacts,
+        onSessionCreated = { applyDndIfEnabled(it.id) },
+        onSessionCommitted = { runCatching { dndController.release(it) } })
     override val sessionStartCoordinator: SessionStartCoordinator = SessionStartCoordinator(
         RepositoryMonitoredStartStore(studyWorkflowRepository, focusRepository), monitoringRuntime,
+        onSessionCreated = { applyDndIfEnabled(it.id) },
     )
     override val startup: Deferred<Unit> = applicationScope.async {
         sessionManager.recoverInterruptedSession()
+        runCatching { dndController.reconcileAfterRecovery() }
         runCatching { imageRepository.reconcileStorage() }
         runCatching { searchIndexRebuilder.ensureConsistent() }
     }
