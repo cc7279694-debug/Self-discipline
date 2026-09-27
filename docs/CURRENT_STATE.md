@@ -110,7 +110,7 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## In Progress
 
-- Module 3B Task 5B 已实现并完成 145 项 JVM、变更相关 Compose/Instrumented、lintDebug、assembleDebug 与离线冷启动验证；全量 connected 回归因 API 37 模拟器 System UI 长时间无响应未形成结果，已明确记录为环境未完成项，等待用户验收；未进入 Task 6。
+- Module 3B Task 5B 已实现并完成 145 项 JVM、API 37 全量 136 项 Compose/Room/Instrumented、lintDebug、assembleDebug、APK 覆盖安装与离线冷启动验证；未进入 Task 6，等待用户验收。
 
 ## Frozen Phase 2 Baseline
 

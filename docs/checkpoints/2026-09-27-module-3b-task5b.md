@@ -19,11 +19,11 @@
 ## Verification
 
 - JVM：145 项通过，覆盖 DND 默认值、权限状态、DataStore 持久化、Activity resume 重新检查、当前 Session 延迟生效、apply/reconcile 重试、API 文案。
-- Compose / Instrumented：`DndSettingsProfileTest` 与 `ModuleThreeBPreparationHandshakeTest` 在 API 37 模拟器各通过 1 项。
+- Compose / Instrumented：API 37 全量 `connectedDebugAndroidTest` 共 136 项通过，0 失败、0 错误、0 跳过；其中包含 `DndSettingsProfileTest` 与更新后的 `ModuleThreeBPreparationHandshakeTest`。
 - `lintDebug`：通过。
 - `assembleDebug`：通过。
 - APK 覆盖安装、强停后冷启动、关闭 Wi‑Fi/移动数据后的冷启动均成功，Activity 恢复到 `com.guanyi.mirra/.MainActivity`。
-- 全量 `connectedDebugAndroidTest` 曾在 API 37 模拟器长回归时因系统出现 “System UI isn't responding” 而未形成结果文件；重启模拟器后已分项重跑本次变更相关设备测试并通过，不能将那次全量运行计为通过。
+- 全量回归第一次因模拟器 System UI 长时间无响应未形成结果文件；彻底重启同一 API 37 AVD 后重新执行，全量 136 项正常完成并通过。
 - `git diff` 未包含 `app/schemas`、Room Entity、Migration 或 `MirraDatabase.version` 变更；Schema 仍为 v4。
 
 ## Known Limitations
