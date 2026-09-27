@@ -57,7 +57,7 @@ class ModuleThreeBPreparationHandshakeTest {
         composeRule.waitUntil(5_000) { viewModel.uiState.value.item != null }
         composeRule.onNodeWithText("我已拿起书，开始阅读").performClick()
         composeRule.waitUntil(5_000) { viewModel.starting }
-        composeRule.onNodeWithText("正在准备分心监测…").assertExists()
+        composeRule.onNodeWithText("正在准备本次学习…").assertExists()
         composeRule.onNodeWithText("我已拿起书，开始阅读").assertIsNotEnabled()
         viewModel.start { _, _ -> }
         assertEquals(1, starts)

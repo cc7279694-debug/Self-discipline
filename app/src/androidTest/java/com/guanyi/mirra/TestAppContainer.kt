@@ -25,6 +25,8 @@ import com.guanyi.mirra.data.search.SearchIndexRebuilder
 import com.guanyi.mirra.data.search.SearchIndexWriter
 import com.guanyi.mirra.data.storage.DefaultImageStorageService
 import com.guanyi.mirra.di.AppContainer
+import com.guanyi.mirra.feature.profile.DndUserActions
+import com.guanyi.mirra.feature.profile.NoopDndUserActions
 import com.guanyi.mirra.domain.DefaultSessionManager
 import com.guanyi.mirra.domain.IntentExpiryPolicy
 import com.guanyi.mirra.domain.RuleBasedSummaryEngine
@@ -80,6 +82,7 @@ class TestAppContainer(
     override val searchRepository: SearchRepository = DefaultSearchRepository(database, searchEngine, searchIndexRebuilder)
     override val readingAnalyticsRepository: ReadingAnalyticsRepository = DefaultReadingAnalyticsRepository(database)
     override val focusRepository: FocusRepository = DefaultFocusRepository(database)
+    override val dndUserActions: DndUserActions = NoopDndUserActions()
     override val readingAnalyticsService = ReadingAnalyticsService()
     override val completionPredictionService = CompletionPredictionService()
     override val analyticsTimeProvider = AnalyticsTimeProvider()

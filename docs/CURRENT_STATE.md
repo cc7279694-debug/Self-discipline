@@ -104,10 +104,13 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 - DND 兼容矩阵已冻结：API 23–28 仅使用用户现有 Priority Policy 的 legacy interruption filter，不修改全局 Notification Policy；API 29–34 使用可重复识别的 Mirra-owned `AutomaticZenRule + ZenPolicy`；API 35+ 同样只管理 Mirra rule，并尊重 user-managed policy 与用户 override。
 - API 29+ 规则以稳定 condition URI 重新发现和复用，创建前先持久化 creation intent，覆盖“规则创建成功但 ID 尚未写入”的 crash gap。正常结束在 Session commit 后释放；冷启动先完成既有 ABNORMAL recovery，再对账已结束 Session 的 ACTIVE / RELEASE_PENDING / RELEASE_FAILED。旧版跨进程无法证明 ownership 时保守保留 RELEASE_FAILED，不盲写全局 DND。
 - Task 5A acceptance patch 已把 DND 完全移出 Monitoring Ready Lease 的关键路径：monitored start 先完成 `verifyAfterCommit` 与 bind，或完成 `PARTIAL + UNMONITORED` 降级补偿，之后才在 IO dispatcher 上等待 best-effort DND apply。慢 DND、SecurityException 与取消后的 commit recovery 均不再改变既定 FULL/PARTIAL/NONE；unmonitored Session 仍可独立申请 DND。
+- Module 3B Task 5B 已新增 Profile/Mine 的“学习保护”入口：DataStore `dnd_enabled` 默认关闭；开关只影响下一次 Session，当前 Session 不被 UI 改写。权限状态以“关闭 / 已就绪 / 需要系统授权”展示，缺少权限时提供系统设置入口并在返回前台时重新检查。
+- Task 5B 复用既有 `DndController`、`RoomDndStateStore` 与 `AndroidDndGateway`；失败重试只通过薄应用门面调用 `apply` / `reconcileAfterRecovery`，不直接修改系统规则、coverage 或生命周期。API 23–28、29–34、35+ 文案遵守已冻结兼容矩阵；开发版诊断补充偏好、权限、活动 Session、生命周期、prior filter、Mirra rule 和 pending release 字段。
+- Preparation 页的启动中提示已改为中性的“正在准备本次学习…”，不向用户暴露内部“分心监测”实现术语。
 
 ## In Progress
 
-- Module 3B Task 5A acceptance patch 已实现并完成本地验证，等待用户独立复验；当前仍使用 Sol High，尚未进入模型切换点或 Task 5B。
+- Module 3B Task 5B 已实现并完成 145 项 JVM、变更相关 Compose/Instrumented、lintDebug、assembleDebug 与离线冷启动验证；全量 connected 回归因 API 37 模拟器 System UI 长时间无响应未形成结果，已明确记录为环境未完成项，等待用户验收；未进入 Task 6。
 
 ## Frozen Phase 2 Baseline
 
@@ -122,7 +125,7 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## Pending
 
-- Phase 3｜Module 3B Task 5B–6：DND 设置/权限引导 UI、后续专注干预与实体设备/OEM 验收尚未开始；仍须逐段授权、验收。真实监测缺口不得回填为 FULL。
+- Phase 3｜Module 3B Task 6：实体设备/OEM 验收、兼容性与发布前风险检查尚未开始；真实监测缺口不得回填为 FULL。
 
 ## Known Risks / Unknowns
 
@@ -143,10 +146,10 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## Git
 
-- Current branch: `codex/phase-3b-task5a-dnd-core`
+- Current branch: `codex/phase-3b-task5b-dnd-ui`
 - Frozen Phase 3 planning base: `882d649cf600cd3f6f3b59d0be8a7911f3e42c70`
 - Room Schema: v4
 
 ## Next Recommended Task
 
-独立复验 Module 3B Task 5A acceptance patch；只有复验通过后才进入模型切换点，并在单独授权下进入 Task 5B。3C/Overlay/有效专注指标留在后续模块。
+完成 Module 3B Task 5B 用户验收后，再单独规划/授权 Task 6 实体设备与 OEM 验收；3C/Overlay/有效专注指标留在后续模块。

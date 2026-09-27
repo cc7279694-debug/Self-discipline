@@ -117,7 +117,7 @@ fun PreparationScreen(
             Text("先完成一个具体动作", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(10.dp))
             Text(item?.let(FirstActionResolver::resolve) ?: "正在读取…", style = MaterialTheme.typography.titleLarge)
-            if (viewModel.starting) Text("正在准备分心监测…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (viewModel.starting) Text("正在准备本次学习…", color = MaterialTheme.colorScheme.onSurfaceVariant)
             viewModel.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
         Column {

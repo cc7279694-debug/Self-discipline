@@ -151,6 +151,7 @@ fun MirraApp(
                                     container.readingAnalyticsRepository,
                                     container.readingAnalyticsService,
                                     container.analyticsTimeProvider,
+                                    container.dndUserActions,
                                 )
                             }),
                             debugMonitoring = debugMonitoring,

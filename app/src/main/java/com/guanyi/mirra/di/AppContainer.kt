@@ -38,10 +38,14 @@ import com.guanyi.mirra.domain.SessionStartCoordinator
 import com.guanyi.mirra.domain.DndController
 import com.guanyi.mirra.data.repository.RoomDndStateStore
 import com.guanyi.mirra.platform.focus.AndroidDndSystem
+import com.guanyi.mirra.platform.focus.AndroidDndGateway
 import com.guanyi.mirra.domain.RepositoryMonitoredStartStore
 import com.guanyi.mirra.platform.focus.MonitoringPlatformRuntime
 import com.guanyi.mirra.domain.CompletionPredictionService
 import com.guanyi.mirra.domain.ReadingAnalyticsService
+import com.guanyi.mirra.feature.profile.DefaultDndUserActions
+import com.guanyi.mirra.feature.profile.DndUserActions
+import android.os.Build
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -62,6 +66,7 @@ interface AppContainer {
     val searchRepository: SearchRepository
     val readingAnalyticsRepository: ReadingAnalyticsRepository
     val focusRepository: FocusRepository
+    val dndUserActions: DndUserActions
     val readingAnalyticsService: ReadingAnalyticsService
     val completionPredictionService: CompletionPredictionService
     val analyticsTimeProvider: AnalyticsTimeProvider
@@ -94,7 +99,21 @@ class DefaultAppContainer(context: Context, monitoringRuntime: MonitoringPlatfor
     override val searchRepository: SearchRepository = DefaultSearchRepository(database, searchEngine, searchIndexRebuilder)
     override val readingAnalyticsRepository: ReadingAnalyticsRepository = DefaultReadingAnalyticsRepository(database)
     override val focusRepository: FocusRepository = DefaultFocusRepository(database)
-    private val dndController = DndController(RoomDndStateStore(database), AndroidDndSystem(context))
+    private val dndStateStore = RoomDndStateStore(database)
+    private val androidDndGateway = AndroidDndGateway(context)
+    private val dndController = DndController(dndStateStore, AndroidDndSystem(context))
+    override val dndUserActions: DndUserActions = DefaultDndUserActions(
+        preferences = appPreferencesRepository,
+        activeRecordProvider = {
+            studyWorkflowRepository.observeActiveSession().first()?.let { dndStateStore.get(it.id) }
+        },
+        pendingReleaseProvider = { dndStateStore.pendingAfterRecovery().isNotEmpty() },
+        applyDnd = { sessionId -> dndController.apply(sessionId, enabled = true) },
+        reconcileDnd = { dndController.reconcileAfterRecovery() },
+        policyAccessProvider = androidDndGateway::policyAccessGranted,
+        apiLevel = Build.VERSION.SDK_INT,
+        settingsIntentFactory = androidDndGateway::settingsIntent,
+    )
     private suspend fun applyDndIfEnabled(sessionId: String) {
         withContext(Dispatchers.IO) {
             runCatching { dndController.apply(sessionId, appPreferencesRepository.dndEnabled.first()) }

@@ -20,14 +20,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.guanyi.mirra.feature.profile.DndSettingsUiState
+import kotlinx.coroutines.flow.StateFlow
 
 fun Context.isMirraDebuggable(): Boolean = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
 /** Never exposed in release builds and never persists a user's foreground-app trail. */
 @Composable
-fun MonitoringDiagnosticsPanel(runtime: MonitoringPlatformRuntime, modifier: Modifier = Modifier) {
+fun MonitoringDiagnosticsPanel(
+    runtime: MonitoringPlatformRuntime,
+    dndState: StateFlow<DndSettingsUiState>? = null,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val state by runtime.capabilities.state.collectAsStateWithLifecycle()
+    val dnd by dndState?.collectAsStateWithLifecycle() ?: remember {
+        mutableStateOf<DndSettingsUiState?>(null)
+    }
     var error by remember { mutableStateOf<String?>(null) }
     Column(modifier = modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -49,6 +58,15 @@ fun MonitoringDiagnosticsPanel(runtime: MonitoringPlatformRuntime, modifier: Mod
         Text("Observation: ${state.monitor.observation}")
         Text("Device signal: ${state.monitor.lastDeviceSignal ?: "—"}")
         Text("Last error: ${state.monitor.lastPlatformError ?: state.service.lastError ?: "—"}")
+        dnd?.let { snapshot ->
+            Text("DND preference: ${if (snapshot.enabled) "ON" else "OFF"}")
+            Text("DND policy access: ${snapshot.policyAccessGranted}")
+            Text("Active Session ID: ${snapshot.activeSessionId ?: "—"}")
+            Text("Active DND lifecycle: ${snapshot.activeLifecycle ?: "—"}")
+            Text("Prior filter: ${snapshot.priorFilterPresent}")
+            Text("Mirra rule ID: ${snapshot.mirraRuleId ?: "—"}")
+            Text("Pending release: ${snapshot.pendingRelease}")
+        }
         error?.let { Text("启动失败：$it") }
         Button(onClick = {
             error = runCatching { runtime.startFromUserAction() }.exceptionOrNull()?.javaClass?.simpleName

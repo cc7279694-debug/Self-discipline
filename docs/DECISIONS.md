@@ -665,3 +665,27 @@ Schema v3 只有 Session 总时间，无法表示监测缺口或区分 Focus、B
 ### Consequences
 
 每个 Phase 开始前先写计划，完成后按验收标准验证并暂停；不得提前增加空表或未来模块。
+
+## 2026-09-27 — Task 5B 将 DND 偏好与系统副作用分离
+
+### Decision
+
+“学习时自动开启勿扰”保存在现有 DataStore `dnd_enabled`，默认关闭；Profile/Mine 设置只决定下一次 Session 是否尝试 DND。设置页不得在当前 Active Session 中直接 apply、release 或改写 MonitoringCoverage / Segment / DndLifecycle。缺少 policy access 时仍保存用户偏好，显示“需要系统授权”并通过系统设置页引导；Activity 返回前台时重新读取能力。
+
+所有 DND 重试继续通过已冻结的 `DndController`：活动 Session 的 `APPLY_FAILED` 只允许调用 `apply(sessionId, true)`，异常结束后的遗留规则只允许调用 `reconcileAfterRecovery()`。UI 不直接访问 DAO、NotificationManager 或 AutomaticZenRule。API 23–28、29–34、35+ 的能力说明沿用 Task 5A 兼容矩阵，且不向旧系统承诺隐藏通知列表。
+
+### Context
+
+Task 5A 已证明 DND 是独立于 monitoring coverage 的 best-effort side effect。若设置页直接操纵当前 Session，会重新引入 Ready Lease、绑定和 ownership 竞态，也会让“用户偏好”与“本次 Session 实际状态”混淆。
+
+### Alternatives
+
+在设置切换时立即修改当前系统 DND、让 UI 直接调用 Android API、或把权限缺失当成 Session 启动失败。
+
+### Reason
+
+将偏好、能力状态、当前 Session 生命周期和系统副作用分成四个可观察层，既满足用户可配置性，又保持 Task 5A 的数据安全与 ownership 边界。权限失败只降低 DND 可用性，不阻止离线学习。
+
+### Consequences
+
+Profile 需要显示“关闭 / 已就绪 / 需要系统授权”与轻量版本说明；活动 Session 显示真实 DndLifecycle 的用户文案，失败可重试；开发诊断可以显示内部状态，但正式 UI 不暴露 enum、rule ownership 或数据库字段。Room Schema 保持 v4，不新增 Migration。

@@ -1,5 +1,6 @@
 package com.guanyi.mirra.feature.profile
 
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.guanyi.mirra.data.repository.ReadingAnalyticsRepository
@@ -10,10 +11,12 @@ import com.guanyi.mirra.feature.knowledge.formatDuration
 import java.time.Duration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 data class ProfileUiState(
     val sessionCount: Int = 0,
@@ -31,6 +34,7 @@ class ProfileViewModel(
     private val repository: ReadingAnalyticsRepository,
     private val analyticsService: ReadingAnalyticsService,
     private val timeProvider: AnalyticsTimeProvider,
+    private val dndActions: DndUserActions? = null,
 ) : ViewModel() {
     private val timeContext = MutableStateFlow(timeProvider.snapshot())
 
@@ -61,9 +65,29 @@ class ProfileViewModel(
         emit(ProfileUiState(isEmpty = true, error = "暂时无法读取阅读摘要"))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProfileUiState(isLoading = true))
 
+    val dndState: StateFlow<DndSettingsUiState>? = dndActions?.state
+
     fun refreshTimeContext() {
         timeContext.value = timeProvider.snapshot()
     }
+
+    fun refreshDnd() {
+        viewModelScope.launch { dndActions?.refresh() }
+    }
+
+    fun setDndEnabled(enabled: Boolean) {
+        viewModelScope.launch { dndActions?.setEnabled(enabled) }
+    }
+
+    fun retryDndApply() {
+        viewModelScope.launch { dndActions?.retryApply() }
+    }
+
+    fun retryDndRelease() {
+        viewModelScope.launch { dndActions?.retryRelease() }
+    }
+
+    fun dndSettingsIntent(): Intent? = dndActions?.settingsIntent()
 
     private fun boundaries(time: AnalyticsTimeContext): PeriodBoundaries {
         val today = time.now.atZone(time.zoneId).toLocalDate()
