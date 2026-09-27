@@ -119,14 +119,15 @@ class SessionStartCoordinator(
             }
             val session = started.session
             mutableState.value = CoordinatorState(CoordinatorPhase.COMMITTED, activeGeneration, session.id)
-            withContext(NonCancellable) { onSessionCreated(session) }
             if (!monitor.verifyAfterCommit(lease) || !monitor.bind(session.id, activeGeneration)) {
                 store.markMonitoringLost(session.id, lease.readyAtWall, maxOf(lease.readyAtWall, monitor.nowWall()))
                 monitor.stopUnbound(activeGeneration)
                 mutableState.value = CoordinatorState()
+                runPostStartSideEffect(session)
                 return SessionStartOutcome(session, StartMonitoringResult.DEGRADED)
             }
             mutableState.value = CoordinatorState(CoordinatorPhase.BOUND, activeGeneration, session.id)
+            runPostStartSideEffect(session)
             return SessionStartOutcome(session, StartMonitoringResult.MONITORED)
         } catch (cancelled: CancellationException) {
             withContext(NonCancellable) { reconcileUnknownCommit(intentId, generation, readyLease, proposedSessionId) }
@@ -143,7 +144,7 @@ class SessionStartCoordinator(
         if (generation != null) monitor.stopUnbound(generation)
         mutableState.value = CoordinatorState()
         val session = store.startUnmonitored(intentId, page)
-        withContext(NonCancellable) { onSessionCreated(session) }
+        runPostStartSideEffect(session)
         return SessionStartOutcome(session, StartMonitoringResult.UNMONITORED)
     }
 
@@ -162,11 +163,17 @@ class SessionStartCoordinator(
         }
         if (lease != null && monitor.verifyAfterCommit(lease) && monitor.bind(committed.id, generation)) {
             mutableState.value = CoordinatorState(CoordinatorPhase.BOUND, generation, committed.id)
+            runPostStartSideEffect(committed)
             return
         }
         store.markMonitoringLost(committed.id, lease?.readyAtWall ?: committed.startedAt,
             maxOf(committed.startedAt, monitor.nowWall()))
         monitor.stopUnbound(generation)
         mutableState.value = CoordinatorState()
+        runPostStartSideEffect(committed)
+    }
+
+    private suspend fun runPostStartSideEffect(session: StudySessionEntity) {
+        withContext(NonCancellable) { runCatching { onSessionCreated(session) } }
     }
 }

@@ -9,6 +9,7 @@
 - API 35+：沿用自有规则路径，尊重 `areAutomaticZenRulesUserManaged()`、用户修改规则策略和手动 deactivate/override；同一 Session 不因观察到规则被关掉而重新激活。不调用旧全局 DND 写 API。任何版本均不碰其他 App 或用户规则。
 - Room v4 既有 `priorDndInterruptionFilter`、`dndRuleId`、`dndLifecycle` 足够表达 DND intention、ACTIVE、release/retry；API 29+ 创建前先持久化可发现的 creation intent，成功后记录 ID，再激活。数据库事务与 Android API 分开，失败补偿与冷启动对账保证最终一致。DND 和 MonitoringCoverage 正交。
 - Task 5A 临时在正常 Session finish 事务提交后释放 DND；Phase 3D 获授权后才移至 Closeout Complete。Task 5B 才提供面向用户的设置、提示和重试 UI；当前偏好默认关闭。
+- DND apply 不属于 Monitoring READY handshake。monitored Session 必须先完成 post-commit verify 与 bind，或先持久化监测降级补偿，才允许在 IO execution boundary 上等待 best-effort DND apply；unmonitored Session 在创建完成后同样可独立 apply。DND 延迟、拒绝或异常不得消耗 Ready Lease、改变 coverage 或撤销既有 monitoring binding。取消后的已提交 Session 也必须先完成 bind recovery / degradation settlement，再尝试幂等 DND。
 
 ### Context
 

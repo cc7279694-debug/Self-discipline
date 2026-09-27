@@ -48,6 +48,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 
 private val Context.mirraPreferences by preferencesDataStore(name = "mirra_preferences")
 
@@ -95,7 +96,12 @@ class DefaultAppContainer(context: Context, monitoringRuntime: MonitoringPlatfor
     override val focusRepository: FocusRepository = DefaultFocusRepository(database)
     private val dndController = DndController(RoomDndStateStore(database), AndroidDndSystem(context))
     private suspend fun applyDndIfEnabled(sessionId: String) {
-        runCatching { dndController.apply(sessionId, appPreferencesRepository.dndEnabled.first()) }
+        withContext(Dispatchers.IO) {
+            runCatching { dndController.apply(sessionId, appPreferencesRepository.dndEnabled.first()) }
+        }
+    }
+    private suspend fun releaseDnd(sessionId: String) {
+        withContext(Dispatchers.IO) { runCatching { dndController.release(sessionId) } }
     }
     init { monitoringRuntime.attachFacts(focusRepository) }
     override val readingAnalyticsService = ReadingAnalyticsService()
@@ -104,7 +110,7 @@ class DefaultAppContainer(context: Context, monitoringRuntime: MonitoringPlatfor
     override val sessionManager: SessionManager = DefaultSessionManager(studyWorkflowRepository,
         monitoringRuntime::releaseSession, monitoringRuntime::finishWithMonitoringFacts,
         onSessionCreated = { applyDndIfEnabled(it.id) },
-        onSessionCommitted = { runCatching { dndController.release(it) } })
+        onSessionCommitted = { releaseDnd(it) })
     override val sessionStartCoordinator: SessionStartCoordinator = SessionStartCoordinator(
         RepositoryMonitoredStartStore(studyWorkflowRepository, focusRepository), monitoringRuntime,
         onSessionCreated = { applyDndIfEnabled(it.id) },

@@ -1,10 +1,10 @@
 # Current State
 
-更新日期：2026-09-26
+更新日期：2026-09-27
 
 ## Current Stage
 
-Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B 调研及详细实施计划、Task 1–4 已正式验收并冻结。Task 5A 的 ownership-safe DND 核心已实现并完成本地验证；等待用户复验后再切换模型进入 Task 5B。
+Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B 调研及详细实施计划、Task 1–4 已正式验收并冻结。Task 5A 的 ownership-safe DND 核心及 monitored-start timing acceptance patch 已实现并完成本地验证；等待用户独立复验，尚未进入模型切换点或 Task 5B。
 
 ## Verified Completed
 
@@ -103,10 +103,11 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 - Module 3B Task 5A 已新增与 MonitoringCoverage 正交的 `DndController`、Room v4 状态存储和 Android DND adapter。用户偏好默认关闭；只有已提交 Session 才会在偏好开启且授权可用时尝试 DND，失败不阻止 Session，也不改变 FULL / PARTIAL / NONE。
 - DND 兼容矩阵已冻结：API 23–28 仅使用用户现有 Priority Policy 的 legacy interruption filter，不修改全局 Notification Policy；API 29–34 使用可重复识别的 Mirra-owned `AutomaticZenRule + ZenPolicy`；API 35+ 同样只管理 Mirra rule，并尊重 user-managed policy 与用户 override。
 - API 29+ 规则以稳定 condition URI 重新发现和复用，创建前先持久化 creation intent，覆盖“规则创建成功但 ID 尚未写入”的 crash gap。正常结束在 Session commit 后释放；冷启动先完成既有 ABNORMAL recovery，再对账已结束 Session 的 ACTIVE / RELEASE_PENDING / RELEASE_FAILED。旧版跨进程无法证明 ownership 时保守保留 RELEASE_FAILED，不盲写全局 DND。
+- Task 5A acceptance patch 已把 DND 完全移出 Monitoring Ready Lease 的关键路径：monitored start 先完成 `verifyAfterCommit` 与 bind，或完成 `PARTIAL + UNMONITORED` 降级补偿，之后才在 IO dispatcher 上等待 best-effort DND apply。慢 DND、SecurityException 与取消后的 commit recovery 均不再改变既定 FULL/PARTIAL/NONE；unmonitored Session 仍可独立申请 DND。
 
 ## In Progress
 
-- Module 3B Task 5A 已实现并完成本地验证，等待用户复验；本轮停在模型切换点，尚未进入 Task 5B。
+- Module 3B Task 5A acceptance patch 已实现并完成本地验证，等待用户独立复验；当前仍使用 Sol High，尚未进入模型切换点或 Task 5B。
 
 ## Frozen Phase 2 Baseline
 
@@ -148,4 +149,4 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## Next Recommended Task
 
-独立复验 Module 3B Task 5A；验收后按模型切换说明，仅在单独授权下进入 Task 5B。3C/Overlay/有效专注指标留在后续模块。
+独立复验 Module 3B Task 5A acceptance patch；只有复验通过后才进入模型切换点，并在单独授权下进入 Task 5B。3C/Overlay/有效专注指标留在后续模块。

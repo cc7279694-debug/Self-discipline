@@ -6,6 +6,7 @@ import com.guanyi.mirra.platform.focus.MonitoringReadyLease
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runCurrent
@@ -28,6 +29,33 @@ class SessionStartCoordinatorTest {
         assertEquals(CoordinatorPhase.BOUND, coordinator.state.value.phase)
     }
 
+    @Test fun `slow post start side effect cannot expire a healthy monitoring lease`() = runTest {
+        val store = FakeStore()
+        val monitor = FakeMonitor()
+        var callbackSawBinding = false
+        val coordinator = SessionStartCoordinator(store, monitor, onSessionCreated = { session ->
+            delay(6_000)
+            callbackSawBinding = monitor.boundSession == session.id
+            monitor.valid = false // Models a lease that would be stale if checked after this delay.
+        })
+        val result = coordinator.start("intent", 10)
+        assertEquals(StartMonitoringResult.MONITORED, result.monitoring)
+        assertEquals(result.session.id, monitor.boundSession)
+        assertTrue(callbackSawBinding)
+        assertEquals(0, store.lossCalls)
+    }
+
+    @Test fun `post start side effect failure cannot degrade an established binding`() = runTest {
+        val store = FakeStore()
+        val monitor = FakeMonitor()
+        val result = SessionStartCoordinator(store, monitor, onSessionCreated = {
+            throw SecurityException("DND denied")
+        }).start("intent", 10)
+        assertEquals(StartMonitoringResult.MONITORED, result.monitoring)
+        assertEquals(result.session.id, monitor.boundSession)
+        assertEquals(0, store.lossCalls)
+    }
+
     @Test fun `missing access or ready timeout uses only conservative unmonitored branch`() = runTest {
         val deniedStore = FakeStore()
         val deniedMonitor = FakeMonitor().apply { available = false }
@@ -43,6 +71,19 @@ class SessionStartCoordinatorTest {
         assertEquals(StartMonitoringResult.UNMONITORED, timeout.monitoring)
         assertEquals(1, timeoutMonitor.stopCalls)
         assertEquals(0, timeoutStore.monitoredStarts)
+    }
+
+    @Test fun `unmonitored fallback runs post start side effect after session creation`() = runTest {
+        val store = FakeStore()
+        val monitor = FakeMonitor().apply { available = false }
+        var callbackSession: String? = null
+        val result = SessionStartCoordinator(store, monitor, onSessionCreated = { session ->
+            assertEquals(1, store.unmonitoredStarts)
+            callbackSession = session.id
+        }).start("intent", 10)
+        assertEquals(StartMonitoringResult.UNMONITORED, result.monitoring)
+        assertEquals(result.session.id, callbackSession)
+        assertNull(monitor.boundSession)
     }
 
     @Test fun `expired lease and changed generation cannot enter monitored transaction`() = runTest {
@@ -150,12 +191,16 @@ class SessionStartCoordinatorTest {
     @Test fun `post commit binding failure keeps session and degrades its facts`() = runTest {
         val store = FakeStore()
         val monitor = FakeMonitor().apply { bindResult = false }
-        val result = SessionStartCoordinator(store, monitor).start("intent", 10)
+        var callbackSawSettledMonitoring = false
+        val result = SessionStartCoordinator(store, monitor, onSessionCreated = {
+            callbackSawSettledMonitoring = store.lossCalls == 1 && monitor.stopCalls == 1
+        }).start("intent", 10)
         assertEquals(StartMonitoringResult.DEGRADED, result.monitoring)
         assertEquals(result.session.id, store.existing?.id)
         assertEquals(1, store.lossCalls)
         assertEquals(1_005_000L, store.lastTrustedAt)
         assertEquals(0, store.unmonitoredStarts)
+        assertTrue(callbackSawSettledMonitoring)
     }
 
     @Test fun `cancellation during committing checks Room before stopping monitor`() = runTest {
@@ -163,7 +208,12 @@ class SessionStartCoordinatorTest {
         val monitor = FakeMonitor()
         val gate = CompletableDeferred<Unit>()
         store.afterCommitGate = gate
-        val coordinator = SessionStartCoordinator(store, monitor)
+        var callbackCalls = 0
+        var callbackSawBinding = false
+        val coordinator = SessionStartCoordinator(store, monitor, onSessionCreated = { session ->
+            callbackCalls++
+            callbackSawBinding = monitor.boundSession == session.id
+        })
         val attempt = async { coordinator.start("intent", 10) }
         runCurrent()
         assertEquals(CoordinatorPhase.COMMITTING, coordinator.state.value.phase)
@@ -172,6 +222,8 @@ class SessionStartCoordinatorTest {
         assertEquals(store.existing?.id, monitor.boundSession)
         assertEquals(0, monitor.stopCalls)
         assertEquals(store.existing?.id, monitor.boundSession)
+        assertEquals(1, callbackCalls)
+        assertTrue(callbackSawBinding)
     }
 
     @Test fun `unknown commit cannot bind a different unmonitored session for same intent`() = runTest {
@@ -185,6 +237,22 @@ class SessionStartCoordinatorTest {
         runCurrent()
         assertNull(monitor.boundSession)
         assertEquals(1, monitor.stopCalls)
+    }
+
+    @Test fun `cancelled committed start settles degradation before post start side effect`() = runTest {
+        val store = FakeStore().apply { afterCommitGate = CompletableDeferred() }
+        val monitor = FakeMonitor().apply { bindResult = false }
+        var callbackSawSettlement = false
+        val coordinator = SessionStartCoordinator(store, monitor, onSessionCreated = {
+            callbackSawSettlement = store.lossCalls == 1 && monitor.stopCalls == 1
+        })
+        val attempt = async { coordinator.start("intent", 10) }
+        runCurrent()
+        attempt.cancel()
+        runCurrent()
+        assertTrue(attempt.isCancelled)
+        assertEquals(1, store.lossCalls)
+        assertTrue(callbackSawSettlement)
     }
 
     @Test fun `unknown commit cannot steal a different full session with identical ready timestamp`() = runTest {

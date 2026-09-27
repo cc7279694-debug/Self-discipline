@@ -11,6 +11,7 @@
 - API 29–34 使用一条稳定 condition URI 标识的 Mirra-owned `AutomaticZenRule + ZenPolicy`；API 35+ 走同一路径，并在激活前尊重 user-managed/用户修改或停用。
 - API 29+ 创建规则前先持久化 creation intent，能处理系统已创建规则但 Room 尚未保存 ID 的 crash gap；重复 apply/release 与冷启动 recovery 幂等。
 - DND 只在已提交 Session 上按显式偏好尝试；偏好默认关闭。apply 失败不阻止监测或无监测 Session。正常 Session commit 后释放；bootstrap 先执行既有 ABNORMAL recovery，再做 DND reconcile。
+- Acceptance patch 将 DND 移出 `COMMITTED → BOUND` 的 Ready Lease 关键路径。monitored start 先完成 verify/bind 或降级补偿，再在 IO dispatcher 上等待 best-effort DND；慢 DND、拒绝和取消恢复不再影响 coverage，unmonitored Session 仍可独立 apply。
 - 普通消息/Conversation 被规则拦截，被拦截通知的视觉效果隐藏；来电字段使用 `UNSET` 交给 Android 解析为用户当前 DND 来电策略。API 37 测试确认规则读回的来电策略等于系统策略，且 Mirra 操作前后 global `NotificationManager.Policy` 不变。
 
 ## Data and architecture
@@ -29,10 +30,10 @@
 
 ## Verification
 
-- JVM：132 项通过；覆盖 API 29+ 现代规则创建/复用、orphan rediscovery、DB failure 补偿、激活前失败不误停用户规则、撤权重试、用户停用不重激活、legacy safe restore/跨进程不恢复及 coverage 不变。
+- JVM：136 项通过；除 DND ownership 核心外，新增覆盖慢 DND 不使 lease 过期、DND 异常不降级、DEGRADED 与 unmonitored 路径仍独立 apply、以及 cancellation commit recovery 先完成 monitoring settlement。
 - API 37 Device / Room / Migration / Compose：135 项通过；包含真实 Mirra-owned rule 创建、复用、TRUE/FALSE 状态、ZenPolicy 与 global Policy 不变、Room DND 状态、normal finish hook 顺序。
 - `lintDebug`：通过；没有新增 lint baseline 或错误压制。
-- `assembleDebug`：通过；APK 覆盖安装成功，强停后冷启动成功。
+- `assembleDebug`：通过；APK 覆盖安装成功，断网强停后冷启动成功。
 - `git diff --check`：通过（仅仓库既有 Windows 行尾提示）。
 
 ## Known limitations
@@ -43,4 +44,4 @@
 
 ## Next step
 
-停在模型切换点。用户复验 Task 5A 核心后，切换 Luna Think，只执行 Task 5B 的低风险设置入口、权限引导、状态文案、Diagnostics、Compose/UI 测试与接线；不得重写本 checkpoint 的 ownership 语义。
+先由用户独立复验 Task 5A acceptance patch。复验通过前不输出模型切换点、不切换 Luna、不进入 Task 5B；后续 Task 5B 仍不得重写本 checkpoint 的 ownership 与 monitoring settlement 语义。
