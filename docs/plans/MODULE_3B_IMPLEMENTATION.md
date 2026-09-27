@@ -127,11 +127,11 @@ READY **不要求前台 package**；锁屏/息屏下首次成功查询可以为�
 
 | Android | UsageStats / 包可见性 | FGS / Notification | DND |
 |---|---|---|---|
-| 8–10（API 26–29；工程另覆盖 min 23–25） | `queryEvents(begin,end)`、特殊访问设置；API 23–25 同逻辑无通知 channel。 | API 26+ 必建 channel；用户可从系统停止或限制服务。 | 旧 interruption filter + ownership-safe restore。 |
-| 11–12（API 30–32） | Android 11+ 包可见性过滤；Direct Boot 用户存储未解锁时 `queryEvents` 可为 null，普通息屏不等于该状态。 | Android 12+ 后台启动 FGS 受限，只从可见用户动作启动。 | 同旧 API 路径。 |
-| 13（API 33） | 同上。 | `POST_NOTIFICATIONS` 拒绝后 FGS 可运行但普通通知栏不显示其 notice；Task Manager Stop 不回调。 | 同旧 API 路径。 |
-| 14（API 34） | 同上。 | target 34+ 必须声明合法 FGS type/对应权限；拟用 `specialUse` 并提交用例描述。 | 当前 3B 方案仍走旧 API ownership-safe 路径。 |
-| 15+（API 35–37） | API 35+ 可使用 `UsageEventsQuery` 按事件类型收窄；失败时不能偷换聚合 `queryUsageStats`。 | 延续 FGS type、后台启动与通知限制；按 target 37 实测。 | 只管理 own `AutomaticZenRule`，不恢复全局 DND。 |
+| 6–9（API 23–28） | `queryEvents(begin,end)`、特殊访问设置；API 23–25 无通知 channel。 | API 26+ 必建 channel；用户可从系统停止或限制服务。 | Legacy Priority interruption filter；只在同进程 ownership 仍可证明时恢复，不修改 global Policy。 |
+| 10–12（API 29–32） | Android 11+ 受包可见性过滤；Direct Boot 用户存储未解锁时 `queryEvents` 可为 null，普通息屏不等于该状态。 | Android 12+ 后台启动 FGS 受限，只从可见用户动作启动。 | Mirra-owned、可重复识别的 `AutomaticZenRule + ZenPolicy`；不修改用户 global Policy。 |
+| 13（API 33） | 同上。 | `POST_NOTIFICATIONS` 拒绝后 FGS 可运行但普通通知栏不显示其 notice；Task Manager Stop 不回调。 | 同 API 29+ own-rule 路径。 |
+| 14（API 34） | 同上。 | target 34+ 必须声明合法 FGS type/对应权限；使用 `specialUse` 并声明具体用途。 | 同 API 29+ own-rule 路径。 |
+| 15+（API 35–37） | API 35+ 可使用 `UsageEventsQuery` 按事件类型收窄；失败时不能偷换聚合 `queryUsageStats`。 | 延续 FGS type、后台启动与通知限制；按 target 37 实测。 | 只管理 own `AutomaticZenRule`，尊重 user-managed/manual override，不恢复全局 DND。 |
 
 OEM 验收不得把 AOSP 模拟器结论外推：Pixel 作为基准；小米、OPPO/ColorOS、vivo、Samsung 分别记录权限设置入口差异、FGS 生存/用户清理、UsageEvent 延迟、锁屏行为、DND 多规则合并与电池优化。**不**因某厂商限制而要求 Accessibility、全量包权限或电池优化白名单作为使用前提；无法证明覆盖则降 PARTIAL/NONE。真机缺席的品牌明确标 `Not Run`，不伪报通过。
 
@@ -153,12 +153,12 @@ OEM 验收不得把 AOSP 模拟器结论外推：Pixel 作为基准；小米、O
 
 ## 12. 可验收的实施顺序（每步先失败测试，再最小实现）
 
-- [ ] **Task 1｜纯领域证据链：**先测有序 reducer（重复/乱序/成功空查询/锁屏/包切换）和 Candidate（单调 9.9s 不确认、10s 有持续证据确认、时钟回拨清 candidate、前台证据过期但 query 连续不造 gap、同一 Segment token 幂等、Unknown 取消）；实现 `MonitoringModels`、reducer 和 candidate machine。只产 JVM 结果，不接系统 API。
-- [ ] **Task 2｜Capability/FGS 骨架：**先用 Android fake 验证 granted/denied/revoked/null query、FGS ack/超时/重复 generation、Notification denied 的展示语义；再加 Manifest、系统 adapter、Service 和 debuggable diagnostics。Service 不插入 Session。
-- [ ] **Task 3｜Monitored start：**先写 Room 测试证明 FULL 事务五项原子、Intent 事务内复核、单 Active Session/Segment、READY 失效走 NONE、DB 失败无孤儿 Session；再用 fake 测 `IDLE→…→BOUND` 各取消点，尤其 COMMITTING 结果未知先查库、COMMITTED 后 bind 失败降 PARTIAL 而不误停 FGS；最后实现 Coordinator 与同一 Repository 内受限分支、Preparation loading/降级 UI。
-- [ ] **Task 4｜Risk/heartbeat/gap：**先测 15 秒写放大上限、6 秒按成功 query 判缺口、成功空查询不造 gap、wall clock 前跳/后跳 cursor 重建、重复 loss、FULL→PARTIAL 不可恢复、同源 Focus Segment 方可回写候选起点、风险确认/brief 幂等、撤权及 3A 段边界；再连接 UsageMonitor、RiskAppCatalog、FocusRepository。风险退出仅开始 RECOVERY 事实，不写成功 milestone。
-- [ ] **Task 5｜DND/收尾与恢复：**先用 fake 验证 API 35 单一 own-rule 复用、创建成功但 ID 尚未落盘后的重新发现/停用、API 23–34 user-change-safe restore、权限拒绝/撤销、crash 各阶段；再接 Controller、现有 finish 路径及 bootstrap。没有权限仍可完成 Session。
-- [ ] **Task 6｜回归与设备验收：**对全量 JVM/Room/Compose/Instrumented、lintDebug、assembleDebug、APK 覆盖安装、离线/冷启动、Phase 1/2/3A 与 Visual Parity 回归；逐台真实设备记录版本、厂商、结果与未覆盖项。确认 Schema v4 文件 hash 未变、无 Migration、无 3C UI 或 effective 指标后方可提交 3B 实施报告。
+- [x] **Task 1｜纯领域证据链：**有序 reducer、Candidate 和保守未知语义已实现并验收冻结。
+- [x] **Task 2｜Capability/FGS 骨架：**Usage/Notification/DND capability、私有 specialUse FGS 与 debuggable diagnostics 已实现并验收冻结。
+- [x] **Task 3｜Monitored start：**READY lease、原子 FULL 启动、取消补偿与 NONE fallback 已实现并验收冻结。
+- [x] **Task 4｜Risk/heartbeat/gap：**风险候选、heartbeat、gap、撤权和受控停止的持久事实已实现并验收冻结。
+- [x] **Task 5｜DND/收尾与恢复：**API 23–28 legacy ownership-safe 路径、API 29+ own rule、设置/权限 UI 与验收补丁已实现并验收冻结。
+- [ ] **Task 6｜回归与设备验收：**按 `docs/plans/MODULE_3B_TASK6_VALIDATION_PROTOCOL.md` 执行全量自动化、APK 生命周期、AOSP 与可用真机/OEM 验收；逐项记录 PASS / FAIL / DEGRADED / NOT RUN。Task 6B 只收集证据，不自行修核心代码。
 
 每步相关测试先在未实现接口时失败，再以最小代码通过。执行命令基线：`./gradlew testDebugUnitTest`、`./gradlew connectedDebugAndroidTest`、`./gradlew lintDebug assembleDebug`（Windows 可用 `gradlew.bat`）；每步只跑受影响测试，全量命令留到第 6 步。真机脚本只辅助操作，不把手工权限/DND 结果伪装成自动化测试。
 
@@ -189,4 +189,4 @@ OEM 验收不得把 AOSP 模拟器结论外推：Pixel 作为基准；小米、O
 
 本规划中的 `specialUse` 是**按当前官方类别对用例的工程推断**，不是 Play 审核已获批准；1 秒轮询/3 秒重叠窗/6 秒缺口也须以真机延迟、耗电、锁屏与 OEM 数据验收。若平台不准许该 FGS 类型，或已确认设备无法证明从 READY 起连续监测，实施报告必须诚实降级/暂停相应 FULL 能力，而不能换名声明成功。
 
-**本回合状态：仅计划。未修改业务代码、Manifest、Room、Migration、权限、设备状态；未执行 3B 测试，也未获 3B 编码授权。**
+**当前状态：Task 1–5 已实现并由用户验收冻结；Task 6A 已建立独立验证协议。Task 6B 尚未执行，业务代码、Room Schema v4 与 Migration 未因 Task 6A 改变。**

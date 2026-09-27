@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B 调研及详细实施计划、Task 1–4 已正式验收并冻结。Task 5A 的 ownership-safe DND 核心及 monitored-start timing acceptance patch 已实现并完成本地验证；等待用户独立复验，尚未进入模型切换点或 Task 5B。
+Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B 调研、实施计划与 Task 1–5 已由用户正式验收并冻结。当前仅完成 Task 6A 最终验证协议，Task 6B 自动化与已有设备验收尚未执行。
 
 ## Verified Completed
 
@@ -107,10 +107,12 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 - Module 3B Task 5B 已新增 Profile/Mine 的“学习保护”入口：DataStore `dnd_enabled` 默认关闭；开关只影响下一次 Session，当前 Session 不被 UI 改写。权限状态以“关闭 / 已就绪 / 需要系统授权”展示，缺少权限时提供系统设置入口并在返回前台时重新检查。
 - Task 5B 复用既有 `DndController`、`RoomDndStateStore` 与 `AndroidDndGateway`；失败重试只通过薄应用门面调用 `apply` / `reconcileAfterRecovery`，不直接修改系统规则、coverage 或生命周期。API 23–28、29–34、35+ 文案遵守已冻结兼容矩阵；开发版诊断补充偏好、权限、活动 Session、生命周期、prior filter、Mirra rule 和 pending release 字段。
 - Preparation 页的启动中提示已改为中性的“正在准备本次学习…”，不向用户暴露内部“分心监测”实现术语。
+- Module 3B Task 5B final acceptance patch 已由用户复验通过；Task 5A + 5B 作为完整 Task 5 正式冻结。当前 Session 的 `APPLY_FAILED` retry 与下一次 Session 偏好保持分离，Profile 小屏内容可滚动。
+- Task 6A 已把最终验证拆成自动化、安装生命周期、Monitoring、DND、AOSP/API 矩阵和逐 OEM 真机记录；统一使用 PASS / FAIL / DEGRADED / NOT RUN，禁止用模拟器代替 OEM 真机结论。协议见 `docs/plans/MODULE_3B_TASK6_VALIDATION_PROTOCOL.md`。
 
 ## In Progress
 
-- Module 3B Task 5B 已实现并完成最终 acceptance patch：147 项 JVM、API 37 全量 136 项 Compose/Room/Instrumented、lintDebug、assembleDebug、APK 覆盖安装与离线冷启动验证；当前 Session 的 `APPLY_FAILED` 重试不再受下一次偏好影响，`NOT_APPLIED` 不因偏好切换而立即 apply，Profile 主内容可滚动；未进入 Task 6，等待用户验收。
+- Module 3B Task 6A 验证协议已建立并等待用户验收；本回合未运行 Task 6B、未采集新的设备结论，也未修改业务代码或 Room。
 
 ## Frozen Phase 2 Baseline
 
@@ -125,7 +127,8 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## Pending
 
-- Phase 3｜Module 3B Task 6：实体设备/OEM 验收、兼容性与发布前风险检查尚未开始；真实监测缺口不得回填为 FULL。
+- Phase 3｜Module 3B Task 6B：全量自动化、APK 生命周期、AOSP 与已有设备机械验收尚未开始；真实监测缺口不得回填为 FULL。
+- Task 6C：真实设备/OEM 异常分析尚未开始；只有确认是代码 Bug 后才允许另行授权 Task 6D。
 
 ## Known Risks / Unknowns
 
@@ -146,10 +149,10 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## Git
 
-- Current branch: `codex/phase-3b-task5b-dnd-ui`
+- Current branch: `codex/phase-3b-task6-validation`
 - Frozen Phase 3 planning base: `882d649cf600cd3f6f3b59d0be8a7911f3e42c70`
 - Room Schema: v4
 
 ## Next Recommended Task
 
-完成 Module 3B Task 5B 用户验收后，再单独规划/授权 Task 6 实体设备与 OEM 验收；3C/Overlay/有效专注指标留在后续模块。
+用户验收 Task 6A 协议后，由执行模型严格按 `docs/plans/MODULE_3B_TASK6_VALIDATION_PROTOCOL.md` 完成 Task 6B；只运行回归、安装和可用设备验收，发现异常先记录并交 Task 6C，不自行修改核心代码。3C/Overlay/有效专注指标留在后续模块。

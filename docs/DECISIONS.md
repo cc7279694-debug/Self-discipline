@@ -707,3 +707,29 @@ Profile 需要显示“关闭 / 已就绪 / 需要系统授权”与轻量版本
 ### Consequences
 
 重试成功不会把 `dnd_enabled` 自动改回开启；Profile 主内容可纵向滚动，以保证学习保护、风险 App 和开发诊断入口在小屏幕上可访问。Room Schema 与 DND ownership core 不变。
+
+## 2026-09-27 — Task 6 设备验收按证据来源和保守降级分类
+
+### Decision
+
+Module 3B Task 6 的每个验证项必须记录为 `PASS / FAIL / DEGRADED / NOT RUN`，并绑定明确的 JVM、模拟器、AOSP 真机或 OEM 真机环境。模拟器、fake capability 和代码分支测试不能替代真实 OEM 结论；没有设备或没有真实执行时必须写 `NOT RUN`。
+
+OEM/系统限制导致监测不可证明时，只要 Mirra 正确降为 `PARTIAL/NONE + UNMONITORED`、保留 Session 且不伪造 Focus，可记录为 `DEGRADED`。失监后仍保留 FULL、后台偷偷复活、错误确认 Distraction，或触碰用户/其他 App 的 DND rule，必须记录为 `FAIL`。
+
+Task 6B 只执行自动化、安装和已有设备的机械验收，不自行修业务代码。异常统一交 Task 6C 判断代码 Bug、OEM 限制、测试问题或证据不足；只有得到新的最小修复授权后才进入 Task 6D。
+
+### Context
+
+UsageEvents、FGS 生命周期、DND rule 合并和后台限制会因 Android/API/OEM 不同而变化。AOSP API 37 模拟器能够证明事务、UI 和部分平台调用路径，但不能证明 Xiaomi、OPPO、vivo 或 Samsung 的真实时序与后台行为。
+
+### Alternatives
+
+把所有未测设备默认为通过；为了全绿强制申请 Accessibility、`QUERY_ALL_PACKAGES` 或电池白名单；让执行模型遇到失败时直接修改核心架构。
+
+### Reason
+
+Mirra 的核心可信度来自“不把未知猜成 Focus”。同样的原则应应用于验收：证据只在实际运行过的环境内有效，平台限制优先安全降级，而不是扩大权限或伪造兼容性。
+
+### Consequences
+
+Task 6B 可以在存在 `NOT RUN` 的情况下完成证据收集，但没有至少一台 Android 13+ 实体设备时，Module 3B 的实体设备能力验收仍保持未完成。OEM 覆盖可以逐步补充，不要求购买所有品牌设备。Room Schema v4、Task 1–5 语义与 3C/3D 边界不因验证阶段改变。
