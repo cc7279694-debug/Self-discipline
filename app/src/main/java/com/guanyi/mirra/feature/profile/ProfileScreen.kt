@@ -78,7 +78,12 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier,
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    Column(modifier = modifier.fillMaxSize().padding(24.dp)) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+    ) {
         Text(
             text = "我的",
             style = MaterialTheme.typography.headlineLarge,

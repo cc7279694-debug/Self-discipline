@@ -84,9 +84,8 @@ class DefaultDndUserActions(
     override fun settingsIntent(): Intent = settingsIntentFactory()
 
     override suspend fun retryApply() = withContext(ioDispatcher) {
-        val current = _state.value
         val active = activeRecordProvider()?.takeIf { it.active }
-        if (current.enabled && active?.lifecycle == DndLifecycle.APPLY_FAILED) {
+        if (active?.lifecycle == DndLifecycle.APPLY_FAILED) {
             applyDnd(active.sessionId)
         }
         refresh()

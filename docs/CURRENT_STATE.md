@@ -110,7 +110,7 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## In Progress
 
-- Module 3B Task 5B 已实现并完成 145 项 JVM、API 37 全量 136 项 Compose/Room/Instrumented、lintDebug、assembleDebug、APK 覆盖安装与离线冷启动验证；未进入 Task 6，等待用户验收。
+- Module 3B Task 5B 已实现并完成最终 acceptance patch：147 项 JVM、API 37 全量 136 项 Compose/Room/Instrumented、lintDebug、assembleDebug、APK 覆盖安装与离线冷启动验证；当前 Session 的 `APPLY_FAILED` 重试不再受下一次偏好影响，`NOT_APPLIED` 不因偏好切换而立即 apply，Profile 主内容可滚动；未进入 Task 6，等待用户验收。
 
 ## Frozen Phase 2 Baseline
 

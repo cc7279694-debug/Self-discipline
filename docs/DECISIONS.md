@@ -689,3 +689,21 @@ Task 5A 已证明 DND 是独立于 monitoring coverage 的 best-effort side effe
 ### Consequences
 
 Profile 需要显示“关闭 / 已就绪 / 需要系统授权”与轻量版本说明；活动 Session 显示真实 DndLifecycle 的用户文案，失败可重试；开发诊断可以显示内部状态，但正式 UI 不暴露 enum、rule ownership 或数据库字段。Room Schema 保持 v4，不新增 Migration。
+
+## 2026-09-27 — Task 5B 当前 Session 的 DND 重试不受下一次偏好影响
+
+### Decision
+
+`DefaultDndUserActions.retryApply()` 只根据当前 Active Session 的 `APPLY_FAILED` 状态决定是否重试，不读取当前 DataStore 偏好作为本次重试门槛。偏好开关仍只影响下一次 Session。
+
+### Context
+
+用户在当前 Session 中关闭“学习时自动开启勿扰”后，当前 Session 若已有 `APPLY_FAILED` 事实，仍应允许重试本次 Session 的 DND；否则下一次偏好会错误地取消当前 Session 的恢复路径。
+
+### Reason
+
+`APPLY_FAILED` 是本次 Session 已尝试 DND 的持久证据，能够独立表达 retry eligibility；DataStore 偏好只表达下一次 Session 的启动意图。两者不能混用。
+
+### Consequences
+
+重试成功不会把 `dnd_enabled` 自动改回开启；Profile 主内容可纵向滚动，以保证学习保护、风险 App 和开发诊断入口在小屏幕上可访问。Room Schema 与 DND ownership core 不变。

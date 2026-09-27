@@ -9,6 +9,7 @@
 - 活动 Session 显示本次 DND 状态；`APPLY_FAILED` 可通过冻结 Controller 重试，遗留 release 可通过 `reconcileAfterRecovery()` 重试。
 - 开发版 Monitoring Diagnostics 增加偏好、policy access、活动 Session、DndLifecycle、prior filter、Mirra rule 与 pending release 信息。
 - Preparation 启动文案改为“正在准备本次学习…”。
+- Final acceptance patch：当前 Session 的 `APPLY_FAILED` 作为本次已尝试 DND 的持久证据，重试不再受下一次 Session 偏好开关影响；“我的”主内容支持纵向滚动。
 
 ## Inherited Constraints
 
@@ -18,7 +19,7 @@
 
 ## Verification
 
-- JVM：145 项通过，覆盖 DND 默认值、权限状态、DataStore 持久化、Activity resume 重新检查、当前 Session 延迟生效、apply/reconcile 重试、API 文案。
+- JVM：147 项通过，覆盖上述场景以及“当前 Session 为 `APPLY_FAILED` 时关闭下一次偏好后仍可重试”和 `NOT_APPLIED` 不因偏好切换而立即 apply 的回归测试。
 - Compose / Instrumented：API 37 全量 `connectedDebugAndroidTest` 共 136 项通过，0 失败、0 错误、0 跳过；其中包含 `DndSettingsProfileTest` 与更新后的 `ModuleThreeBPreparationHandshakeTest`。
 - `lintDebug`：通过。
 - `assembleDebug`：通过。

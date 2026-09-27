@@ -95,6 +95,36 @@ class DndUserActionsTest {
     }
 
     @Test
+    fun failedCurrentSessionCanRetryAfterPreferenceIsTurnedOff() = runTest {
+        val fixture = Fixture(
+            access = true,
+            active = DndRecord("session-1", true, DndLifecycle.APPLY_FAILED),
+        )
+        val actions = fixture.actions()
+
+        actions.setEnabled(true)
+        actions.setEnabled(false)
+        actions.retryApply()
+
+        assertEquals(listOf("session-1"), fixture.applied)
+        assertFalse(fixture.preferences.value)
+    }
+
+    @Test
+    fun changingPreferenceForNotAppliedSessionDoesNotApplyImmediately() = runTest {
+        val fixture = Fixture(
+            access = true,
+            active = DndRecord("session-1", true, DndLifecycle.NOT_APPLIED),
+        )
+        val actions = fixture.actions()
+
+        actions.setEnabled(false)
+        actions.setEnabled(true)
+
+        assertTrue(fixture.applied.isEmpty())
+    }
+
+    @Test
     fun pendingReleaseCanBeReconciled() = runTest {
         val fixture = Fixture(access = true, pending = true)
         val actions = fixture.actions()
