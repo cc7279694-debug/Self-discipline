@@ -1,10 +1,10 @@
 # Current State
 
-更新日期：2026-09-27
+更新日期：2026-09-28
 
 ## Current Stage
 
-Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B 调研、实施计划与 Task 1–5 已由用户正式验收并冻结。当前仅完成 Task 6A 最终验证协议，Task 6B 自动化与已有设备验收尚未执行。
+Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B 调研、实施计划与 Task 1–5 已由用户正式验收并冻结。Task 6B 自动化、API 37 AOSP AVD 生命周期及部分真实 Monitoring/DND 操作已完成；实体/OEM 设备验收与多项系统场景仍未运行。DND Session 观察到 `APPLY_FAILED`，待 Sol High 独立审查；不得因此进入 Task 6D 或 Phase 3C。
 
 ## Verified Completed
 
@@ -112,7 +112,7 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## In Progress
 
-- Module 3B Task 6A 验证协议已建立并等待用户验收；本回合未运行 Task 6B、未采集新的设备结论，也未修改业务代码或 Room。
+- Task 6B final evidence report is recorded in `docs/checkpoints/2026-09-27-module-3b-task6-validation.md`. Sol High review is pending for the one observed DND `APPLY_FAILED` state; unrun device scenarios remain explicitly `NOT RUN`.
 
 ## Frozen Phase 2 Baseline
 
@@ -127,8 +127,8 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## Pending
 
-- Phase 3｜Module 3B Task 6B：全量自动化、APK 生命周期、AOSP 与已有设备机械验收尚未开始；真实监测缺口不得回填为 FULL。
-- Task 6C：真实设备/OEM 异常分析尚未开始；只有确认是代码 Bug 后才允许另行授权 Task 6D。
+- Phase 3｜Module 3B Task 6B evidence collection: report complete using existing JVM 147/147, API 37 connected 136/136, lint/build evidence plus manual API 37 AOSP checks. Same-version `install -r` data retention, Room v4, offline cold start, and FULL-session Force Stop recovery were observed. Risk app/lock/revocation cases, normal DND finish/release, Task Manager Stop/reboot, API matrix, and physical/OEM devices remain NOT RUN.
+- Task 6C：待 Sol High 审查 Task 6B 中 DND access 已授权但 Session `APPLY_FAILED`、Mirra rule enabled/STATE_FALSE 的观察；本轮没有确认稳定代码根因，也没有获授权修复。
 
 ## Known Risks / Unknowns
 
@@ -155,4 +155,4 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## Next Recommended Task
 
-用户验收 Task 6A 协议后，由执行模型严格按 `docs/plans/MODULE_3B_TASK6_VALIDATION_PROTOCOL.md` 完成 Task 6B；只运行回归、安装和可用设备验收，发现异常先记录并交 Task 6C，不自行修改核心代码。3C/Overlay/有效专注指标留在后续模块。
+由 Sol High 先独立审查 DND `APPLY_FAILED` 观察并决定是否需要新的 Task 6C/6D 授权；其余设备矩阵继续保留 NOT RUN。不得进入 Phase 3C、Overlay 或有效专注指标模块。
