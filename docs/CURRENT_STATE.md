@@ -1,10 +1,10 @@
 # Current State
 
-更新日期：2026-09-28
+更新日期：2026-10-03
 
 ## Current Stage
 
-Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B 调研、实施计划与 Task 1–5 已由用户正式验收并冻结。Task 6B 自动化、API 37 AOSP AVD 生命周期及部分真实 Monitoring/DND 操作已完成；实体/OEM 设备验收与多项系统场景仍未运行。DND Session 观察到 `APPLY_FAILED`，待 Sol High 独立审查；不得因此进入 Task 6D 或 Phase 3C。
+Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B Task 1–5 已冻结；Task 6D 已完成 DND platform compatibility 窄修补及 API 37 AOSP 验证，待独立验收后决定 Module 3B 是否最终冻结。实体/OEM 设备与未执行的系统场景继续明确为 `NOT RUN`；未进入 Phase 3C。
 
 ## Verified Completed
 
@@ -109,10 +109,14 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 - Preparation 页的启动中提示已改为中性的“正在准备本次学习…”，不向用户暴露内部“分心监测”实现术语。
 - Module 3B Task 5B final acceptance patch 已由用户复验通过；Task 5A + 5B 作为完整 Task 5 正式冻结。当前 Session 的 `APPLY_FAILED` retry 与下一次 Session 偏好保持分离，Profile 小屏内容可滚动。
 - Task 6A 已把最终验证拆成自动化、安装生命周期、Monitoring、DND、AOSP/API 矩阵和逐 OEM 真机记录；统一使用 PASS / FAIL / DEGRADED / NOT RUN，禁止用模拟器代替 OEM 真机结论。协议见 `docs/plans/MODULE_3B_TASK6_VALIDATION_PROTOCOL.md`。
+- Task 6D 已将 API 29+ Mirra-owned `AutomaticZenRule` 校验收窄到 Mirra 明确控制的 ZenPolicy 字段，不再将 calls、alarms、media 等继承/未声明字段纳入完整对象相等判断；conditionId、configurationActivity、owner、enabled 与 rule ID 的 ownership 保护保持不变。
+- API 35+ 每次 `setAutomaticZenRuleState()` 后都回读真实 state；只有 activate=`STATE_TRUE` / deactivate=`STATE_FALSE` 才视为成功，系统拒绝或未接受会沿现有链路落为 `APPLY_FAILED` / `RELEASE_FAILED`，不写假 `ACTIVE` / `RELEASED`。
+- API 37 AOSP 定向实测已确认 own rule 可复用、非 Mirra rule 不被操作、受控 policy 被修改时拒绝激活、激活/释放后真实 state 分别为 TRUE/FALSE，且 global Notification Policy 不变。真实 monitored Session 记录为 `FULL + DND ACTIVE`，正常结束后为 `NORMAL + FULL + DND RELEASED`，系统 Mirra rule 回到 `STATE_FALSE`。
+- Task 6D 回归结果：JVM `148/148`、API 37 connected `138/138`、`lintDebug` 与 `assembleDebug` 全部通过。Room 仍为 Schema v4，`4.json` SHA-256 仍为 `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`，无 Schema / Migration 变化。
 
 ## In Progress
 
-- Task 6B final evidence report is recorded in `docs/checkpoints/2026-09-27-module-3b-task6-validation.md`. Sol High review is pending for the one observed DND `APPLY_FAILED` state; unrun device scenarios remain explicitly `NOT RUN`.
+- Task 6D DND platform compatibility acceptance patch 已实施、验证并准备提交；待 Sol High 独立验收及 Module 3B 最终冻结判定。
 
 ## Frozen Phase 2 Baseline
 
@@ -127,8 +131,7 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## Pending
 
-- Phase 3｜Module 3B Task 6B evidence collection: report complete using existing JVM 147/147, API 37 connected 136/136, lint/build evidence plus manual API 37 AOSP checks. Same-version `install -r` data retention, Room v4, offline cold start, and FULL-session Force Stop recovery were observed. Risk app/lock/revocation cases, normal DND finish/release, Task Manager Stop/reboot, API matrix, and physical/OEM devices remain NOT RUN.
-- Task 6C：待 Sol High 审查 Task 6B 中 DND access 已授权但 Session `APPLY_FAILED`、Mirra rule enabled/STATE_FALSE 的观察；本轮没有确认稳定代码根因，也没有获授权修复。
+- Phase 3｜Module 3B Task 6 仍待最终独立验收。Task Manager Stop、reboot、完整 risk/lock/revocation 矩阵、API 23/29/33/34/35 与实体/OEM 设备继续为 `NOT RUN`，不用 API 37 AVD 结果代替。
 
 ## Known Risks / Unknowns
 
@@ -155,4 +158,4 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## Next Recommended Task
 
-由 Sol High 先独立审查 DND `APPLY_FAILED` 观察并决定是否需要新的 Task 6C/6D 授权；其余设备矩阵继续保留 NOT RUN。不得进入 Phase 3C、Overlay 或有效专注指标模块。
+由 Sol High 独立复验 Task 6D 提交，再决定 Module 3B 是否最终冻结。其余设备矩阵继续保留 `NOT RUN`。不得进入 Phase 3C、Overlay 或有效专注指标模块。

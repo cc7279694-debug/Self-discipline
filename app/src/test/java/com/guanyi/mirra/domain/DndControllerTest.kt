@@ -88,6 +88,24 @@ class DndControllerTest {
         assertEquals("FULL", store.coverage)
     }
 
+    @Test fun `system rejecting state change never records false active or released state`() = runTest {
+        val store = FakeStore()
+        val system = FakeSystem(35).apply { rejectActivation = true }
+        val controller = DndController(store, system)
+
+        controller.apply("s1", true)
+        assertEquals(DndLifecycle.APPLY_FAILED, store.record.lifecycle)
+
+        system.rejectActivation = false
+        controller.apply("s1", true)
+        assertEquals(DndLifecycle.ACTIVE, store.record.lifecycle)
+
+        store.record = store.record.copy(active = false)
+        system.rejectDeactivation = true
+        controller.release("s1")
+        assertEquals(DndLifecycle.RELEASE_FAILED, store.record.lifecycle)
+    }
+
     @Test fun `crash after durable rule intent but before id write is reconciled`() = runTest {
         val store = FakeStore().apply {
             record = record.copy(active = false, ruleId = "mirra:rule-creation-pending")
@@ -160,11 +178,20 @@ class DndControllerTest {
         var globalWrites = 0
         var userChanged = false
         var failActivation = false
+        var rejectActivation = false
+        var rejectDeactivation = false
         override fun hasAccess() = granted
         override fun findOwnedRule() = ownRule
         override fun createOwnedRule(): String { created++; ownRule = "owned"; return "owned" }
-        override fun activateOwnedRule(id: String) { if (failActivation) throw SecurityException(); activated++ }
-        override fun deactivateOwnedRule(id: String) { deactivated++ }
+        override fun activateOwnedRule(id: String) {
+            if (failActivation) throw SecurityException()
+            if (rejectActivation) throw IllegalStateException("system did not accept state change")
+            activated++
+        }
+        override fun deactivateOwnedRule(id: String) {
+            if (rejectDeactivation) throw IllegalStateException("system did not accept state change")
+            deactivated++
+        }
         override fun currentFilter() = filter
         override fun applyLegacyPriority() { globalWrites++; filter = 2 }
         override fun legacyOwnershipIntact() = !userChanged && filter == 2

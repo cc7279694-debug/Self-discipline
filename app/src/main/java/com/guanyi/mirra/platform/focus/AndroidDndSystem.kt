@@ -76,13 +76,38 @@ class AndroidDndSystem(context: Context) : DndSystem {
         if (state == Condition.STATE_TRUE) {
             check(rule.isEnabled) { "User disabled the Mirra rule" }
             check(rule.interruptionFilter == NotificationManager.INTERRUPTION_FILTER_PRIORITY &&
-                rule.zenPolicy == policy()) {
+                rule.zenPolicy?.let(::mirraControlledPolicyMatches) == true) {
                 if (Build.VERSION.SDK_INT >= 35 && manager.areAutomaticZenRulesUserManaged())
                     "User-managed rule policy differs; open system settings"
                 else "Mirra rule policy differs; do not overwrite user settings"
             }
         }
         manager.setAutomaticZenRuleState(id, Condition(conditionId, "Mirra reading", state))
+        if (Build.VERSION.SDK_INT >= 35) {
+            check(manager.getAutomaticZenRuleState(id) == state) {
+                "Android did not accept the Mirra rule state change"
+            }
+        }
+    }
+
+    @RequiresApi(29)
+    private fun mirraControlledPolicyMatches(actual: ZenPolicy): Boolean {
+        check(apiLevel >= 29)
+        val categoriesMatch = actual.priorityCategoryMessages == ZenPolicy.STATE_DISALLOW &&
+            actual.priorityMessageSenders == ZenPolicy.PEOPLE_TYPE_NONE &&
+            actual.priorityCategoryEvents == ZenPolicy.STATE_DISALLOW &&
+            actual.priorityCategoryReminders == ZenPolicy.STATE_DISALLOW &&
+            (Build.VERSION.SDK_INT < 30 ||
+                (actual.priorityCategoryConversations == ZenPolicy.STATE_DISALLOW &&
+                    actual.priorityConversationSenders == ZenPolicy.CONVERSATION_SENDERS_NONE))
+        val visualEffectsMatch = actual.visualEffectFullScreenIntent == ZenPolicy.STATE_DISALLOW &&
+            actual.visualEffectLights == ZenPolicy.STATE_DISALLOW &&
+            actual.visualEffectPeek == ZenPolicy.STATE_DISALLOW &&
+            actual.visualEffectStatusBar == ZenPolicy.STATE_DISALLOW &&
+            actual.visualEffectBadge == ZenPolicy.STATE_DISALLOW &&
+            actual.visualEffectAmbient == ZenPolicy.STATE_DISALLOW &&
+            actual.visualEffectNotificationList == ZenPolicy.STATE_DISALLOW
+        return categoriesMatch && visualEffectsMatch
     }
 
     @RequiresApi(29)

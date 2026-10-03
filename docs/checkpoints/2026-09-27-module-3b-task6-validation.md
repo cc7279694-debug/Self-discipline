@@ -220,3 +220,40 @@ Task 6B 未修改业务代码，未进入 Task 6D 或 Phase 3C。
 - 本轮没有重跑 JVM/connected/lint/build；引用的是既有干净日志。以前误用 `-wipe-data` 清除 AVD 的操作偏差按原文保留，没有删除或改写。
 - 执行中未观察到稳定的业务异常可重复复现；DND `APPLY_FAILED` 是一次真实可观察异常，待独立审查。Force Stop 流程已按 Task 6B 授权执行，其后没有再尝试 DND retry/override 或创建第二个 Session。
 - 本 Task 仅更新验证文档与脱敏证据，没有修改 App、测试、Manifest、Gradle、Room、Schema、Migration 或产品实现；不进入 Task 6D 或 Phase 3C。
+
+## Task 6D DND Platform Compatibility Acceptance Patch（2026-10-03）
+
+### 根因与修复
+
+- 已确认 API 37 的 `APPLY_FAILED` 来自完整 `rule.zenPolicy == policy()` 比较：Android 可以将 Mirra 故意保留为 UNSET 的继承字段解析后返回，导致完整对象不相等。
+- 修复后只比较 Mirra 明确控制的 categories 与 visual effects；不扩大到 calls、alarms、media 等继承字段，也不修改 global Notification Policy。
+- API 35+ 激活/释放后立即回读 AutomaticZenRule 真实 state。只有 TRUE/FALSE 目标状态才成功；拒绝、UNKNOWN、ERROR 或不匹配都沿现有控制器落为 `APPLY_FAILED` / `RELEASE_FAILED`。
+- conditionId、configurationActivity、owner、rule ID、enabled 与 interruption filter 保护未放宽；非 Mirra rule 不会被操作。
+
+### TDD 与定向证据
+
+- RED：在 API 37 真实授予 DND access 后，原实现的 own-rule 定向测试在 `AndroidDndSystem.kt:78` 以 `User-managed rule policy differs; open system settings` 失败，确认不是 early return。
+- GREEN：受控字段比较与 state 回读实现后，`AndroidDndSystemTest` 真实设备路径 3/3 通过：own rule 可复用、受控 policy 改动会被拒绝、非 Mirra rule 不被识别为 own rule。
+- JVM fake 回归验证 platform 拒绝 activate/deactivate 不会产生假 `ACTIVE` / `RELEASED`，而是分别落为 `APPLY_FAILED` / `RELEASE_FAILED`。
+- manual override 无法在不写系统数据库或使用隐藏 API 的情况下稳定构造，本项保留 `NOT RUN`；不将 fake 测试伪装成手工实测。
+
+### API 37 真实 Session
+
+- DND preference 开启、Usage Access 与 DND access 授权后，通过真实 Start → Preparation → Session 流程创建 Session `9cebfb04-6b93-4614-b4c6-7dfbdee6ca63`。
+- 进行中 Room 快照：`activeSlot=1`、`monitoring=FULL`、`dnd=ACTIVE`；系统 Mirra rule `869e7b6172614ea7a2a816a6322f457f` 为 enabled + `STATE_TRUE`。
+- 通过 UI 正常结束后 Room：`outcome=NORMAL`、`monitoring=FULL`、`dnd=RELEASED`；系统 rule 为 `STATE_FALSE`，FGS 已释放。DND 过程未改写 MonitoringCoverage。
+- `ownedRuleIsReusableAndNeverChangesGlobalPolicy` 在真实 Android DND access 下比较 activate/deactivate 前后 `NotificationManager.notificationPolicy`，确认 global policy 不变。
+
+### 完整回归与环境证据
+
+- JVM：`148/148`，0 failure / error / skipped。
+- API 37 connected 最终单次 clean run：`138/138`，0 failure / error / skipped，Gradle `BUILD SUCCESSFUL in 3m 47s`。
+- 在 clean run 前保留了真实 AVD 波动记录：两次全量分别在无关旧 UI 用例上随机失败，一次卡住在旧并发用例；三条目标用例单独重跑均通过。最终不以局部拼接代替 full-suite PASS。
+- `lintDebug`：PASS。`assembleDebug`：PASS。
+- Room 仍为 Schema v4；`4.json` SHA-256 仍为 `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`，无 app/schemas diff、Migration、Entity、Table、Column 或 Index 变化。
+
+### 未运行边界
+
+- Android 13+ 实体设备、Pixel/AOSP 真机、Xiaomi/HyperOS、OPPO/ColorOS、vivo/OriginOS、Samsung/One UI：`NOT RUN`。
+- API 23/29/33/34/35 模拟器矩阵、Task Manager Stop、reboot 与完整 Monitoring 系统场景：本 patch 未重复执行，沿用先前 checkpoint 的 PASS / NOT RUN 边界。
+- 本 patch 停在 Task 6D 独立验收前，未进入 Phase 3C。

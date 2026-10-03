@@ -733,3 +733,27 @@ Mirra 的核心可信度来自“不把未知猜成 Focus”。同样的原则�
 ### Consequences
 
 Task 6B 可以在存在 `NOT RUN` 的情况下完成证据收集，但没有至少一台 Android 13+ 实体设备时，Module 3B 的实体设备能力验收仍保持未完成。OEM 覆盖可以逐步补充，不要求购买所有品牌设备。Room Schema v4、Task 1–5 语义与 3C/3D 边界不因验证阶段改变。
+
+## 2026-10-03 — AutomaticZenRule 只校验 Mirra 控制字段并回读真实 state
+
+### Decision
+
+API 29+ 不再使用完整 `ZenPolicy.equals()` 判断 Mirra-owned rule 是否可操作。`AndroidDndSystem` 只比较 Mirra 明确声明的 messages、events、reminders、API 30+ conversations 与 `hideAllVisualEffects()` 所有视觉字段；不比较 calls、call sender、repeat callers、alarms、media、system 等继承或未声明字段。conditionId、configurationActivity、owner、rule ID、enabled 和 interruption filter 的既有 ownership 校验保持不变。
+
+API 35+ 调用 `setAutomaticZenRuleState()` 后必须通过 `getAutomaticZenRuleState()` 回读确认。激活只有 `STATE_TRUE` 成功，释放只有 `STATE_FALSE` 成功；其他结果全部进入已有 `APPLY_FAILED` / `RELEASE_FAILED` 路径，不自动重试，不抢回用户 override。
+
+### Context
+
+Android 读回的 `AutomaticZenRule.zenPolicy` 可包含系统已解析的 inherited / UNSET 字段，因此与新建 Builder 的完整对象不保证相等。另外，API 35+ 上 `setAutomaticZenRuleState()` 未抛异常不能证明系统或用户 override 实际接受了状态变更。
+
+### Alternatives
+
+强制声明 calls/alarms/media 等原本继承字段；放宽所有 policy 校验；或退回修改 global Notification Policy / interruption filter。
+
+### Reason
+
+逐字段校验能同时避免系统解析导致误拒绝，并保留用户修改 Mirra-controlled policy 后的拒绝保护。状态回读防止 Room 写入与真实系统 DND 不一致的假成功。
+
+### Consequences
+
+API 29–34 仍使用 Mirra-owned `AutomaticZenRule + ZenPolicy`，API 35+ 增加真实 state 确认，API 23–28 legacy 路径不变。全程不修改 global Notification Policy，DND 失败与 MonitoringCoverage 继续正交，Room 保持 Schema v4。
