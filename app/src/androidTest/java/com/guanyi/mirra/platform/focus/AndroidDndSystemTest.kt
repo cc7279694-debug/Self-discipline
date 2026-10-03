@@ -10,16 +10,17 @@ import android.service.notification.ZenPolicy
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.*
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class AndroidDndSystemTest {
     @Test fun ownedRuleIsReusableAndNeverChangesGlobalPolicy() {
-        if (Build.VERSION.SDK_INT < 29) return
+        assumeTrue("Mirra-owned DND rules require API 29+", Build.VERSION.SDK_INT >= 29)
         val context = ApplicationProvider.getApplicationContext<Context>()
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (!manager.isNotificationPolicyAccessGranted) return // Denied path belongs to controller tests.
+        assumeTrue("DND platform verification requires explicitly granted policy access", manager.isNotificationPolicyAccessGranted)
         val system = AndroidDndSystem(context)
         val before = manager.notificationPolicy
         val existing = system.findOwnedRule()
@@ -58,10 +59,10 @@ class AndroidDndSystemTest {
     }
 
     @Test fun controlledPolicyChangeIsRejected() {
-        if (Build.VERSION.SDK_INT < 29) return
+        assumeTrue("Mirra-owned DND rules require API 29+", Build.VERSION.SDK_INT >= 29)
         val context = ApplicationProvider.getApplicationContext<Context>()
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (!manager.isNotificationPolicyAccessGranted) return
+        assumeTrue("DND platform verification requires explicitly granted policy access", manager.isNotificationPolicyAccessGranted)
         val system = AndroidDndSystem(context)
         val existing = system.findOwnedRule()
         val id = existing ?: system.createOwnedRule()
@@ -90,10 +91,10 @@ class AndroidDndSystemTest {
     }
 
     @Test fun accessibleNonMirraRuleIsIgnored() {
-        if (Build.VERSION.SDK_INT < 29) return
+        assumeTrue("Mirra-owned DND rules require API 29+", Build.VERSION.SDK_INT >= 29)
         val context = ApplicationProvider.getApplicationContext<Context>()
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (!manager.isNotificationPolicyAccessGranted) return
+        assumeTrue("DND platform verification requires explicitly granted policy access", manager.isNotificationPolicyAccessGranted)
         val foreignCondition = Uri.parse("mirra://focus/not-the-reading-rule")
         val foreignRule = android.app.AutomaticZenRule(
             "Not Mirra reading",

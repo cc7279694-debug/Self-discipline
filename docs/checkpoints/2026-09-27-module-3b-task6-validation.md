@@ -257,3 +257,37 @@ Task 6B 未修改业务代码，未进入 Task 6D 或 Phase 3C。
 - Android 13+ 实体设备、Pixel/AOSP 真机、Xiaomi/HyperOS、OPPO/ColorOS、vivo/OriginOS、Samsung/One UI：`NOT RUN`。
 - API 23/29/33/34/35 模拟器矩阵、Task Manager Stop、reboot 与完整 Monitoring 系统场景：本 patch 未重复执行，沿用先前 checkpoint 的 PASS / NOT RUN 边界。
 - 本 patch 停在 Task 6D 独立验收前，未进入 Phase 3C。
+
+## DND 测试前提显式化与验收记录收尾（2026-10-03）
+
+### 用户复验与边界
+
+- 用户已对远程 `1725e6a0e0f9f03fb868efe315d842f243ebcb0a` 完成源码和已提交证据审查，Task 6D 指定 DND 生产代码修补通过复验；该复验没有重新运行 Gradle 或操作 AVD。
+- Module 3B 尚未最终验收冻结。完整系统场景和至少一台 Android 13+ 实体设备验收仍未完成；其他 OEM 和未执行场景继续为 `NOT RUN`。
+
+### 本轮修改
+
+- 仅将 `AndroidDndSystemTest` 三个测试的 API/权限静默 return 改为 JUnit 4 `Assume.assumeTrue`，带明确前提原因；原断言全部保留。
+- 不在测试代码内自动授予权限。专项验收时由独立设备操作明确授权；测试结束恢复原授权状态。
+- 生产代码、Gradle、Room、Schema、Migration 无变更。
+
+### 新执行证据
+
+- 环境：专用 `Mirra_API_37` AOSP AVD，API 37。启动完成后初始无 Mirra package；使用 `adb install -r` 安装冻结 Debug APK 和修改后的测试 APK。没有卸载、wipe-data、pm clear 或清除已有数据；安装后数据库尚不存在，没有 Active Session。
+- `:app:assembleDebugAndroidTest --no-daemon`：PASS，测试 Kotlin 实际重新编译。此结果只证明测试包构建成功。
+- 直接通过 AndroidJUnitRunner 执行完整 `AndroidDndSystemTest` 类；采用 runner 实际 status event 计数，没有生成或伪造 Gradle XML。最小证据见 [DND 前提验证记录](assets/module-3b-task6/aosp-api37-avd/dnd-prerequisites-2026-10-03.md)。
+
+| 前提 | discovered | executed（业务断言） | passed | failed | skipped | runner 证据 |
+|---|---:|---:|---:|---:|---:|---|
+| 未授权（初始） | 3 | 0 | 0 | 0 | 3 | 3 个 `AssumptionViolatedException`，3 个 completion code `-4` |
+| 明确授权 | 3 | 3 | 3 | 0 | 0 | 3 个 completion code `0`，没有 assumption/skip |
+| 恢复未授权后 | 3 | 0 | 0 | 0 | 3 | 再次出现 3 个 completion code `-4` |
+
+注意：未授权时 runner 汇总仍打印 `OK (3 tests)`，不能将它解释为平台业务断言 PASS。必须检查逐条 completion code / skip 记录。API <29 的 assumption 分支本轮未在旧版设备执行，记录为 `NOT RUN`。
+
+### 历史自动化与平台证据分开解释
+
+- Task 6D 的 JVM 148/148、最终 full connected 138/138、lint/build PASS 作为原提交的执行记录保留，本轮没有重新执行全量。
+- 原 connected 的零 skipped 不能独立证明 DND 平台路径被执行，因为当时测试含静默 return。此前明确授权的专项测试和真实 Session ACTIVE→RELEASED 记录是独立证据。
+- 本轮明确授权专项结果 3 executed / 3 passed / 0 failed / 0 skipped 是新取得的 DND 平台证据，未授权结果不记作 DND 平台 PASS。
+- 未发现生产代码异常，无需扩大验证或修改 DND core。本轮停止于测试收尾，未进入 Phase 3C/3D。

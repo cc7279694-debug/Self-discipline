@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B Task 1–5 已冻结；Task 6D 已完成 DND platform compatibility 窄修补及 API 37 AOSP 验证，待独立验收后决定 Module 3B 是否最终冻结。实体/OEM 设备与未执行的系统场景继续明确为 `NOT RUN`；未进入 Phase 3C。
+Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B Task 1–5 已冻结；Task 6D 指定生产代码修补已通过独立源码复验。DND 测试静默提前返回已改为显式 assumption，并完成 API 37 授权/未授权专项验证。Module 3B 尚未最终冻结：完整系统场景和至少一台 Android 13+ 实体设备能力验收尚未完成，未执行项继续为 `NOT RUN`；未进入 Phase 3C。
 
 ## Verified Completed
 
@@ -116,7 +116,7 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## In Progress
 
-- Task 6D DND platform compatibility acceptance patch 已实施、验证并准备提交；待 Sol High 独立验收及 Module 3B 最终冻结判定。
+- Task 6D 生产代码修补已通过用户独立源码复验。本轮 test-only 收尾已验证：未授权 0 executed / 0 passed / 0 failed / 3 skipped；明确授权后 3 executed / 3 passed / 0 failed / 0 skipped；测试结束后恢复未授权并再次确认 3 skipped。证据见 Task 6 checkpoint，Module 3B 不因此获得最终冻结。
 
 ## Frozen Phase 2 Baseline
 
@@ -158,4 +158,4 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## Next Recommended Task
 
-由 Sol High 独立复验 Task 6D 提交，再决定 Module 3B 是否最终冻结。其余设备矩阵继续保留 `NOT RUN`。不得进入 Phase 3C、Overlay 或有效专注指标模块。
+优先补齐用户实际使用的 Android 13+ 真机核心 Monitoring/DND/生命周期场景；先确认型号、Android 版本与 ROM。其他设备矩阵和未执行场景继续保留 `NOT RUN`。Module 3B 尚未最终冻结；不得进入 Phase 3C、Overlay 或有效专注指标模块。
