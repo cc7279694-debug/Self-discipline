@@ -1,10 +1,10 @@
 # Current State
 
-更新日期：2026-10-03
+更新日期：2026-10-04
 
 ## Current Stage
 
-Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1–5 与限定 DND 修补已通过验收；按用户批准的 3C master plan，3B 可作为个人试用开发基线继续 3C，但不等于发布级设备能力验收完成。未执行 API/OEM/真机项目继续 `NOT RUN`，一加 13T 日常试用反馈不替代完整兼容性验收。Module 3C-1（行为内核、事务、连续证据窗口）已实现并通过包内验证，等待用户验收；未进入 3C-2/3C-3 或 3D。
+Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1–5 与限定 DND 修补已通过验收；按用户批准的 3C master plan，3B 可作为个人试用开发基线继续 3C，但不等于发布级设备能力验收完成。未执行 API/OEM/真机项目继续 `NOT RUN`，一加 13T 日常试用反馈不替代完整兼容性验收。Module 3C-1 已由用户确认冻结，基线 `61ed78f94125e7049c5d4ca73be1b16c5416043b`。3C-2 应用内接线与 SOL 采样竞态修补已完成统一交付验证，真实 Allowance→Recovery→FOCUS 91.122 秒闭环保持 FULL；待 SOL 读取实际提交进行最终独立复验。未进入 3C-3 或 3D。
 
 ## Verified Completed
 
@@ -116,10 +116,11 @@ Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1�
 
 ## In Progress
 
-- Module 3C-1 已交付待验收。范围见 `docs/plans/MIRRA_MODULE_3C_MASTER_PLAN.md`；接口、转换矩阵、事务与连续证据契约见 `docs/checkpoints/2026-10-03-module-3c-1.md`。
+- Module 3C-1 已冻结。范围见 `docs/plans/MIRRA_MODULE_3C_MASTER_PLAN.md`；接口、转换矩阵、事务与连续证据契约见 `docs/checkpoints/2026-10-03-module-3c-1.md`。
 - 按 Session/package 持久确认计数的 0/5/15 秒、可见等待、当前 episode 授权、1–15 分钟单次时长、一次 +2 分钟延长、5/10 分钟 Break、到期回 Recovery/NONE 回 UNMONITORED 已落地。
-- Recovery/Stable/Deep 入口要求连续正向证据，旧段时长不能绕过；风险 B、Unknown/中性输入、正向样本缺失及真实查询 gap 均保守处理。正式 Compose/屏幕证据生产者尚待 3C-2 接线，不声称已有完整用户操作体验。
-- 最终全量 JVM 168/168；API 37 数据包单次 Instrumented 108/108（含 11 个新增 3C Room 测试、3A/3B/旧功能与 Migration），均 0 failure/error/skipped。lintDebug 通过，assembleDebug 已生成同生产版本 APK。未重复全量 Compose 或系统设备矩阵。
+- 3C-2 已增加薄 SessionViewModel/actions 接线、平面状态区、休息、应用内提示、用途投影、等待/延长确认与真实页面焦点/生命周期/屏幕证据生产者；保留 Note 自动保存/flush。Back 依次关闭用途、休息选择、提示，再保存并离开。
+- SOL 已单独修复较旧页面样本反向失监的问题；LUNA finalization 未再修改控制器或核心测试。真实 AVD 通过 5/10 分钟休息提前结束、Chrome 风险提示、首次零等待授权、一次延长、第二次可见等待暂停，以及连续 91.122 秒 Recovery 自动回 FOCUS；FULL 与草稿均保留。
+- 最新未过滤 JVM 183/183、单次未过滤 connected 155/155，均 0 failure/error/skipped；DND 平台 3 项实际执行。lintDebug / assembleDebug、覆盖安装、离线闭环、冷启动和旋转重建后同 Session/Break/草稿恢复通过。历史失败及未测范围保留在 `docs/checkpoints/2026-10-03-module-3c-2.md`；待 SOL 最终复验，不将作者自查冒称独立验收。
 
 ## Frozen Phase 2 Baseline
 
@@ -151,15 +152,15 @@ Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1�
 - 文件系统与 SQLite 无法形成真正的跨资源原子事务；当前通过 trash、补偿和启动清理实现最终一致。若设备在文件系统持续故障时终止进程，文件会保留供后续启动再次恢复或清理。
 - Android Instrumented 测试为兼容 Room 2.8.5 Migration Schema 验证，在 androidTest 配置中固定 kotlinx-serialization 1.8.1；生产运行时依赖未因此替换。
 - Mono / Night 尚未进行全页面、字号放大、TalkBack 与主题切换视觉验收，因此本阶段不向用户开放主题选择入口。
-- 首版中途重新授权不自动恢复当前 Session 监测，保持 PARTIAL。3C-1 定义连续正向证据入口，不使用缓存前台 package 冒充长时间稳定；正式页面可见性/屏幕输入接线、干预 UI 和有效专注指标仍分别属于后续交付包，FULL 不等于全程 Focus。
+- 首版中途重新授权不自动恢复当前 Session 监测，保持 PARTIAL。3C-2 已接入真实页面可见性/屏幕证据及应用内干预；不使用缓存前台 package 冒充长时间稳定，FULL 不等于全程 Focus。跨应用渠道和有效专注指标仍属于后续交付包。
 
 ## Git
 
-- Current branch: `codex/phase-3c-learning-return`
-- Implementation base: `4adc39c1e920bc2c59e3b0fdbaff7795c31930e7`
+- Current branch: `codex/phase-3c-in-app-experience`
+- Implementation base: `61ed78f94125e7049c5d4ca73be1b16c5416043b`；3C-2 统一交付提交说明 `feat(focus): add in-app learning return experience`，实际提交 SHA / Push 核验见交付报告（避免在提交内自引用 SHA）。
 - Frozen Phase 3 planning base: `882d649cf600cd3f6f3b59d0be8a7911f3e42c70`
 - Room Schema: v4
 
 ## Next Recommended Task
 
-3C-1 完成并验收后切换 LUNA，只执行 3C-2 应用内体验和新鲜正向证据接线，不重写内核。发布级 API/OEM/实体设备验证继续独立开放；本轮不做跨应用提示、Closeout 或有效专注指标。
+切 SOL 读取 3C-2 统一交付 commit，独立复验核心补丁、UI 接线及 checkpoint 实测证据，确认后再冻结。不要自动进入 3C-3。发布级 API/OEM/实体设备验证继续独立开放；本包不做跨应用提示、Closeout 或有效专注指标。

@@ -358,6 +358,8 @@ fun MirraApp(
                                     container.studyWorkflowRepository,
                                     container.noteRepository,
                                     container.sessionManager,
+                                    focusActions = container.focusSessionActions,
+                                    learningItems = container.learningItemRepository,
                                 )
                             },
                         ),

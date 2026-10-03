@@ -5,9 +5,11 @@ import com.guanyi.mirra.data.local.entity.SessionSegmentType
 import kotlinx.coroutines.flow.StateFlow
 
 enum class FocusActionResult { SUCCESS, EXPIRED, CONFLICT, SAVE_FAILED }
+data class AllowanceOption(val reason: AllowanceReason, val durationMillis: Long)
 data class InterventionUiModel(val sessionId: String, val promptToken: String, val eventId: String,
     val segmentId: String, val packageName: String, val waitMillis: Long,
-    val remainingWaitMillis: Long, val reason: AllowanceReason? = null, val dismissed: Boolean = false)
+    val remainingWaitMillis: Long, val reason: AllowanceReason? = null, val dismissed: Boolean = false,
+    val allowanceOptions: List<AllowanceOption> = emptyList())
 data class FocusStatusUiModel(val sessionId: String? = null, val segmentId: String? = null,
     val type: SessionSegmentType? = null, val coverage: MonitoringCoverage? = null,
     val remainingMillis: Long? = null, val canExtend: Boolean = false)

@@ -66,6 +66,7 @@ interface AppContainer {
     val searchRepository: SearchRepository
     val readingAnalyticsRepository: ReadingAnalyticsRepository
     val focusRepository: FocusRepository
+    val focusSessionActions: com.guanyi.mirra.domain.monitoring.FocusSessionActions
     val dndUserActions: DndUserActions
     val readingAnalyticsService: ReadingAnalyticsService
     val completionPredictionService: CompletionPredictionService
@@ -75,7 +76,7 @@ interface AppContainer {
     val startup: Deferred<Unit>
 }
 
-class DefaultAppContainer(context: Context, monitoringRuntime: MonitoringPlatformRuntime) : AppContainer {
+class DefaultAppContainer(context: Context, private val monitoringRuntime: MonitoringPlatformRuntime) : AppContainer {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val database = Room.databaseBuilder(
         context,
@@ -123,6 +124,8 @@ class DefaultAppContainer(context: Context, monitoringRuntime: MonitoringPlatfor
         withContext(Dispatchers.IO) { runCatching { dndController.release(sessionId) } }
     }
     init { monitoringRuntime.attachFacts(focusRepository) }
+    override val focusSessionActions: com.guanyi.mirra.domain.monitoring.FocusSessionActions
+        get() = monitoringRuntime.focusSessionActions
     override val readingAnalyticsService = ReadingAnalyticsService()
     override val completionPredictionService = CompletionPredictionService()
     override val analyticsTimeProvider = AnalyticsTimeProvider()

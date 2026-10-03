@@ -785,3 +785,47 @@ Recovery 90 秒、Stable Start 120 秒、Deep Focus 900 秒且连续息屏 600 �
 ### Consequences
 
 3C-1 只交付内核和供 3C-2 消费的 StateFlow/API。界面必须逐次输入真实窗口焦点/页面可见性或新鲜屏幕状态，包括中性/失效样本，并在隐藏用途面板时暂停等待。没有输入就不产生自动里程碑。跨应用渠道、通知送达、Closeout 和 effective 指标仍不在本包实现；Session 死亡沿用 ABNORMAL，不恢复授权令牌和计时。
+
+## 2026-10-03 — 3C-2 发现冻结核心采样顺序问题后停止
+
+### Decision
+
+3C-2 允许的控制器变更仍仅为用途默认时长只读投影；不因界面接线发现竞态而自行修改冻结的 settleMonitoring、6 秒阈值、coverage、DND 或 FGS。保留失败回归与现场摘要，交 SOL 复验并等待独立授权。
+
+### Context
+
+正式页面每秒输入与 Service 查询并发，确定性回归证明：页面 ClockSample 先采集、更新查询先处理、页面后处理时，负 1ms 相对差会被当成监测缺口，FULL 错误降为 PARTIAL。真实 AVD 两次出现对应诊断原因；完整现场并发时序尚未采集。
+
+### Alternatives
+
+在 UI 中钳制/重写时间或延迟输入以掩盖核心问题；直接越权修改核心；忽略人工降级，仅凭自动化通过就冻结 3C-2。
+
+### Reason
+
+paired ClockSample 必须忠实表达采样时刻，不能由 UI 伪造新的监测连续性证据。跨生产者排序属于冻结行为核心的边界，需要由负责核心的 SOL 分析。
+
+### Consequences
+
+3C-2 尚未完成，工作区保留 UI 接线与一项失败诊断用例；未 commit/push、不进入 3C-3。修复之后必须重新跑相应回归并补真实 Allowance/Recovery 闭环。Room 仍为 v4，未新增 Migration。
+
+## 2026-10-04 — 3C-2 统一交付与核心补丁继承
+
+### Decision
+
+用户独立授权的 SOL 核心补丁与完整 3C-2 一起交付：较旧动作/页面样本只跳过反向 gap 判定，原始样本继续动作与连续证据累计。LUNA finalization 保持该控制器及核心测试哈希不变，只补齐 Back 关闭提示的 UI 分支。用途时长来自统一只读投影，UI 不复制阈值或乐观改变 deadline。
+
+### Context
+
+上述停止决策和 RED 记录保留为历史，后续 SOL 修补已解除阻塞。API 37 真实 Allowance→Recovery→FOCUS 连续 91.122 秒、FULL 不降级、草稿保留；最新 JVM 183/183、connected 155/155、lint/build 通过。详细失败历史、实测范围和截图见 3C-2 checkpoint。
+
+### Alternatives
+
+删除历史失败、只拼接局部测试当全量通过；在 UI 重写 ClockSample；借界面验收修改核心规则或进入跨应用渠道。
+
+### Reason
+
+保守事实与可复核证据优先。重建页面恢复 actions 状态，不重复发起 Break / Allowance；当前 Navigation 重建返回 Start，再继续同一 Session，不借本包重做导航。
+
+### Consequences
+
+3C-2 交付后仍由 SOL 读取实际 commit 最终复验，不自行宣称冻结。Room v4 / schemas / Migration / DND / READY handshake 不变；3C-3、Closeout、有效指标未实现，实体/OEM 发布级验证继续 NOT RUN。

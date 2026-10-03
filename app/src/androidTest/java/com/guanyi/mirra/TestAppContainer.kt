@@ -82,6 +82,7 @@ class TestAppContainer(
     override val searchRepository: SearchRepository = DefaultSearchRepository(database, searchEngine, searchIndexRebuilder)
     override val readingAnalyticsRepository: ReadingAnalyticsRepository = DefaultReadingAnalyticsRepository(database)
     override val focusRepository: FocusRepository = DefaultFocusRepository(database)
+    override val focusSessionActions = FakeFocusSessionActions()
     override val dndUserActions: DndUserActions = NoopDndUserActions()
     override val readingAnalyticsService = ReadingAnalyticsService()
     override val completionPredictionService = CompletionPredictionService()

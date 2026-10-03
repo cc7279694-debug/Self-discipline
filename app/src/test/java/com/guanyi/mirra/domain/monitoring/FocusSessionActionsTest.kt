@@ -9,6 +9,120 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class FocusSessionActionsTest {
+    @Test fun olderPageEvidenceDoesNotLoseHealthyMonitoring() = runTest {
+        val p = port(SessionSegmentType.FOCUS)
+        val c = BoundSessionMonitoringController(p)
+        c.onSample(binding, snapshot(1_001), sample(1_001))
+        assertEquals(FocusActionResult.SUCCESS, c.observeEvidence("s", sample(1_000), false, true))
+        assertEquals(MonitoringCoverage.FULL, p.current!!.coverage)
+        assertEquals(SessionSegmentType.FOCUS, p.current!!.activeSegment.type)
+        assertNull(c.diagnostics.gapReason)
+        // The older sample must not roll the latest trusted query back to 1000.
+        c.refresh("s", sample(7_000))
+        assertEquals(MonitoringCoverage.FULL, p.current!!.coverage)
+        c.refresh("s", sample(7_001))
+        assertEquals(MonitoringCoverage.PARTIAL, p.current!!.coverage)
+    }
+
+    @Test fun continuouslyReorderedPageEvidenceStillCompletesRecovery() = runTest {
+        val p = port(SessionSegmentType.RECOVERY)
+        val c = BoundSessionMonitoringController(p)
+        for (second in 1L..91L) {
+            val elapsed = second * 1_000
+            c.onSample(binding, snapshot(elapsed + 1), sample(elapsed + 1))
+            assertEquals(FocusActionResult.SUCCESS, c.observeEvidence("s", sample(elapsed), false, true))
+            assertEquals(MonitoringCoverage.FULL, p.current!!.coverage)
+            if (second < 91) assertTrue(p.milestones.isEmpty())
+        }
+        assertEquals(listOf(EvidenceMilestone.RECOVERY), p.milestones)
+        assertEquals(SessionSegmentType.FOCUS, p.current!!.activeSegment.type)
+        assertNull(c.diagnostics.gapReason)
+    }
+
+    @Test fun reorderedBreakActionStillChecksSegmentAndPreservesOriginalTime() = runTest {
+        val p = port(SessionSegmentType.FOCUS)
+        val c = BoundSessionMonitoringController(p)
+        c.onSample(binding, snapshot(1_001), sample(1_001))
+        assertEquals(FocusActionResult.EXPIRED, c.startBreak("s", "wrong", 300_000, sample(1_000)))
+        assertTrue(p.commands.isEmpty())
+        assertEquals(MonitoringCoverage.FULL, p.current!!.coverage)
+        assertEquals(FocusActionResult.SUCCESS, c.startBreak("s", "initial", 300_000, sample(1_000)))
+        assertEquals(SessionSegmentType.BREAK, p.current!!.activeSegment.type)
+        assertEquals(2_000L, p.current!!.activeSegment.startedAt)
+        assertEquals(MonitoringCoverage.FULL, p.current!!.coverage)
+        assertNull(c.diagnostics.gapReason)
+    }
+
+    @Test fun realSixSecondDeadlineStillLosesMonitoringForEvidence() = runTest {
+        val p = port(SessionSegmentType.RECOVERY)
+        val c = BoundSessionMonitoringController(p)
+        c.onSample(binding, snapshot(1_000), sample(1_000))
+        c.observeEvidence("s", sample(6_999), false, true)
+        assertEquals(MonitoringCoverage.FULL, p.current!!.coverage)
+        c.observeEvidence("s", sample(7_000), false, true)
+        assertEquals(MonitoringCoverage.PARTIAL, p.current!!.coverage)
+        assertEquals(SessionSegmentType.UNMONITORED, p.current!!.activeSegment.type)
+        assertTrue(p.milestones.isEmpty())
+    }
+
+    @Test fun nonNegativeQueryDeltaStillDetectsRealWallClockJump() = runTest {
+        val p = port(SessionSegmentType.FOCUS)
+        val c = BoundSessionMonitoringController(p)
+        c.onSample(binding, snapshot(1_000), sample(1_000))
+        c.refresh("s", ClockSample(5_001, 2_000))
+        assertEquals(MonitoringCoverage.PARTIAL, p.current!!.coverage)
+        assertEquals(SessionSegmentType.UNMONITORED, p.current!!.activeSegment.type)
+        assertNotNull(c.diagnostics.gapReason)
+    }
+
+    @Test fun olderEvidenceAfterLossCannotRestoreCoverageOrMilestones() = runTest {
+        val p = port(SessionSegmentType.RECOVERY)
+        val c = BoundSessionMonitoringController(p)
+        c.onSample(binding, snapshot(1_001), sample(1_001))
+        c.onServiceLost(binding, sample(7_001), "service stopped")
+        c.observeEvidence("s", sample(1_000), true, true)
+        assertEquals(MonitoringCoverage.PARTIAL, p.current!!.coverage)
+        assertEquals(SessionSegmentType.UNMONITORED, p.current!!.activeSegment.type)
+        assertTrue(p.milestones.isEmpty())
+    }
+
+    @Test fun continuouslyReorderedEvidenceStillCompletesStableAndDeepMilestones() = runTest {
+        val p = port(SessionSegmentType.FOCUS)
+        val c = BoundSessionMonitoringController(p)
+        for (second in 1L..901L) {
+            val elapsed = second * 1_000
+            c.onSample(binding, snapshot(elapsed + 1), sample(elapsed + 1))
+            c.observeEvidence("s", sample(elapsed), second >= 301, second < 301)
+            assertEquals(MonitoringCoverage.FULL, p.current!!.coverage)
+        }
+        assertEquals(listOf(EvidenceMilestone.STABLE, EvidenceMilestone.DEEP), p.milestones)
+        assertEquals(SessionSegmentType.DEEP_FOCUS, p.current!!.activeSegment.type)
+    }
+
+    @Test fun pageSampleQueuedBeforeNewerHealthyQueryMustNotDeclareMonitoringLoss() = runTest {
+        val p = port(SessionSegmentType.FOCUS)
+        val c = BoundSessionMonitoringController(p)
+        c.onSample(binding, snapshot(1_000), sample(1_000))
+        // The page captures a paired clock sample, then the Service wins the shared
+        // controller mutex with a query one millisecond newer. Neither clock jumped.
+        val queuedPageSample = sample(1_001)
+        c.onSample(binding, snapshot(1_002), sample(1_002))
+        c.refresh("s", queuedPageSample)
+        assertEquals(MonitoringCoverage.FULL, p.current!!.coverage)
+        assertEquals(SessionSegmentType.FOCUS, p.current!!.activeSegment.type)
+        assertNull(c.diagnostics.gapReason)
+    }
+
+    @Test fun allowanceDisplayOptionsComeFromSessionSnapshot() = runTest {
+        val p = port()
+        p.current = p.current!!.copy(context = context.copy(replyAllowanceMillis = 420_000, researchAllowanceMillis = 480_000))
+        val c = BoundSessionMonitoringController(p)
+        c.refresh("s", sample(1_000))
+        val options = c.intervention.value!!.allowanceOptions.associate { it.reason to it.durationMillis }
+        assertEquals(420_000L, options[AllowanceReason.REPLY])
+        assertEquals(480_000L, options[AllowanceReason.RESEARCH])
+        assertEquals(4, options.size)
+    }
     private val binding = MonitoringBinding("s", "g", 0)
     private val context = SessionFocusContextEntity("s", monitoringStatus = MonitoringCoverage.FULL,
         monitoringLostAt = null, priorDndInterruptionFilter = null, dndRuleId = null,

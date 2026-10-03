@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +24,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Surface
+import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.layout.heightIn
+import com.guanyi.mirra.ui.components.MirraTextAction
+import com.guanyi.mirra.ui.components.MirraSecondaryButton
+import com.guanyi.mirra.ui.theme.MirraTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -38,6 +49,12 @@ import com.guanyi.mirra.data.repository.NoteRepository
 import com.guanyi.mirra.data.repository.StudyWorkflowRepository
 import com.guanyi.mirra.domain.RuleBasedNoteTypeSuggester
 import com.guanyi.mirra.domain.SessionManager
+import com.guanyi.mirra.domain.monitoring.*
+import com.guanyi.mirra.data.repository.LearningItemRepository
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import android.os.SystemClock
 import java.util.UUID
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -56,6 +73,9 @@ class SessionViewModel(
     private val notesRepository: NoteRepository,
     private val sessionManager: SessionManager,
     private val noteTypeSuggester: RuleBasedNoteTypeSuggester = RuleBasedNoteTypeSuggester(),
+    private val focusActions: FocusSessionActions,
+    learningItems: LearningItemRepository? = null,
+    private val clockSample: () -> ClockSample = { ClockSample(System.currentTimeMillis(), SystemClock.elapsedRealtime()) },
 ) : ViewModel() {
     val session: StateFlow<StudySessionEntity?> = workflow.observeSession(sessionId).stateIn(
         viewModelScope,
@@ -86,6 +106,81 @@ class SessionViewModel(
     private var draftTypeManuallySelected = false
     private var draftPageManuallyEdited = false
     private val saveMutex = Mutex()
+    private val evidenceMutex = Mutex()
+    val focusStatus = focusActions.focusStatus
+    val intervention = focusActions.intervention
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val bookName = workflow.observeSession(sessionId).flatMapLatest { current ->
+        if (current == null || learningItems == null) flowOf("")
+        else learningItems.observe(current.learningItemId).map { it?.name.orEmpty() }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+    var focusError by mutableStateOf<String?>(null)
+        private set
+
+    suspend fun refreshFocusState(sample: ClockSample = clockSample()) = focusActions.refresh(sessionId, sample)
+
+    suspend fun observeFocusEvidence(screenNonInteractive: Boolean, pageVisibleAndFocused: Boolean) = evidenceMutex.withLock {
+        val sample = clockSample()
+        refreshFocusState(sample)
+        focusActions.observeEvidence(sessionId, sample, screenNonInteractive, pageVisibleAndFocused)
+    }
+
+    fun reportEvidence(screenNonInteractive: Boolean, pageVisibleAndFocused: Boolean) {
+        viewModelScope.launch { observeFocusEvidence(screenNonInteractive, pageVisibleAndFocused) }
+    }
+
+    private fun focusAction(refreshOnFailure: Boolean = false, block: suspend (ClockSample) -> FocusActionResult) {
+        viewModelScope.launch {
+            val result = block(clockSample())
+            focusError = when (result) {
+                FocusActionResult.SUCCESS -> null
+                FocusActionResult.EXPIRED -> "当前状态已变化"
+                FocusActionResult.CONFLICT -> "操作暂未生效，请稍后重试"
+                FocusActionResult.SAVE_FAILED -> "保存失败，请重试"
+            }
+            if (result == FocusActionResult.EXPIRED || result == FocusActionResult.CONFLICT ||
+                (refreshOnFailure && result == FocusActionResult.SAVE_FAILED)) refreshFocusState()
+        }
+    }
+
+    fun startBreak(minutes: Int) {
+        val id = focusStatus.value.segmentId ?: return
+        focusAction { focusActions.startBreak(sessionId, id, minutes * 60_000L, it) }
+    }
+    fun finishBreak() {
+        val id = focusStatus.value.segmentId ?: return
+        focusAction { focusActions.finishBreak(sessionId, id, it) }
+    }
+    fun finishAllowance() {
+        val id = focusStatus.value.segmentId ?: return
+        focusAction { focusActions.finishAllowance(sessionId, id, it) }
+    }
+    fun extendAllowance() {
+        val id = focusStatus.value.segmentId ?: return
+        val token = UUID.randomUUID().toString()
+        focusAction(refreshOnFailure = true) { focusActions.extendAllowance(sessionId, id, token, it) }
+    }
+    fun selectAllowanceReason(reason: AllowanceReason) {
+        val prompt = intervention.value ?: return
+        focusAction { focusActions.selectAllowanceReason(sessionId, prompt.promptToken, reason, true, it) }
+    }
+    fun setPromptVisible(visible: Boolean) {
+        val prompt = intervention.value ?: return
+        focusAction { focusActions.setPromptVisible(sessionId, prompt.promptToken, visible, it) }
+    }
+    fun grantAllowance() {
+        val prompt = intervention.value ?: return
+        val reason = prompt.reason ?: return
+        focusAction { focusActions.grantAllowance(sessionId, prompt.segmentId, prompt.promptToken, prompt.packageName, reason, null, it) }
+    }
+    fun dismissPrompt() {
+        val prompt = intervention.value ?: return
+        focusAction { focusActions.dismissPrompt(sessionId, prompt.promptToken, it) }
+    }
+    fun returnToStudy() {
+        val prompt = intervention.value ?: return
+        focusAction { focusActions.returnToStudy(sessionId, prompt.promptToken, it) }
+    }
 
     init {
         viewModelScope.launch {
@@ -233,6 +328,15 @@ fun SessionScreen(
     val session by viewModel.session.collectAsStateWithLifecycle()
     val notes by viewModel.notes.collectAsStateWithLifecycle()
     val currentSession = session
+    val status by viewModel.focusStatus.collectAsStateWithLifecycle()
+    val intervention by viewModel.intervention.collectAsStateWithLifecycle()
+    val bookName by viewModel.bookName.collectAsStateWithLifecycle()
+    val prompt = intervention?.takeIf { !it.dismissed && it.sessionId == currentSession?.id }
+    var breakChoice by remember { mutableStateOf(false) }
+    var reasonsVisible by remember(prompt?.promptToken) { mutableStateOf(false) }
+    fun hideReasons() { viewModel.setPromptVisible(false); reasonsVisible = false }
+    fun finishReading() { currentSession?.let { viewModel.finish(viewModel.currentPageText.toIntOrNull() ?: it.currentPage, onFinished) } }
+    SessionEvidenceReporter(viewModel)
     LaunchedEffect(currentSession?.currentPage) {
         if (currentSession != null) {
             viewModel.syncCurrentPage(currentSession.currentPage)
@@ -249,7 +353,14 @@ fun SessionScreen(
             viewModel.flushDraft()
         }
     }
-    BackHandler { viewModel.leave(onBack) }
+    BackHandler {
+        when {
+            reasonsVisible -> hideReasons()
+            breakChoice -> breakChoice = false
+            prompt != null -> viewModel.dismissPrompt()
+            else -> viewModel.leave(onBack)
+        }
+    }
     val elapsedMinutes = currentSession?.let { ((viewModel.now - it.startedAt).coerceAtLeast(0) / 60_000) } ?: 0
 
     LazyColumn(
@@ -259,6 +370,13 @@ fun SessionScreen(
         item {
             Text("正在阅读", style = MaterialTheme.typography.headlineMedium)
             Text("Session 阅读时长：${elapsedMinutes} 分钟", color = MaterialTheme.colorScheme.primary)
+            SessionFocusContent(status, { breakChoice = true }, viewModel::finishBreak,
+                viewModel::finishAllowance, viewModel::extendAllowance)
+            viewModel.focusError?.let { Text(it, color = MirraTheme.colors.danger) }
+        }
+        if (prompt != null) item {
+            InterventionContent(bookName, prompt, false, { reasonsVisible = true }, viewModel::selectAllowanceReason,
+                viewModel::returnToStudy, viewModel::grantAllowance, ::finishReading, viewModel::dismissPrompt)
         }
         item {
             OutlinedTextField(
@@ -270,7 +388,7 @@ fun SessionScreen(
         }
         item {
             Text("快速笔记", style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 NoteSemanticType.entries.forEach { type ->
                     FilterChip(
                         selected = viewModel.draftType == type,
@@ -309,11 +427,32 @@ fun SessionScreen(
         }
         item {
             Spacer(Modifier.height(8.dp))
-            MirraPrimaryButton(
-                onClick = { currentSession?.let { viewModel.finish(viewModel.currentPageText.toIntOrNull() ?: it.currentPage, onFinished) } },
-                enabled = currentSession != null,
-                modifier = Modifier.fillMaxWidth().height(54.dp),
-            ) { Text("结束本次阅读") }
+            if (prompt == null) {
+                MirraPrimaryButton(onClick = ::finishReading, enabled = currentSession != null,
+                    modifier = Modifier.fillMaxWidth().height(54.dp)) { Text("结束本次阅读") }
+            } else {
+                MirraSecondaryButton(onClick = ::finishReading, enabled = currentSession != null,
+                    modifier = Modifier.fillMaxWidth()) { Text("结束本次阅读") }
+            }
+        }
+    }
+    if (breakChoice) AlertDialog(onDismissRequest = { breakChoice = false }, title = { Text("休息") },
+        text = {
+            Column {
+                MirraTextAction({ breakChoice = false; viewModel.startBreak(5) }, Modifier.fillMaxWidth()) { Text("休息 5 分钟") }
+                MirraTextAction({ breakChoice = false; viewModel.startBreak(10) }, Modifier.fillMaxWidth()) { Text("休息 10 分钟") }
+            }
+        }, confirmButton = { MirraTextAction({ breakChoice = false }) { Text("取消") } })
+    if (reasonsVisible && prompt != null) Dialog(onDismissRequest = ::hideReasons) {
+        AllowancePanelVisibility(viewModel, prompt.reason != null)
+        Surface(shape = MirraTheme.shapes.large, color = MirraTheme.colors.surface) {
+            Column(Modifier.fillMaxWidth().heightIn(max = 620.dp).verticalScroll(rememberScrollState()).padding(20.dp)) {
+                InterventionContent(bookName, prompt, true, {}, viewModel::selectAllowanceReason,
+                    viewModel::returnToStudy, viewModel::grantAllowance, ::finishReading, {
+                        hideReasons(); viewModel.dismissPrompt()
+                    })
+                viewModel.focusError?.let { Text(it, color = MirraTheme.colors.danger) }
+            }
         }
     }
 }

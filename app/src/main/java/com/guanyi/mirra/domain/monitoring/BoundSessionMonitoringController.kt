@@ -274,7 +274,8 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
             val context = facts.context ?: return
             val delay = InterventionPolicy.waitMillis(facts.riskConfirmationCounts[event.packageName] ?: 0, context)
             mutableIntervention.value = InterventionUiModel(segment.sessionId, event.id, event.id, segment.id,
-                event.packageName.orEmpty(), delay, delay)
+                event.packageName.orEmpty(), delay, delay,
+                allowanceOptions = AllowanceReason.entries.map { AllowanceOption(it, InterventionPolicy.duration(it, context)) })
             wait = null
         } else mutableIntervention.value = old.copy(segmentId = segment.id,
             remainingWaitMillis = wait?.remaining(sample.elapsedNowMillis) ?: old.remainingWaitMillis)
@@ -297,8 +298,12 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
         if (lost) return
         val query = lastSuccessfulQueryElapsed ?: return
         val trusted = lastTrustedWall ?: return
+        // A newer healthy query may win the mutex after this action/page sampled
+        // its clock. Do not infer loss or a mixed-pair wall jump backwards in time.
+        // Return only from this check: the original command/evidence still runs.
+        if (sample.elapsedNowMillis < query) return
         val elapsedDelta = sample.elapsedNowMillis - query
-        if (elapsedDelta !in 0L..5_999L ||
+        if (elapsedDelta >= 6_000 ||
             kotlin.math.abs((sample.wallNowMillis - trusted) - elapsedDelta) > 2_000) {
             lose(binding, sample, "action observation deadline or clock jump")
         }
@@ -394,7 +399,9 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
             val facts = factsPort.read(sessionId) ?: return@withLock FocusActionResult.EXPIRED
             val query = lastSuccessfulQueryElapsed
             val healthy = !lost && !unresolvedLoss && activeBinding?.sessionId == sessionId && query != null &&
-                sample.elapsedNowMillis - query in 0L..5_999L
+                // A newer successful query proves continuity past a queued page
+                // sample; keep that sample's own clock for the evidence window.
+                (sample.elapsedNowMillis < query || sample.elapsedNowMillis - query in 0L..5_999L)
             val previous = lastEvidenceClock
             if (previous != null && (sample.elapsedNowMillis - previous.elapsedNowMillis !in 0L..5_999L ||
                 kotlin.math.abs((sample.wallNowMillis - previous.wallNowMillis) -
