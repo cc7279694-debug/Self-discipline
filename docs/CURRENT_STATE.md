@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1–5 与限定 DND 修补已通过验收；按用户批准的 3C master plan，3B 可作为个人试用开发基线继续 3C，但不等于发布级设备能力验收完成。未执行 API/OEM/真机项目继续 `NOT RUN`，一加 13T 日常试用反馈不替代完整兼容性验收。Module 3C-1 已由用户确认冻结，基线 `61ed78f94125e7049c5d4ca73be1b16c5416043b`。3C-2 应用内接线与 SOL 采样竞态修补已完成统一交付验证，真实 Allowance→Recovery→FOCUS 91.122 秒闭环保持 FULL；待 SOL 读取实际提交进行最终独立复验。未进入 3C-3 或 3D。
+Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1–5 与限定 DND 修补已通过验收；按用户批准的 3C master plan，3B 可作为个人试用开发基线继续 3C，但不等于发布级设备能力验收完成。未执行 API/OEM/真机项目继续 `NOT RUN`，一加 13T 日常试用反馈不替代完整兼容性验收。Module 3C-1 行为内核、采样竞态 Acceptance Patch 与 Module 3C-2 应用内体验均已通过独立验收并正式冻结。3C-1 原始基线为 `61ed78f94125e7049c5d4ca73be1b16c5416043b`；3C-2 与 Acceptance Patch 的统一冻结实现提交为 `f275334e233298b872bb507a82dcd875ff3135d5`。3C-3 尚未开始，不得自动进入；Closeout、有效指标与 3D 未开始。
 
 ## Verified Completed
 
@@ -114,13 +114,14 @@ Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1�
 - API 37 AOSP 定向实测已确认 own rule 可复用、非 Mirra rule 不被操作、受控 policy 被修改时拒绝激活、激活/释放后真实 state 分别为 TRUE/FALSE，且 global Notification Policy 不变。真实 monitored Session 记录为 `FULL + DND ACTIVE`，正常结束后为 `NORMAL + FULL + DND RELEASED`，系统 Mirra rule 回到 `STATE_FALSE`。
 - Task 6D 回归结果：JVM `148/148`、API 37 connected `138/138`、`lintDebug` 与 `assembleDebug` 全部通过。Room 仍为 Schema v4，`4.json` SHA-256 仍为 `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`，无 Schema / Migration 变化。
 
-## In Progress
+## Frozen Module 3C Baseline
 
 - Module 3C-1 已冻结。范围见 `docs/plans/MIRRA_MODULE_3C_MASTER_PLAN.md`；接口、转换矩阵、事务与连续证据契约见 `docs/checkpoints/2026-10-03-module-3c-1.md`。
 - 按 Session/package 持久确认计数的 0/5/15 秒、可见等待、当前 episode 授权、1–15 分钟单次时长、一次 +2 分钟延长、5/10 分钟 Break、到期回 Recovery/NONE 回 UNMONITORED 已落地。
 - 3C-2 已增加薄 SessionViewModel/actions 接线、平面状态区、休息、应用内提示、用途投影、等待/延长确认与真实页面焦点/生命周期/屏幕证据生产者；保留 Note 自动保存/flush。Back 依次关闭用途、休息选择、提示，再保存并离开。
-- SOL 已单独修复较旧页面样本反向失监的问题；LUNA finalization 未再修改控制器或核心测试。真实 AVD 通过 5/10 分钟休息提前结束、Chrome 风险提示、首次零等待授权、一次延长、第二次可见等待暂停，以及连续 91.122 秒 Recovery 自动回 FOCUS；FULL 与草稿均保留。
-- 最新未过滤 JVM 183/183、单次未过滤 connected 155/155，均 0 failure/error/skipped；DND 平台 3 项实际执行。lintDebug / assembleDebug、覆盖安装、离线闭环、冷启动和旋转重建后同 Session/Break/草稿恢复通过。历史失败及未测范围保留在 `docs/checkpoints/2026-10-03-module-3c-2.md`；待 SOL 最终复验，不将作者自查冒称独立验收。
+- 3C-1 采样竞态 Acceptance Patch 已随 3C-2 正式冻结：较旧页面样本只跳过反向 gap / 混合 wall-clock 检查，仍参与动作与连续证据累计；真实 6 秒缺口、wall-clock jump 与失监不可逆防护保留。LUNA finalization 未再修改控制器或核心测试。
+- 已提交 AVD 执行证据覆盖 5/10 分钟休息提前结束、Chrome 风险提示、首次零等待授权、一次延长、第二次可见等待暂停，以及连续 91.122 秒 Recovery 自动回 FOCUS；FULL 与草稿均保留。
+- 3C-2 已通过用户独立源码、测试和已提交证据审查，未发现阻塞缺陷。冻结提交为 `f275334e233298b872bb507a82dcd875ff3135d5`。本次独立验收没有重新运行 Gradle；JVM 183/183、单次 connected 155/155（均 0 failure/error/skipped，DND 平台 3 项实际执行）、lintDebug / assembleDebug、覆盖安装、离线闭环、冷启动与重建恢复结论均来自已提交执行证据。历史失败及未测范围保留在 `docs/checkpoints/2026-10-03-module-3c-2.md`。
 
 ## Frozen Phase 2 Baseline
 
@@ -135,6 +136,7 @@ Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1�
 
 ## Pending
 
+- Module 3C-3 尚未开始，须单独授权；Overlay / Notification 跨应用提醒、Closeout 与有效指标未开始。
 - Phase 3｜Module 3B Task 6 仍待最终独立验收。Task Manager Stop、reboot、完整 risk/lock/revocation 矩阵、API 23/29/33/34/35 与实体/OEM 设备继续为 `NOT RUN`，不用 API 37 AVD 结果代替。
 
 ## Known Risks / Unknowns
@@ -157,10 +159,11 @@ Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1�
 ## Git
 
 - Current branch: `codex/phase-3c-in-app-experience`
-- Implementation base: `61ed78f94125e7049c5d4ca73be1b16c5416043b`；3C-2 统一交付提交说明 `feat(focus): add in-app learning return experience`，实际提交 SHA / Push 核验见交付报告（避免在提交内自引用 SHA）。
+- 3C-1 original implementation base: `61ed78f94125e7049c5d4ca73be1b16c5416043b`
+- Frozen 3C-2 / Acceptance Patch implementation commit: `f275334e233298b872bb507a82dcd875ff3135d5`（`feat(focus): add in-app learning return experience`），已由用户核对远程并正式验收。
 - Frozen Phase 3 planning base: `882d649cf600cd3f6f3b59d0be8a7911f3e42c70`
 - Room Schema: v4
 
 ## Next Recommended Task
 
-切 SOL 读取 3C-2 统一交付 commit，独立复验核心补丁、UI 接线及 checkpoint 实测证据，确认后再冻结。不要自动进入 3C-3。发布级 API/OEM/实体设备验证继续独立开放；本包不做跨应用提示、Closeout 或有效专注指标。
+当前停止在 3C-2 正式冻结点；等待用户单独授权 3C-3，不自动开始。后续必须继承冻结的行为内核、采样竞态修补、UI 接线与 Room v4。发布级 API/OEM/实体设备验证继续独立开放，未测项保持 `NOT RUN`；本回合仅同步文档，不实施跨应用提示、Closeout 或有效专注指标。
