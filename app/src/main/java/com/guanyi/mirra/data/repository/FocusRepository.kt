@@ -14,6 +14,14 @@ import com.guanyi.mirra.domain.SegmentMachineState
 import com.guanyi.mirra.domain.SessionSegmentStateMachine
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
+import com.guanyi.mirra.domain.monitoring.StableEvidence
+import com.guanyi.mirra.domain.monitoring.EvidenceMilestone
+import com.guanyi.mirra.domain.monitoring.AllowanceReason
+
+enum class BehaviorAction { START_BREAK, FINISH_BREAK, GRANT_ALLOWANCE, EXTEND_ALLOWANCE, FINISH_ALLOWANCE, EXPIRE }
+data class BehaviorCommand(val sessionId: String, val expectedSegmentId: String, val action: BehaviorAction,
+    val at: Long, val actionToken: String, val packageName: String? = null, val reason: String? = null,
+    val durationMillis: Long? = null, val expectedRiskEventId: String? = null)
 
 data class SegmentTransitionCommand(
     val sessionId: String,
@@ -40,6 +48,11 @@ data class RuntimeFocusFacts(
     val coverage: MonitoringCoverage,
     val lastHeartbeatAt: Long,
     val riskPackages: Set<String>,
+    val context: SessionFocusContextEntity? = null,
+    val latestRiskEvent: FocusEventEntity? = null,
+    val riskConfirmationCounts: Map<String, Int> = emptyMap(),
+    val stableStartedAt: Long? = null,
+    val interventionEligible: Boolean = false,
 )
 
 data class RiskConfirmation(
@@ -61,8 +74,10 @@ interface FocusRepository {
     suspend fun recordEvent(event: FocusEventInput)
     suspend fun updateHeartbeat(sessionId: String, at: Long)
     suspend fun markMonitoringLost(sessionId: String, lastTrustedAt: Long, detectedAt: Long)
-    suspend fun markStableStarted(sessionId: String, at: Long)
-    suspend fun completeRecovery(sessionId: String, at: Long): SessionSegmentEntity
+    suspend fun markStableStarted(sessionId: String, at: Long, evidence: StableEvidence? = null)
+    suspend fun completeRecovery(sessionId: String, at: Long, evidence: StableEvidence? = null): SessionSegmentEntity
+    suspend fun applyBehavior(command: BehaviorCommand): SessionSegmentEntity?
+    suspend fun promoteDeepFocus(sessionId: String, at: Long, evidence: StableEvidence): SessionSegmentEntity
     suspend fun runtimeFacts(sessionId: String): RuntimeFocusFacts?
     suspend fun confirmRisk(candidate: RiskConfirmation): Boolean
     suspend fun recordBriefRiskVisit(sessionId: String, packageName: String, exitedAt: Long): Boolean
@@ -87,8 +102,18 @@ class DefaultFocusRepository(
         val session = sessions.get(sessionId)?.takeIf { it.activeSlot == 1 && it.endedAt == null } ?: return@withTransaction null
         val context = dao.getContext(sessionId) ?: return@withTransaction null
         val active = dao.getActiveSegment(sessionId) ?: return@withTransaction null
+        val risks = dao.listSessionRiskPackages(sessionId).toSet()
+        val latest = dao.latestRiskConfirmation(sessionId)
+        val linkedRisk = active.relatedSegmentId?.let { related ->
+            dao.getSegment(sessionId, related)?.takeIf { it.type == SessionSegmentType.DISTRACTION }
+        }
+        val eligible = latest != null && (active.type == SessionSegmentType.DISTRACTION &&
+            active.packageName == latest.packageName && latest.occurredAt >= active.startedAt ||
+            active.type == SessionSegmentType.RECOVERY && linkedRisk?.packageName == latest.packageName &&
+            latest.occurredAt >= (linkedRisk?.startedAt ?: Long.MAX_VALUE))
         RuntimeFocusFacts(session.startedAt, active, context.monitoringStatus, context.lastHeartbeatAt,
-            dao.listSessionRiskPackages(sessionId).toSet())
+            risks, context, latest, dao.riskConfirmationCounts(sessionId).associate { it.packageName to it.confirmations },
+            session.stableStartedAt, eligible)
     }
 
     override suspend fun confirmRisk(candidate: RiskConfirmation): Boolean = database.withTransaction {
@@ -97,12 +122,16 @@ class DefaultFocusRepository(
         val context = dao.getContext(candidate.sessionId) ?: return@withTransaction false
         val active = dao.getActiveSegment(candidate.sessionId) ?: return@withTransaction false
         if (context.monitoringStatus == MonitoringCoverage.NONE || active.id != candidate.sourceSegmentId ||
-            !active.type.countsAsFocus || candidate.packageName !in dao.listSessionRiskPackages(candidate.sessionId) ||
+            active.type !in setOf(SessionSegmentType.FOCUS, SessionSegmentType.DEEP_FOCUS,
+                SessionSegmentType.RECOVERY, SessionSegmentType.TEMPORARY_ALLOWANCE, SessionSegmentType.DISTRACTION) ||
+            (active.type == SessionSegmentType.TEMPORARY_ALLOWANCE &&
+                (active.packageName == candidate.packageName || candidate.confirmedAt >= (active.plannedEndAt ?: 0))) ||
+            (active.type == SessionSegmentType.DISTRACTION && active.packageName == candidate.packageName) ||
+            candidate.packageName !in dao.listSessionRiskPackages(candidate.sessionId) ||
             candidate.candidateStartedAt < active.startedAt || candidate.candidateStartedAt < session.startedAt ||
             candidate.confirmedAt - candidate.candidateStartedAt < context.riskConfirmMillis ||
             candidate.confirmedAt > clock() ||
-            dao.listEvents(candidate.sessionId).any { it.type == FocusEventType.RISK_APP_CONFIRMED &&
-                it.segmentId == candidate.sourceSegmentId }
+            dao.eventExists(candidate.sessionId, riskEventId(candidate))
         ) return@withTransaction false
         if (candidate.candidateStartedAt == active.startedAt) {
             check(dao.changeActiveSegmentToRisk(active.id, candidate.sessionId,
@@ -112,7 +141,11 @@ class DefaultFocusRepository(
             dao.insertSegment(segment(candidate.sessionId, SessionSegmentType.DISTRACTION,
                 candidate.candidateStartedAt, packageName = candidate.packageName, active = true))
         }
-        dao.insertEvent(FocusEventEntity(newId(), candidate.sessionId, FocusEventType.RISK_APP_CONFIRMED,
+        if (active.type == SessionSegmentType.RECOVERY) {
+            dao.insertEvent(FocusEventEntity("interrupted:${riskEventId(candidate)}", candidate.sessionId,
+                FocusEventType.RECOVERY_INTERRUPTED, candidate.confirmedAt, candidate.packageName, active.id, null))
+        }
+        dao.insertEvent(FocusEventEntity(riskEventId(candidate), candidate.sessionId, FocusEventType.RISK_APP_CONFIRMED,
             candidate.confirmedAt, candidate.packageName, active.id, null))
         true
     }
@@ -158,6 +191,10 @@ class DefaultFocusRepository(
         database.withTransaction {
             validateCommand(command)
             val state = loadState(command.sessionId)
+            check(command.type != SessionSegmentType.DEEP_FOCUS &&
+                !(state.activeSegmentType == SessionSegmentType.RECOVERY && command.type == SessionSegmentType.FOCUS)) {
+                "自动里程碑必须提交连续证据"
+            }
             val decision = machine.transition(state, command.type, command.at)
             closeAndOpen(command, decision.closeCurrentAt, decision.nextType)
         }
@@ -214,17 +251,20 @@ class DefaultFocusRepository(
         }
     }
 
-    override suspend fun markStableStarted(sessionId: String, at: Long) {
+    override suspend fun markStableStarted(sessionId: String, at: Long, evidence: StableEvidence?) {
         database.withTransaction {
             val state = loadState(sessionId)
+            validateEvidence(sessionId, evidence, EvidenceMilestone.STABLE, state.stableStartMillis)
             check(machine.canMarkStableStart(state, at)) { "当前事实不足以确认 Stable Start" }
             check(dao.markStableStarted(sessionId, at) == 1) { "Stable Start 已记录或 Session 已结束" }
         }
     }
 
-    override suspend fun completeRecovery(sessionId: String, at: Long): SessionSegmentEntity =
+    override suspend fun completeRecovery(sessionId: String, at: Long, evidence: StableEvidence?): SessionSegmentEntity =
         database.withTransaction {
             val state = loadState(sessionId)
+            check(state.coverage != MonitoringCoverage.NONE)
+            validateEvidence(sessionId, evidence, EvidenceMilestone.RECOVERY, state.recoveryStableMillis)
             val decision = machine.completeRecovery(state, at)
             val opened = closeAndOpen(
                 SegmentTransitionCommand(sessionId, decision.nextType, at),
@@ -234,6 +274,83 @@ class DefaultFocusRepository(
             dao.insertEvent(FocusEventEntity(newId(), sessionId, FocusEventType.RECOVERY_SUCCEEDED, at, null, opened.id, null))
             opened
         }
+
+    override suspend fun promoteDeepFocus(sessionId: String, at: Long, evidence: StableEvidence): SessionSegmentEntity =
+        database.withTransaction {
+            val state = loadState(sessionId)
+            val context = checkNotNull(dao.getContext(sessionId))
+            check(state.coverage == MonitoringCoverage.FULL && state.activeSegmentType == SessionSegmentType.FOCUS)
+            validateEvidence(sessionId, evidence, EvidenceMilestone.DEEP, context.deepFocusMillis)
+            check(evidence.screenOffMillis >= context.deepFocusScreenOffMillis)
+            machine.transition(state, SessionSegmentType.DEEP_FOCUS, at)
+            closeAndOpen(SegmentTransitionCommand(sessionId, SessionSegmentType.DEEP_FOCUS, at), at, SessionSegmentType.DEEP_FOCUS)
+        }
+
+    private suspend fun validateEvidence(sessionId: String, evidence: StableEvidence?, milestone: EvidenceMilestone, duration: Long) {
+        checkNotNull(evidence) { "必须提供连续正向证据" }
+        check(dao.getContext(sessionId)?.monitoringLostAt == null) { "监测已中断" }
+        check(evidence.milestone == milestone && evidence.segmentId == dao.getActiveSegment(sessionId)?.id &&
+            evidence.continuousMillis >= duration) { "连续证据已过期或不足" }
+    }
+
+    private fun riskEventId(candidate: RiskConfirmation) =
+        "risk:${candidate.sessionId}:${candidate.sourceSegmentId}:${candidate.packageName}:${candidate.candidateStartedAt}"
+
+    override suspend fun applyBehavior(command: BehaviorCommand): SessionSegmentEntity? = database.withTransaction {
+        val session = sessions.get(command.sessionId)?.takeIf { it.activeSlot == 1 && it.endedAt == null }
+            ?: return@withTransaction null
+        val current = dao.getActiveSegment(command.sessionId) ?: return@withTransaction null
+        val context = dao.getContext(command.sessionId) ?: return@withTransaction null
+        if (current.id != command.expectedSegmentId || command.actionToken.isBlank() ||
+            command.at < session.startedAt || command.at > clock()) return@withTransaction null
+        // Token consumption is runtime-local; expected segment + conditional SQL protect durable facts.
+        if (command.action == BehaviorAction.EXTEND_ALLOWANCE) {
+            if (context.monitoringStatus == MonitoringCoverage.NONE || context.monitoringLostAt != null ||
+                command.at < current.startedAt || current.extensionCount >= context.maxAllowanceExtensions)
+                return@withTransaction null
+            return@withTransaction if (dao.extendAllowance(current.id, command.sessionId, command.at,
+                context.allowanceExtensionMillis) == 1) dao.getActiveSegment(command.sessionId) else null
+        }
+        if (command.at <= current.startedAt) return@withTransaction null // reject same-time, no invented milliseconds
+        val monitored = context.monitoringStatus != MonitoringCoverage.NONE && context.monitoringLostAt == null
+        val next = when (command.action) {
+            BehaviorAction.START_BREAK -> {
+                if (command.durationMillis !in setOf(context.shortBreakMillis, context.longBreakMillis)) return@withTransaction null
+                SessionSegmentType.BREAK
+            }
+            BehaviorAction.GRANT_ALLOWANCE -> {
+                if (!monitored || current.type !in setOf(SessionSegmentType.DISTRACTION, SessionSegmentType.RECOVERY) ||
+                    command.packageName !in dao.listSessionRiskPackages(command.sessionId) ||
+                    AllowanceReason.entries.none { it.name == command.reason } ||
+                    command.durationMillis == null || command.durationMillis !in 60_000L..900_000L) return@withTransaction null
+                val event = dao.latestRiskConfirmation(command.sessionId) ?: return@withTransaction null
+                if (command.expectedRiskEventId == null || event.id != command.expectedRiskEventId ||
+                    event.packageName != command.packageName ||
+                    (current.type == SessionSegmentType.DISTRACTION && current.packageName != command.packageName) ||
+                    (current.type == SessionSegmentType.RECOVERY &&
+                        current.relatedSegmentId?.let { dao.getSegment(command.sessionId, it) }
+                            ?.takeIf { it.type == SessionSegmentType.DISTRACTION && it.packageName == command.packageName } == null))
+                    return@withTransaction null
+                SessionSegmentType.TEMPORARY_ALLOWANCE
+            }
+            BehaviorAction.FINISH_BREAK, BehaviorAction.FINISH_ALLOWANCE, BehaviorAction.EXPIRE -> {
+                if (current.type !in setOf(SessionSegmentType.BREAK, SessionSegmentType.TEMPORARY_ALLOWANCE)) return@withTransaction null
+                if (command.action == BehaviorAction.FINISH_BREAK && current.type != SessionSegmentType.BREAK ||
+                    command.action == BehaviorAction.FINISH_ALLOWANCE && current.type != SessionSegmentType.TEMPORARY_ALLOWANCE)
+                    return@withTransaction null
+                if (command.action == BehaviorAction.EXPIRE && command.at != current.plannedEndAt) return@withTransaction null
+                if (monitored) SessionSegmentType.RECOVERY else SessionSegmentType.UNMONITORED
+            }
+            BehaviorAction.EXTEND_ALLOWANCE -> error("handled above")
+        }
+        machine.transition(loadState(command.sessionId), next, command.at)
+        closeAndOpen(SegmentTransitionCommand(command.sessionId, next, command.at,
+            packageName = command.packageName.takeIf { next == SessionSegmentType.TEMPORARY_ALLOWANCE },
+            reason = command.reason.takeIf { next == SessionSegmentType.TEMPORARY_ALLOWANCE },
+            plannedEndAt = command.durationMillis?.let { Math.addExact(command.at, it) }
+                .takeIf { next == SessionSegmentType.BREAK || next == SessionSegmentType.TEMPORARY_ALLOWANCE }),
+            command.at, next)
+    }
 
     private suspend fun loadState(sessionId: String): SegmentMachineState {
         val session = checkNotNull(sessions.get(sessionId)) { "Session 不存在" }

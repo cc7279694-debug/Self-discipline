@@ -101,14 +101,16 @@ class SessionSegmentStateMachine {
                 SessionSegmentType.UNMONITORED,
             ),
             SessionSegmentType.BREAK to setOf(
-                SessionSegmentType.FOCUS, SessionSegmentType.DISTRACTION, SessionSegmentType.UNMONITORED,
+                SessionSegmentType.RECOVERY, SessionSegmentType.UNMONITORED,
             ),
             SessionSegmentType.TEMPORARY_ALLOWANCE to setOf(
-                SessionSegmentType.RECOVERY, SessionSegmentType.DISTRACTION, SessionSegmentType.UNMONITORED,
+                SessionSegmentType.RECOVERY, SessionSegmentType.DISTRACTION, SessionSegmentType.BREAK, SessionSegmentType.UNMONITORED,
             ),
-            SessionSegmentType.DISTRACTION to setOf(SessionSegmentType.RECOVERY, SessionSegmentType.UNMONITORED),
+            SessionSegmentType.DISTRACTION to setOf(SessionSegmentType.RECOVERY, SessionSegmentType.TEMPORARY_ALLOWANCE,
+                SessionSegmentType.BREAK, SessionSegmentType.UNMONITORED),
             SessionSegmentType.RECOVERY to setOf(
-                SessionSegmentType.FOCUS, SessionSegmentType.DISTRACTION, SessionSegmentType.UNMONITORED,
+                SessionSegmentType.FOCUS, SessionSegmentType.DISTRACTION, SessionSegmentType.TEMPORARY_ALLOWANCE,
+                SessionSegmentType.BREAK, SessionSegmentType.UNMONITORED,
             ),
             SessionSegmentType.UNMONITORED to setOf(SessionSegmentType.FOCUS, SessionSegmentType.BREAK),
         )

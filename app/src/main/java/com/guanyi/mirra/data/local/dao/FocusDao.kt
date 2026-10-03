@@ -14,8 +14,27 @@ import com.guanyi.mirra.data.local.entity.SessionSegmentEntity
 import com.guanyi.mirra.data.local.entity.SessionSegmentType
 import kotlinx.coroutines.flow.Flow
 
+data class PackageConfirmationCount(val packageName: String, val confirmations: Int)
+
 @Dao
 interface FocusDao {
+    @Query("""UPDATE session_segments SET plannedEndAt = plannedEndAt + :extensionMillis,
+        extensionCount = extensionCount + 1 WHERE id = :id AND sessionId = :sessionId
+        AND activeSlot = 1 AND type = 'TEMPORARY_ALLOWANCE' AND extensionCount = 0
+        AND plannedEndAt > :at""")
+    suspend fun extendAllowance(id: String, sessionId: String, at: Long, extensionMillis: Long): Int
+
+    @Query("SELECT packageName, COUNT(*) AS confirmations FROM focus_events WHERE sessionId = :sessionId AND packageName IS NOT NULL AND type = 'RISK_APP_CONFIRMED' GROUP BY packageName")
+    suspend fun riskConfirmationCounts(sessionId: String): List<PackageConfirmationCount>
+
+    @Query("SELECT * FROM session_segments WHERE id = :id AND sessionId = :sessionId LIMIT 1")
+    suspend fun getSegment(sessionId: String, id: String): SessionSegmentEntity?
+
+    @Query("SELECT EXISTS(SELECT 1 FROM focus_events WHERE id = :id AND sessionId = :sessionId)")
+    suspend fun eventExists(sessionId: String, id: String): Boolean
+
+    @Query("SELECT * FROM focus_events WHERE sessionId = :sessionId AND type = 'RISK_APP_CONFIRMED' ORDER BY occurredAt DESC, id DESC LIMIT 1")
+    suspend fun latestRiskConfirmation(sessionId: String): FocusEventEntity?
     @Query("""UPDATE session_focus_contexts SET priorDndInterruptionFilter = :prior,
         dndRuleId = :ruleId, dndLifecycle = 'NOT_APPLIED', dndAccessAtStart = 1, updatedAt = :at
         WHERE sessionId = :sessionId""")
@@ -97,7 +116,9 @@ interface FocusDao {
     """)
     suspend fun changeActiveSegmentType(id: String, sessionId: String, type: SessionSegmentType): Int
 
-    @Query("UPDATE session_segments SET type = :type, packageName = :packageName WHERE id = :id AND sessionId = :sessionId AND activeSlot = 1")
+    @Query("""UPDATE session_segments SET type = :type, packageName = :packageName,
+        reason = NULL, plannedEndAt = NULL, extensionCount = 0, relatedSegmentId = NULL
+        WHERE id = :id AND sessionId = :sessionId AND activeSlot = 1""")
     suspend fun changeActiveSegmentToRisk(id: String, sessionId: String, type: SessionSegmentType,
         packageName: String): Int
 

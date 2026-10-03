@@ -757,3 +757,31 @@ Android 读回的 `AutomaticZenRule.zenPolicy` 可包含系统已解析的 inher
 ### Consequences
 
 API 29–34 仍使用 Mirra-owned `AutomaticZenRule + ZenPolicy`，API 35+ 增加真实 state 确认，API 23–28 legacy 路径不变。全程不修改 global Notification Policy，DND 失败与 MonitoringCoverage 继续正交，Room 保持 Schema v4。
+
+## 2026-10-03 — 3C 个人试用准入与行为事实边界
+
+### Decision
+
+按用户批准的 `MIRRA_MODULE_3C_MASTER_PLAN.md`，将“完整真机验收之前禁止进入 3C”替换为“3B 个人试用开发基线可以继续 3C，发布级系统/API/OEM 验收仍开放”。历史未测项保持 NOT RUN，一加 13T 安装使用反馈不等于完整专项验收。
+
+3C-1 复用同一 BoundSessionMonitoringController Mutex，新增行为命令和连续证据状态，不另造 Service、锁、DND ownership 或 READY handshake。Room v4 不变。Break/Allowance 正常结束或到期先进入 RECOVERY；NONE 或已失监则 UNMONITORED。不得从休息直接宣称 FOCUS。
+
+摩擦只根据 Session + package 的 RISK_APP_CONFIRMED 计数，快照默认 0/5/15 秒，15 秒封顶；短访、解锁、提示重绘不计数。用途选择后仅累计界面可见的等待，理由改变重新计时，关闭同一 episode 后不反复提示。授权起点为提交时刻，可选 1–15 分钟，最多一次加 2 分钟。授权 A 不白名单 B；B 确认后结束旧授权，不暗中恢复剩余时间。BREAK 中不确认风险，到期后重新候选，不计入休息时间。
+
+Recovery 90 秒、Stable Start 120 秒、Deep Focus 900 秒且连续息屏 600 秒必须使用独立新鲜正向证据。旧 package、点击返回、纯段时长、中性状态不能完成里程碑。Stable/Deep 仅 FULL；Recovery 可在查询健康的 PARTIAL 发生，但不升级 coverage，真实失监仍停留 UNMONITORED。风险出现、段变化、证据缺失、时钟跳变清窗口。窗口输入与查询均需持续新鲜，6 秒及以上空档不得回填；成功空 query 本身不是正向学习证据。
+
+### Context
+
+3A 建立了事实模型，3B 建立了监测证据与 DND；旧总计划和转换表仍存在 BREAK→FOCUS、Focus-only risk source、仅检查段时长等未完整表达 3C 的差异。用户现在授权只落地 3C-1，不重做已经验收的监测能力。
+
+### Alternatives
+
+等待所有 OEM 全绿才继续个人试用开发；把 Recovery 偷换成 FOCUS 再确认风险；延长 package freshness 至 90/120/900 秒；新增 v5 表或第二状态机；直接用段时长推断稳定。
+
+### Reason
+
+在不伪造设备验收与 Focus 事实的前提下推进最小行为闭环。命令必须复核活动 Session、预期 Segment、当前事件身份和合法时间；Room 事务与条件更新保证并发延长最多一次、切段回滚及旧动作不改写历史。
+
+### Consequences
+
+3C-1 只交付内核和供 3C-2 消费的 StateFlow/API。界面必须逐次输入真实窗口焦点/页面可见性或新鲜屏幕状态，包括中性/失效样本，并在隐藏用途面板时暂停等待。没有输入就不产生自动里程碑。跨应用渠道、通知送达、Closeout 和 effective 指标仍不在本包实现；Session 死亡沿用 ABNORMAL，不恢复授权令牌和计时。

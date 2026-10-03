@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 与 Mirra Visual Parity Pass 已冻结。Module 3B Task 1–5 已冻结；Task 6D 指定生产代码修补已通过独立源码复验。DND 测试静默提前返回已改为显式 assumption，并完成 API 37 授权/未授权专项验证。Module 3B 尚未最终冻结：完整系统场景和至少一台 Android 13+ 实体设备能力验收尚未完成，未执行项继续为 `NOT RUN`；未进入 Phase 3C。
+Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1–5 与限定 DND 修补已通过验收；按用户批准的 3C master plan，3B 可作为个人试用开发基线继续 3C，但不等于发布级设备能力验收完成。未执行 API/OEM/真机项目继续 `NOT RUN`，一加 13T 日常试用反馈不替代完整兼容性验收。Module 3C-1（行为内核、事务、连续证据窗口）已实现并通过包内验证，等待用户验收；未进入 3C-2/3C-3 或 3D。
 
 ## Verified Completed
 
@@ -116,7 +116,10 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 
 ## In Progress
 
-- Task 6D 生产代码修补已通过用户独立源码复验。本轮 test-only 收尾已验证：未授权 0 executed / 0 passed / 0 failed / 3 skipped；明确授权后 3 executed / 3 passed / 0 failed / 0 skipped；测试结束后恢复未授权并再次确认 3 skipped。证据见 Task 6 checkpoint，Module 3B 不因此获得最终冻结。
+- Module 3C-1 已交付待验收。范围见 `docs/plans/MIRRA_MODULE_3C_MASTER_PLAN.md`；接口、转换矩阵、事务与连续证据契约见 `docs/checkpoints/2026-10-03-module-3c-1.md`。
+- 按 Session/package 持久确认计数的 0/5/15 秒、可见等待、当前 episode 授权、1–15 分钟单次时长、一次 +2 分钟延长、5/10 分钟 Break、到期回 Recovery/NONE 回 UNMONITORED 已落地。
+- Recovery/Stable/Deep 入口要求连续正向证据，旧段时长不能绕过；风险 B、Unknown/中性输入、正向样本缺失及真实查询 gap 均保守处理。正式 Compose/屏幕证据生产者尚待 3C-2 接线，不声称已有完整用户操作体验。
+- 最终全量 JVM 168/168；API 37 数据包单次 Instrumented 108/108（含 11 个新增 3C Room 测试、3A/3B/旧功能与 Migration），均 0 failure/error/skipped。lintDebug 通过，assembleDebug 已生成同生产版本 APK。未重复全量 Compose 或系统设备矩阵。
 
 ## Frozen Phase 2 Baseline
 
@@ -148,14 +151,15 @@ Phase 2 已正式验收并整体冻结。Phase 3 详细工程计划、Module 3A 
 - 文件系统与 SQLite 无法形成真正的跨资源原子事务；当前通过 trash、补偿和启动清理实现最终一致。若设备在文件系统持续故障时终止进程，文件会保留供后续启动再次恢复或清理。
 - Android Instrumented 测试为兼容 Room 2.8.5 Migration Schema 验证，在 androidTest 配置中固定 kotlinx-serialization 1.8.1；生产运行时依赖未因此替换。
 - Mono / Night 尚未进行全页面、字号放大、TalkBack 与主题切换视觉验收，因此本阶段不向用户开放主题选择入口。
-- Task 4 已覆盖绑定后的风险事实、heartbeat 与失监降级；首版中途重新授权不自动恢复当前 Session 监测，保持 PARTIAL。Recovery 的 90 秒成功判定、Stable Start 自动判定、干预 UI 和有效专注指标仍未实现；不得把本任务记录的 FULL 当作这些后续能力已经交付。
+- 首版中途重新授权不自动恢复当前 Session 监测，保持 PARTIAL。3C-1 定义连续正向证据入口，不使用缓存前台 package 冒充长时间稳定；正式页面可见性/屏幕输入接线、干预 UI 和有效专注指标仍分别属于后续交付包，FULL 不等于全程 Focus。
 
 ## Git
 
-- Current branch: `codex/phase-3b-task6-validation`
+- Current branch: `codex/phase-3c-learning-return`
+- Implementation base: `4adc39c1e920bc2c59e3b0fdbaff7795c31930e7`
 - Frozen Phase 3 planning base: `882d649cf600cd3f6f3b59d0be8a7911f3e42c70`
 - Room Schema: v4
 
 ## Next Recommended Task
 
-优先补齐用户实际使用的 Android 13+ 真机核心 Monitoring/DND/生命周期场景；先确认型号、Android 版本与 ROM。其他设备矩阵和未执行场景继续保留 `NOT RUN`。Module 3B 尚未最终冻结；不得进入 Phase 3C、Overlay 或有效专注指标模块。
+3C-1 完成并验收后切换 LUNA，只执行 3C-2 应用内体验和新鲜正向证据接线，不重写内核。发布级 API/OEM/实体设备验证继续独立开放；本轮不做跨应用提示、Closeout 或有效专注指标。

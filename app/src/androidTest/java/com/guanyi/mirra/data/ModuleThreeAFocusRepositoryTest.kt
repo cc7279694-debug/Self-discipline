@@ -123,15 +123,21 @@ class ModuleThreeAFocusRepositoryTest {
     }
 
     @Test fun stableStartAndRecoveryAreMilestonesOnlyAfterTheirTrustedWindows() = runTest {
-        val session = start()
-        db.focusDao().setCoverage(session.id, MonitoringCoverage.FULL, null, 1_000)
-        now = 2_000
-        focus.transition(SegmentTransitionCommand(session.id, SessionSegmentType.FOCUS, now))
-        now = 121_999
+        val item = items.create("测试书", 100, 10)
+        val intent = workflow.createIntent(item.id)
+        val session = workflow.startMonitoredSession(intent.id, 10,
+            com.guanyi.mirra.platform.focus.MonitoringReadyLease("g", now, 0, 1, now, 0, 0,
+                false, false), "monitored").session
+        now = 120_999
         assertFails { focus.markStableStarted(session.id, now) }
-        now = 122_000
-        focus.markStableStarted(session.id, now)
-        assertEquals(122_000L, db.sessionDao().get(session.id)?.stableStartedAt)
+        now = 121_000
+        assertFails { focus.markStableStarted(session.id, now) }
+        val stableTracker = com.guanyi.mirra.domain.monitoring.StableEvidenceTracker()
+        val activeFocus = db.focusDao().getActiveSegment(session.id)!!
+        stableTracker.accept(activeFocus.id, activeFocus.type, MonitoringCoverage.FULL, 0, true, true, true)
+        val stable = stableTracker.accept(activeFocus.id, activeFocus.type, MonitoringCoverage.FULL, 120_000, true, true, true).stable!!
+        focus.markStableStarted(session.id, now, stable)
+        assertEquals(121_000L, db.sessionDao().get(session.id)?.stableStartedAt)
 
         now = 200_000
         focus.transition(
@@ -142,7 +148,12 @@ class ModuleThreeAFocusRepositoryTest {
         now = 299_999
         assertFails { focus.completeRecovery(session.id, now) }
         now = 300_000
-        focus.completeRecovery(session.id, now)
+        assertFails { focus.completeRecovery(session.id, now) }
+        val recoveryTracker = com.guanyi.mirra.domain.monitoring.StableEvidenceTracker()
+        val activeRecovery = db.focusDao().getActiveSegment(session.id)!!
+        recoveryTracker.accept(activeRecovery.id, activeRecovery.type, MonitoringCoverage.FULL, 0, true, true, true)
+        val recovery = recoveryTracker.accept(activeRecovery.id, activeRecovery.type, MonitoringCoverage.FULL, 90_000, true, true, true).recovery!!
+        focus.completeRecovery(session.id, now, recovery)
         assertEquals(SessionSegmentType.FOCUS, db.focusDao().getActiveSegment(session.id)?.type)
         assertEquals(listOf(FocusEventType.RECOVERY_SUCCEEDED), db.focusDao().listEvents(session.id).map { it.type })
     }

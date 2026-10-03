@@ -8,6 +8,7 @@ import androidx.core.content.ContextCompat
 import com.guanyi.mirra.domain.MonitoredStartPort
 import com.guanyi.mirra.domain.monitoring.BoundSessionMonitoringController
 import com.guanyi.mirra.domain.monitoring.ClockSample
+import com.guanyi.mirra.domain.monitoring.FocusSessionActions
 import com.guanyi.mirra.data.repository.FocusRepository
 import com.guanyi.mirra.data.local.entity.StudySessionEntity
 import java.util.UUID
@@ -27,6 +28,8 @@ class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPo
     private val factsScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var factController: BoundSessionMonitoringController? = null
     val factDiagnostics get() = factController?.diagnostics
+    val focusSessionActions: FocusSessionActions
+        get() = checkNotNull(factController) { "Runtime facts not attached" }
 
     fun attachFacts(repository: FocusRepository) {
         check(factController == null) { "Runtime facts already attached" }
