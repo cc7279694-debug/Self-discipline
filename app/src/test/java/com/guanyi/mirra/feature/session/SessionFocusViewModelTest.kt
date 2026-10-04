@@ -10,6 +10,7 @@ import kotlinx.coroutines.cancel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.*
 import org.junit.After
 import org.junit.Before
@@ -26,19 +27,40 @@ class SessionFocusViewModelTest {
     private var tick = 0L
     private inline fun <reified T> proxy(noinline block: (String, List<Any?>) -> Any?): T =
         Proxy.newProxyInstance(T::class.java.classLoader, arrayOf(T::class.java)) { _, method, args -> block(method.name, args?.toList().orEmpty()) } as T
-    private fun vm(): SessionViewModel {
+    private fun vm(currentSession: StudySessionEntity? = null): SessionViewModel {
         val actions = proxy<FocusSessionActions> { name, args -> when (name) {
             "getFocusStatus" -> status
             "getIntervention" -> prompt
             else -> { calls += name to args; if (name == "refresh") Unit else result }
         } }
-        return SessionViewModel("s", proxy<StudyWorkflowRepository> { _, _ -> flowOf(null) },
+        return SessionViewModel("s", proxy<StudyWorkflowRepository> { _, _ -> flowOf(currentSession) },
             proxy<NoteRepository> { _, _ -> flowOf(emptyList<NoteEntity>()) },
-            proxy<SessionManager> { _, _ -> Unit }, focusActions = actions,
+            proxy<SessionManager> { name, args -> calls += name to args; Unit }, focusActions = actions,
             clockSample = { tick++; ClockSample(10_000 + tick, tick) })
     }
     @Before fun before() { Dispatchers.setMain(dispatcher) }
     @After fun after() { Dispatchers.resetMain() }
+    @Test fun editingFortyToFortyTwoKeepsIntermediateTextWithoutSavingBackwardProgress() = runTest(dispatcher) {
+        val session = StudySessionEntity("s", "book", "intent", 1_000, null, null, 40, 40, null, null, null, 1)
+        val vm = vm(session)
+        try {
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.session.collect {} }
+            runCurrent()
+            vm.syncCurrentPage(40)
+            vm.updatePage("")
+            vm.updatePage("4")
+            runCurrent()
+            assertEquals("4", vm.currentPageText)
+            assertEquals("40", vm.draftPage)
+            assertFalse(calls.any { it.first == "updatePage" })
+            vm.updatePage("42")
+            runCurrent()
+            assertEquals("42", vm.currentPageText)
+            assertEquals("42", vm.draftPage)
+            assertEquals(listOf("s", 42), calls.single { it.first == "updatePage" }.second.take(2))
+        } finally { vm.viewModelScope.cancel() }
+    }
+
     @Test fun positivePageRequiresAllThreeConditions() {
         for (visible in listOf(false, true)) for (resumed in listOf(false, true)) for (focused in listOf(false, true)) {
             assertEquals(visible && resumed && focused, sessionHasPositivePageEvidence(visible, resumed, focused))

@@ -237,7 +237,7 @@ class SessionViewModel(
         val page = filtered.toIntOrNull() ?: return
         val persistedPage = session.value?.currentPage ?: return
         if (page < persistedPage) {
-            currentPageText = persistedPage.toString()
+            // Keep partial input editable (40 -> 4 -> 42), without persisting a rollback.
             return
         }
         if (draftContent.isBlank() && !draftPageManuallyEdited) {

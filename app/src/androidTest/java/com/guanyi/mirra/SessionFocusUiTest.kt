@@ -31,6 +31,36 @@ import org.junit.Assert.*
 
 class SessionFocusUiTest {
     @get:Rule val rule = createAndroidComposeRule<ComponentActivity>()
+    @Test fun editingCurrentPageAllowsPartialInputButNeverRollsBackRoomProgress() {
+        val container = TestAppContainer(ApplicationProvider.getApplicationContext())
+        val session = runBlocking {
+            val item = container.learningItemRepository.create("页码编辑测试", 320)
+            val intent = container.studyWorkflowRepository.createIntent(item.id)
+            container.studyWorkflowRepository.startSession(intent.id, 40)
+        }
+        val vm = SessionViewModel(session.id, container.studyWorkflowRepository, container.noteRepository,
+            container.sessionManager, focusActions = container.focusSessionActions)
+        try {
+            rule.setContent { MirraTheme { SessionScreen(vm, {}, {}, {}) } }
+            rule.waitUntil(5_000) { vm.currentPageText == "40" }
+            rule.onNode(hasSetTextAction() and hasText("当前页码")).performTextClearance()
+            rule.onNode(hasSetTextAction() and hasText("当前页码")).performTextInput("4")
+            rule.runOnIdle { assertEquals("4", vm.currentPageText) }
+            assertEquals(40, runBlocking { container.studyWorkflowRepository.observeSession(session.id).first() }!!.currentPage)
+            rule.onNode(hasSetTextAction() and hasText("当前页码")).performTextClearance()
+            rule.onNode(hasSetTextAction() and hasText("当前页码")).performTextInput("42")
+            rule.waitUntil(5_000) { vm.session.value?.currentPage == 42 }
+            rule.runOnIdle { vm.changePage("35"); vm.changeContent("回看旧页") }
+            rule.waitUntil(5_000) { vm.savedMessage == "已自动保存" }
+            assertEquals(35, runBlocking { container.noteRepository.observeForSession(session.id).first() }.single().pageNumber)
+            assertEquals(42, runBlocking { container.studyWorkflowRepository.observeSession(session.id).first() }!!.currentPage)
+        } finally {
+            rule.activityRule.scenario.close()
+            vm.viewModelScope.cancel()
+            container.close()
+        }
+    }
+
     @Test fun backDismissesPromptBeforeLeavingAndKeepsDraft() {
         val container = TestAppContainer(ApplicationProvider.getApplicationContext())
         val session = runBlocking {

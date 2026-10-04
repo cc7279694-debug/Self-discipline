@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1–5 与限定 DND 修补已通过验收；按用户批准的 3C master plan，3B 可作为个人试用开发基线继续 3C，但不等于发布级设备能力验收完成。一加 13T 日常试用反馈不替代完整兼容性验收。Module 3C-1 行为内核、采样竞态 Acceptance Patch 与 Module 3C-2 应用内体验保持正式冻结。3C-1 原始基线为 `61ed78f94125e7049c5d4ca73be1b16c5416043b`；3C-2 与 Acceptance Patch 的统一冻结实现提交为 `f275334e233298b872bb507a82dcd875ff3135d5`。Module 3C-3 已通过用户独立源码、测试与已提交证据审查，正式冻结实现为 `b9843eb5c3879899e148792a6a1f252e4b6d573d`。API 23–36、OEM、实体设备、TalkBack 与发行环境未测项继续 `NOT RUN`，API 37 AVD 结果不得外推为其他平台 PASS。3C-4、Closeout、有效指标与 Phase 3D 尚未开始。
+Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1–5 与限定 DND 修补已通过验收；按用户批准的 3C master plan，3B 可作为个人试用开发基线继续 3C，但不等于发布级设备能力验收完成。一加 13T 日常试用反馈不替代完整兼容性验收。Module 3C-1 行为内核、采样竞态 Acceptance Patch 与 Module 3C-2 应用内体验保持正式冻结。3C-1 原始基线为 `61ed78f94125e7049c5d4ca73be1b16c5416043b`；3C-2 与 Acceptance Patch 的统一冻结实现提交为 `f275334e233298b872bb507a82dcd875ff3135d5`。Module 3C-3 已通过用户独立源码、测试与已提交证据审查，正式冻结实现为 `b9843eb5c3879899e148792a6a1f252e4b6d573d`。Module 3C-4 已完成最终联调、一个页码输入小修、完整回归与 Debug APK 个人试用交付，等待用户独立最终验收。API 23–36、OEM、实体设备、TalkBack 与发行环境未测项继续 `NOT RUN`，API 37 AVD 结果不得外推为其他平台 PASS。Closeout、有效指标与 Phase 3D 尚未开始。
 
 ## Verified Completed
 
@@ -131,7 +131,17 @@ Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1�
 - 显式 immutable Activity PendingIntent 用 session/token/action URI；submit / consume 与 Room Active Session 双重复核，旧 token / 结束 / 新进程动作拒绝。generation + 单 owner 清理 foreground、dismiss、release、loss / service destruction 与迟到回执。
 - 既有 focus_events 只记录真实 IN_APP composition / OVERLAY attach 和每 episode 一次 UNAVAILABLE；不改变 Segment / Coverage / DND。Room v4、schemas 1–4 与 Migration 不变。
 - 已提交执行证据为最终 JVM 222/222、完整未过滤 connected 177/177（0 failure/error/skipped，DND 3 / channels 5 实际执行）、lintDebug / assembleDebug 通过，以及 API37 真实 A–H、Overlay 导航、最终覆盖安装、离线冷启动、强停 ABNORMAL、旧动作回放和数据保留。本次独立验收与纯文档同步没有重新运行 Gradle / AVD，不将上述结果冒充本次重新执行。环境故障及修补 RED 历史继续保存在 `docs/checkpoints/2026-10-04-module-3c-3.md`。
-- API 23–36、OEM、实体设备、TalkBack 与发行环境未测项继续 `NOT RUN`；API 37 专用 AOSP AVD 结果不外推为其他平台 PASS。3C-4 与 Phase 3D 尚未开始。
+- API 23–36、OEM、实体设备、TalkBack 与发行环境未测项继续 `NOT RUN`；API 37 专用 AOSP AVD 结果不外推为其他平台 PASS。3C-3 冻结核心保持不变，Phase 3D 尚未开始。
+
+## Module 3C-4 Delivery — Awaiting Independent Acceptance
+
+- 起点 `6384cc634b080ac9554ac20cd4c95b9b5e13a262`，分支 `codex/phase-3c-final-validation`。执行协议与结果见 `docs/checkpoints/2026-10-04-module-3c-final.md`；六类实际 AVD 截图见 `docs/evidence/module-3c-final/`。
+- 只有一个 ViewModel 输入修补：40→42 逐字编辑中间的 4 不再立即回填40，但较小值仍不保存，旧页 Note 不推进阅读进度。新 JVM 与 Compose/真实 Room 测试约束该行为；DND、Monitoring/READY、Coverage、行为核心、Schema 与 Migration 无改动。
+- 同一最终代码的完整未过滤 JVM 223/223、connected 178/178，均 0 failure/error/skipped；DND 平台3项与渠道平台5项实际执行。lint 0 errors / 9 existing warnings / 1 hint，assembleDebug 通过。
+- API37 实际闭环：风险短/长访、应用内与 Overlay 四操作、通知真实点击/POSTED≠SHOWN、渠道/权限降级、Allowance 一次延长与风险 B、Break、连续91.753秒 Recovery、Usage撤权/主动停止、强停 ABNORMAL/PARTIAL/UNMONITORED与 DND释放、旧URI不复活、320dp/font2、360dp/411dp可达性。
+- 最终 APK 覆盖安装与断网冷启动后，专用书籍/Note/图片/正常Session/42页进度/Caption/偏好/风险选择保留，图片与搜索可读。最终 Room v4 hash 仍 `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`；schemas 1–4 不变。
+- Debug APK：`build/deliverables/Mirra-3C4-debug.apk`，15874132 bytes，SHA-256 `4271EBE0BEF656098FA83F0ADAD9781574E113AB2FA4153ED7ED00F4D79087EE`；appId `com.guanyi.mirra`，0.1.0/code1。APK 不入 Git，仅个人试用，不是 release。
+- C01–C24 在自动化/API37约定范围内通过；C25 是个人安装包与 checklist 交付，新版本一加13T实际反馈仍 NOT RUN，未自动操作实体机。作者自查不代替用户独立验收。
 
 ## Frozen Phase 2 Baseline
 
@@ -146,7 +156,7 @@ Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1�
 
 ## Pending
 
-- Module 3C-3 已正式关闭；3C-4、Closeout、有效指标与 Phase 3D 尚未开始，等待单独授权。
+- Module 3C-4 已完成交付，等待用户独立验收；新版一加13T个人试用等待反馈。Closeout、有效指标与 Phase 3D 尚未开始，等待后续单独授权。
 - Phase 3｜Module 3B Task 6 仍待最终独立验收。Task Manager Stop、reboot、完整 risk/lock/revocation 矩阵、API 23/29/33/34/35 与实体/OEM 设备继续为 `NOT RUN`，不用 API 37 AVD 结果代替。
 
 ## Known Risks / Unknowns
@@ -168,7 +178,8 @@ Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1�
 
 ## Git
 
-- Current branch: `codex/phase-3c-external-intervention`
+- Current branch: `codex/phase-3c-final-validation`
+- 3C-4 delivery source：`6384cc634b080ac9554ac20cd4c95b9b5e13a262` + 本轮页码输入修补；交付提交 `feat(focus): finalize module 3c experience`，完整 SHA 与远程一致性在本轮最终报告和 Git 核对，不回写自身文档的自身 commit SHA。
 - Frozen 3C-3 implementation commit: `b9843eb5c3879899e148792a6a1f252e4b6d573d`（`feat(focus): add safe cross-app intervention`），已由用户核对远程并正式验收；未合并 main。
 - 3C-1 original implementation base: `61ed78f94125e7049c5d4ca73be1b16c5416043b`
 - Frozen 3C-2 / Acceptance Patch implementation commit: `f275334e233298b872bb507a82dcd875ff3135d5`（`feat(focus): add in-app learning return experience`），已由用户核对远程并正式验收。
@@ -177,4 +188,4 @@ Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1�
 
 ## Next Recommended Task
 
-Module 3C-3 已正式冻结，本轮仅同步文档后停止。继承冻结行为内核、采样竞态修补、UI 接线、渠道治理与 Room v4，等待下一交付包单独授权。API 23–36、OEM、实体设备、TalkBack 与发行环境未测项保持 `NOT RUN`；不得自动进入 3C-4、Closeout、有效专注指标或 Phase 3D。
+提交 3C-4 完整报告与 Debug APK 后停止，等待用户独立验收及个人试用反馈。继承冻结行为内核、采样竞态修补、UI 接线、渠道治理与 Room v4；API 23–36、OEM、实体设备、TalkBack 与发行环境未测项保持 `NOT RUN`。不得自动进入 Closeout、有效专注指标或 Phase 3D。
