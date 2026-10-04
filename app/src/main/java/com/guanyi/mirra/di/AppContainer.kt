@@ -68,6 +68,8 @@ interface AppContainer {
     val focusRepository: FocusRepository
     val focusSessionActions: com.guanyi.mirra.domain.monitoring.FocusSessionActions
     val dndUserActions: DndUserActions
+    val crossAppInterventionActions: com.guanyi.mirra.feature.profile.CrossAppInterventionUserActions? get() = null
+    val interventionNavigation: com.guanyi.mirra.domain.intervention.InterventionNavigationController? get() = null
     val readingAnalyticsService: ReadingAnalyticsService
     val completionPredictionService: CompletionPredictionService
     val analyticsTimeProvider: AnalyticsTimeProvider
@@ -120,10 +122,32 @@ class DefaultAppContainer(context: Context, private val monitoringRuntime: Monit
             runCatching { dndController.apply(sessionId, appPreferencesRepository.dndEnabled.first()) }
         }
     }
+    private suspend fun configureSessionPresentationAndDnd(sessionId: String) {
+        val enabled = runCatching { appPreferencesRepository.crossAppInterventionEnabled.first() }.getOrDefault(false)
+        monitoringRuntime.interventionChannels?.configure(sessionId, enabled)
+        applyDndIfEnabled(sessionId)
+    }
     private suspend fun releaseDnd(sessionId: String) {
         withContext(Dispatchers.IO) { runCatching { dndController.release(sessionId) } }
     }
-    init { monitoringRuntime.attachFacts(focusRepository) }
+    init {
+        monitoringRuntime.attachFacts(focusRepository)
+        monitoringRuntime.attachInterventionChannels(
+            com.guanyi.mirra.data.repository.InterventionReceiptRepository(database, {
+                monitoringRuntime.interventionChannels?.isCurrent(it) == true
+            }),
+            { sessionId -> database.sessionDao().get(sessionId)?.let { database.learningItemDao().get(it.learningItemId)?.name }
+                ?: "本次学习" },
+        )
+    }
+    override val crossAppInterventionActions = com.guanyi.mirra.feature.profile.DefaultCrossAppInterventionUserActions(
+        appPreferencesRepository,
+        { checkNotNull(monitoringRuntime.interventionChannels).capabilities() },
+        { studyWorkflowRepository.observeActiveSession().first() != null },
+        { monitoringRuntime.interventionChannels?.snapshotEnabled() == true },
+        { monitoringRuntime.interventionChannels?.appVisible?.value == true },
+    )
+    override val interventionNavigation get() = monitoringRuntime.interventionChannels?.navigation
     override val focusSessionActions: com.guanyi.mirra.domain.monitoring.FocusSessionActions
         get() = monitoringRuntime.focusSessionActions
     override val readingAnalyticsService = ReadingAnalyticsService()
@@ -131,14 +155,15 @@ class DefaultAppContainer(context: Context, private val monitoringRuntime: Monit
     override val analyticsTimeProvider = AnalyticsTimeProvider()
     override val sessionManager: SessionManager = DefaultSessionManager(studyWorkflowRepository,
         monitoringRuntime::releaseSession, monitoringRuntime::finishWithMonitoringFacts,
-        onSessionCreated = { applyDndIfEnabled(it.id) },
+        onSessionCreated = { configureSessionPresentationAndDnd(it.id) },
         onSessionCommitted = { releaseDnd(it) })
     override val sessionStartCoordinator: SessionStartCoordinator = SessionStartCoordinator(
         RepositoryMonitoredStartStore(studyWorkflowRepository, focusRepository), monitoringRuntime,
-        onSessionCreated = { applyDndIfEnabled(it.id) },
+        onSessionCreated = { configureSessionPresentationAndDnd(it.id) },
     )
     override val startup: Deferred<Unit> = applicationScope.async {
         sessionManager.recoverInterruptedSession()
+        monitoringRuntime.interventionChannels?.startupCleanup()
         runCatching { dndController.reconcileAfterRecovery() }
         runCatching { imageRepository.reconcileStorage() }
         runCatching { searchIndexRebuilder.ensureConsistent() }

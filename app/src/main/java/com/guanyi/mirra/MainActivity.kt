@@ -1,6 +1,7 @@
 package com.guanyi.mirra
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -12,9 +13,25 @@ import com.guanyi.mirra.ui.theme.MirraTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private val runtime get() = (application as MirraApplication).monitoringPlatform
+    override fun onStart() { super.onStart(); runtime.setAppVisible(true) }
+    override fun onStop() { runtime.setAppVisible(false); super.onStop() }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        acceptInterventionIntent(intent)
+    }
+    private fun acceptInterventionIntent(intent: Intent) {
+        val request = com.guanyi.mirra.platform.intervention.InterventionActivityIntents.read(this, intent) ?: return
+        lifecycleScope.launch {
+            (application as MirraApplication).container.startup.await()
+            runtime.interventionChannels?.navigation?.submit(request)
+        }
+    }
     override fun onResume() {
         super.onResume()
         (application as MirraApplication).monitoringPlatform.refreshCapabilities()
+        runtime.reconcileInterventionPresentation()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -24,6 +41,7 @@ class MainActivity : ComponentActivity() {
         val container = (application as MirraApplication).container
         lifecycleScope.launch {
             container.startup.await()
+            if (savedInstanceState == null) acceptInterventionIntent(intent)
             setContent {
                 val restoredDestination by container.appPreferencesRepository.lastDestination.collectAsStateWithLifecycle(
                     initialValue = TopLevelDestination.Start,

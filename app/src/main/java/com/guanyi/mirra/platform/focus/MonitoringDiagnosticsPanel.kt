@@ -67,6 +67,21 @@ fun MonitoringDiagnosticsPanel(
             Text("Mirra rule ID: ${snapshot.mirraRuleId ?: "—"}")
             Text("Pending release: ${snapshot.pendingRelease}")
         }
+        runtime.interventionChannels?.let { channels ->
+            val delivery by channels.presenter.diagnostics.collectAsStateWithLifecycle()
+            val visible by channels.appVisible.collectAsStateWithLifecycle()
+            val presentationError by channels.error.collectAsStateWithLifecycle()
+            val prompt by runtime.focusSessionActions.intervention.collectAsStateWithLifecycle()
+            val preference = (context.applicationContext as? com.guanyi.mirra.MirraApplication)?.container
+                ?.appPreferencesRepository?.crossAppInterventionEnabled
+                ?.collectAsStateWithLifecycle(initialValue = false)?.value ?: false
+            val caps = channels.capabilities()
+            Text("Cross-app preference: $preference / Session snapshot: ${channels.snapshotEnabled()}")
+            Text("App visible: $visible / Prompt present: ${prompt?.let { !it.dismissed } == true}")
+            Text("Delivery channel: ${delivery.channel} / Receipt: ${delivery.receipt ?: "—"}")
+            Text("Overlay access: ${caps.overlayAvailable} / Notification access: ${caps.notificationGranted} / Channel enabled: ${caps.notificationChannelEnabled}")
+            Text("Presentation error: ${delivery.error ?: presentationError ?: "—"}")
+        }
         error?.let { Text("启动失败：$it") }
         Button(onClick = {
             error = runCatching { runtime.startFromUserAction() }.exceptionOrNull()?.javaClass?.simpleName

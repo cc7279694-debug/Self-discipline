@@ -829,3 +829,27 @@ paired ClockSample 必须忠实表达采样时刻，不能由 UI 伪造新的监
 ### Consequences
 
 3C-2 交付后仍由 SOL 读取实际 commit 最终复验，不自行宣称冻结。Room v4 / schemas / Migration / DND / READY handshake 不变；3C-3、Closeout、有效指标未实现，实体/OEM 发布级验证继续 NOT RUN。
+
+## 2026-10-04 — 3C-3 渠道治理与展示事实
+
+### Decision
+
+跨应用提醒默认 OFF，DataStore 偏好只在本次 Session 已提交且 monitoring bind / degradation 确定后采集一次进程内快照。之后修改只影响下一次；进程死亡不恢复快照或提示。前台使用已有应用内提示，后台有效风险事实优先 API 26+ 小 Overlay，再尝试独立 `mirra_focus_intervention` 通知。渠道失败与 DND、Coverage、Segment 正交。
+
+### Context
+
+3C-1/2 已冻结。唯一提示事实源仍为现有 InterventionUiModel；本包不重新识别风险 App、不重新计摩擦/Recovery，不新增 Service 或 Usage query。Manifest 只增加 SYSTEM_ALERT_WINDOW，Room v4 不变。
+
+### Alternatives
+
+通知 posted 当作已展示；独立 Overlay 行为状态机；后台直接结束 Session；改变 DND 使通知绕过；将偏好写入新增 Room 字段；旧 PendingIntent 直接信任 extras。
+
+### Reason
+
+单 token / generation / 串行平台操作约束一个渠道 owner；移除失败时宁可停止 fallback，不叠加第二 owner。每次外部动作验证当前 prompt、binding 与 Room Active Session，并在消费时复核。不可变显式 Activity PendingIntent 使用独立 data URI，不经 Service / Receiver trampoline。
+
+### Consequences
+
+IN_APP composition 与 OVERLAY attach 仅记录各自真实的最小展示事实，不能代表已读。NOTIFICATION_POSTED 只留运行态，不写 INTERVENTION_SHOWN；所有外部渠道不可用时每 episode 记录一次 INTERVENTION_UNAVAILABLE。确定性事件 ID、事务内活动校验和防重使用已有 focus_events。Foreground、token 失效、dismiss、Session release、失监和 Service 销毁触发清理，startup 在既有 ABNORMAL recovery 后 cancel 固定通知 ID，不续监。3C-4 / Closeout / effective metrics 未授权。
+
+展示 lifetime 与前台 package 新鲜度分开：成功健康查询、未锁屏且现有 Prompt 仍有效时，SystemUI / Launcher / 风险 App exit 不能由新渠道自行作废同 episode（否则通知栏展开即取消）。Prompt 失效仍由冻结行为内核决定。同 episode 从 DISTRACTION 转为 RECOVERY 后，Overlay 关闭与 attach 回执按 session/token/event/package 重新解析当前 Segment，再执行 binding 与 Room 校验；不回填 Segment、不认可旧 token，也不伪造 Recovery。两项边界均由 RED 回归和真实 AVD 场景验证。

@@ -27,6 +27,15 @@ data class MonitoringBinding(val sessionId: String, val generation: String, val 
 class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPort {
     private val factsScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var factController: BoundSessionMonitoringController? = null
+    var interventionChannels: com.guanyi.mirra.platform.intervention.RuntimeInterventionChannels? = null
+        private set
+    fun attachInterventionChannels(receipts: com.guanyi.mirra.data.repository.InterventionReceiptRepository,
+        titleProvider: suspend (String) -> String) {
+        check(interventionChannels == null)
+        interventionChannels = com.guanyi.mirra.platform.intervention.RuntimeInterventionChannels(context, this, receipts, titleProvider)
+    }
+    fun reconcileInterventionPresentation() { interventionChannels?.reconcile() }
+    fun setAppVisible(visible: Boolean) { interventionChannels?.setAppVisible(visible) }
     val factDiagnostics get() = factController?.diagnostics
     val focusSessionActions: FocusSessionActions
         get() = checkNotNull(factController) { "Runtime facts not attached" }
@@ -46,6 +55,7 @@ class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPo
     suspend fun onMonitoringDeadline(generation: String, sample: ClockSample, reason: String = "query deadline") {
         checkNotNull(factController) { "Runtime facts not attached" }
             .onServiceLost(binding?.takeIf { it.generation == generation }, sample, reason)
+        reconcileInterventionPresentation()
     }
     val lifecycle = MonitoringLifecycle()
     val capabilities = MonitoringCapabilityManager()
@@ -118,6 +128,7 @@ class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPo
         }
         if (requestedGeneration == generation) requestedGeneration = null
         if (binding?.generation == generation) binding = null
+        interventionChannels?.serviceStopped()
     }
 
     override suspend fun preflight(): Boolean = withContext(Dispatchers.IO) {
@@ -169,6 +180,7 @@ class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPo
     }
 
     @Synchronized fun releaseSession(sessionId: String) {
+        interventionChannels?.release(sessionId)
         val current = binding?.takeIf { it.sessionId == sessionId } ?: return
         factController?.onNormalRelease(sessionId)
         binding = null

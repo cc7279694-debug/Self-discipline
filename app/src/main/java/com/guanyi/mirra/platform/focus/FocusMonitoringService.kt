@@ -51,6 +51,7 @@ class FocusMonitoringService : Service() {
                 Intent.ACTION_USER_PRESENT -> current.deviceSignal("USER_PRESENT") // unlock is not distraction
             }
             runtime.capabilities.updateMonitor(current.state.value)
+            runtime.reconcileInterventionPresentation()
         }
     }
 
@@ -127,6 +128,7 @@ class FocusMonitoringService : Service() {
                 val snapshot = current.poll(sample)
                 runtime.capabilities.updateMonitor(snapshot)
                 runtime.onMonitorSample(generation, snapshot, sample)
+                runtime.reconcileInterventionPresentation()
                 if (!snapshot.running) {
                     if (MonitoringSignal.WALL_CLOCK_JUMP in snapshot.signals) {
                         lifecycle.monitorInterrupted(generation)

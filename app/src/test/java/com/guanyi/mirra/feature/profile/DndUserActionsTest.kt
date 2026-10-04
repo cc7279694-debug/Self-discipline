@@ -177,6 +177,8 @@ class DndUserActionsTest {
     }
 
     private class FakePreferences : AppPreferencesRepository {
+        override val crossAppInterventionEnabled = MutableStateFlow(false)
+        override suspend fun setCrossAppInterventionEnabled(enabled: Boolean) { crossAppInterventionEnabled.value = enabled }
         private val destination = MutableStateFlow(TopLevelDestination.Start)
         private val theme = MutableStateFlow(MirraThemeId.BLUE)
         private val dnd = MutableStateFlow(false)

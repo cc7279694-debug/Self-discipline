@@ -58,6 +58,7 @@ class TestAppContainer(
         private val destination = MutableStateFlow(TopLevelDestination.Start)
         private val theme = MutableStateFlow(MirraThemeId.BLUE)
         private val dnd = MutableStateFlow(false)
+        override val crossAppInterventionEnabled = MutableStateFlow(false)
         override val lastDestination: Flow<TopLevelDestination> = destination
         override val themeId: Flow<MirraThemeId> = theme
         override val dndEnabled: Flow<Boolean> = dnd
@@ -68,6 +69,7 @@ class TestAppContainer(
             theme.value = themeId
         }
         override suspend fun setDndEnabled(enabled: Boolean) { dnd.value = enabled }
+        override suspend fun setCrossAppInterventionEnabled(enabled: Boolean) { crossAppInterventionEnabled.value = enabled }
     }
     override val learningItemRepository: LearningItemRepository = DefaultLearningItemRepository(database, searchIndexWriter = searchIndexWriter)
     override val studyWorkflowRepository: StudyWorkflowRepository = DefaultStudyWorkflowRepository(

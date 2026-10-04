@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">观已Mirra</string>
+    <string name="intervention_book_title">还在读《%1$s》</string>
+    <string name="intervention_return_body">回到 Mirra 继续本次学习</string>
 </resources>

@@ -13,6 +13,19 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppPreferencesThemeTest {
+    @Test fun crossAppReminderDefaultsOffAndPersistsIndependently() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val file = File(context.cacheDir, "intervention-${System.nanoTime()}.preferences_pb")
+        val store = PreferenceDataStoreFactory.create(scope = backgroundScope) { file }
+        val repository = DefaultAppPreferencesRepository(store)
+        assertFalse(repository.crossAppInterventionEnabled.first())
+        repository.setCrossAppInterventionEnabled(true)
+        assertTrue(repository.crossAppInterventionEnabled.first())
+        assertEquals(true, store.data.first()[androidx.datastore.preferences.core.booleanPreferencesKey("cross_app_intervention_enabled")])
+        assertFalse(repository.dndEnabled.first())
+        repository.setCrossAppInterventionEnabled(false)
+        assertFalse(repository.crossAppInterventionEnabled.first())
+    }
     @Test
     fun themeDefaultsToBlueAndPersistsWithoutChangingDestination() = runTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()

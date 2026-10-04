@@ -324,6 +324,9 @@ fun SessionScreen(
     onFinished: (String) -> Unit,
     onOpenNote: (String) -> Unit,
     onBack: () -> Unit,
+    externalRequest: com.guanyi.mirra.domain.intervention.InterventionNavigationRequest? = null,
+    onExternalRequestHandled: () -> Unit = {},
+    onPromptComposed: (com.guanyi.mirra.domain.monitoring.InterventionUiModel) -> Unit = {},
 ) {
     val session by viewModel.session.collectAsStateWithLifecycle()
     val notes by viewModel.notes.collectAsStateWithLifecycle()
@@ -334,6 +337,21 @@ fun SessionScreen(
     val prompt = intervention?.takeIf { !it.dismissed && it.sessionId == currentSession?.id }
     var breakChoice by remember { mutableStateOf(false) }
     var reasonsVisible by remember(prompt?.promptToken) { mutableStateOf(false) }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    LaunchedEffect(externalRequest?.id, currentSession?.id, prompt?.promptToken) {
+        val request = externalRequest ?: return@LaunchedEffect
+        if (currentSession == null) return@LaunchedEffect
+        if (currentSession.activeSlot == 1 && request.sessionId == currentSession.id &&
+            request.promptToken == prompt?.promptToken) {
+            when (request.action) {
+                com.guanyi.mirra.domain.intervention.InterventionNavigationAction.OPEN_ALLOWANCE -> reasonsVisible = true
+                com.guanyi.mirra.domain.intervention.InterventionNavigationAction.OPEN_FINISH ->
+                    listState.animateScrollToItem(4 + notes.size)
+                else -> Unit
+            }
+        }
+        onExternalRequestHandled()
+    }
     fun hideReasons() { viewModel.setPromptVisible(false); reasonsVisible = false }
     fun finishReading() { currentSession?.let { viewModel.finish(viewModel.currentPageText.toIntOrNull() ?: it.currentPage, onFinished) } }
     SessionEvidenceReporter(viewModel)
@@ -364,6 +382,7 @@ fun SessionScreen(
     val elapsedMinutes = currentSession?.let { ((viewModel.now - it.startedAt).coerceAtLeast(0) / 60_000) } ?: 0
 
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize().padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -375,6 +394,7 @@ fun SessionScreen(
             viewModel.focusError?.let { Text(it, color = MirraTheme.colors.danger) }
         }
         if (prompt != null) item {
+            LaunchedEffect(prompt.eventId, prompt.segmentId) { onPromptComposed(prompt) }
             InterventionContent(bookName, prompt, false, { reasonsVisible = true }, viewModel::selectAllowanceReason,
                 viewModel::returnToStudy, viewModel::grantAllowance, ::finishReading, viewModel::dismissPrompt)
         }

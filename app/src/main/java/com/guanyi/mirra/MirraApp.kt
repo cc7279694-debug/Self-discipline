@@ -70,6 +70,11 @@ import com.guanyi.mirra.ui.viewModelFactory
 import com.guanyi.mirra.ui.components.MirraBottomNavigation
 import com.guanyi.mirra.ui.theme.MirraTheme
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.flow.collect
+import com.guanyi.mirra.domain.intervention.InterventionNavigationRequest
+import com.guanyi.mirra.domain.intervention.InterventionNavigationAction
+import com.guanyi.mirra.domain.monitoring.ClockSample
+import android.os.SystemClock
 import com.guanyi.mirra.platform.focus.isMirraDebuggable
 
 @Composable
@@ -83,6 +88,7 @@ fun MirraApp(
         (appContext as? MirraApplication)?.monitoringPlatform else null
     val backStack = rememberNavBackStack(TopLevelDestination.Start)
     var selectedDestination by remember { mutableStateOf(TopLevelDestination.Start) }
+    var externalRequest by remember { mutableStateOf<InterventionNavigationRequest?>(null) }
 
     fun open(route: NavKey) {
         backStack.add(route)
@@ -101,6 +107,20 @@ fun MirraApp(
 
     LaunchedEffect(restoredDestination) {
         select(restoredDestination, persist = false)
+    }
+    LaunchedEffect(container.interventionNavigation) {
+        container.interventionNavigation?.let { navigation ->
+            navigation.requests.collect { pending ->
+                val request = pending?.let { navigation.consume(it.id) } ?: return@collect
+                if (request.action == InterventionNavigationAction.RETURN_TO_STUDY) {
+                    container.focusSessionActions.returnToStudy(request.sessionId, request.promptToken,
+                        ClockSample(System.currentTimeMillis(), SystemClock.elapsedRealtime()))
+                }
+                externalRequest = request
+                backStack.clear()
+                backStack.add(SessionRoute(request.sessionId))
+            }
+        }
     }
 
     val isTopLevel = backStack.lastOrNull() is TopLevelDestination
@@ -156,6 +176,7 @@ fun MirraApp(
                             }),
                             debugMonitoring = debugMonitoring,
                             riskRepository = container.focusRepository,
+                            crossAppActions = container.crossAppInterventionActions,
                         )
                     }
                 }
@@ -369,6 +390,10 @@ fun MirraApp(
                         },
                         onOpenNote = { open(NoteDetailRoute(it)) },
                         onBack = { select(TopLevelDestination.Start, persist = true) },
+                        externalRequest = externalRequest?.takeIf { it.sessionId == route.sessionId },
+                        onExternalRequestHandled = { externalRequest = null },
+                        onPromptComposed = { prompt -> (appContext as? MirraApplication)?.monitoringPlatform
+                            ?.interventionChannels?.inAppComposed(prompt) },
                     )
                 }
                 entry<SessionSummaryRoute> { route ->

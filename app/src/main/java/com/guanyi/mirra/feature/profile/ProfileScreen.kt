@@ -48,7 +48,8 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier,
-    debugMonitoring: MonitoringPlatformRuntime? = null, riskRepository: FocusRepository? = null) {
+    debugMonitoring: MonitoringPlatformRuntime? = null, riskRepository: FocusRepository? = null,
+    crossAppActions: CrossAppInterventionUserActions? = null) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val dndState = viewModel.dndState?.collectAsStateWithLifecycle()?.value
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -108,6 +109,7 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier,
                 modifier = Modifier.padding(top = 28.dp),
             )
         }
+        crossAppActions?.let { CrossAppInterventionSettings(it, Modifier.padding(top = 20.dp)) }
         if (riskRepository != null) {
             TextButton(onClick = { showRiskApps = true }, modifier = Modifier.padding(top = 20.dp)) {
                 Text("风险 App")
