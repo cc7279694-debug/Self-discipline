@@ -8,7 +8,7 @@
 
 **Tech Stack:** 已有Gradle Wrapper/JBR、JUnit/Room/Compose instrumentation、Android SDK/ADB/API37 AVD、PowerShell、Git、MirraTheme/Components；不新增依赖。
 
-**Spec:** [MIRRA_PHASE_3D_DESIGN.md](MIRRA_PHASE_3D_DESIGN.md) §0–35；设计基线 `874d80318c56661218fd03579ba2f1253cc35440`，实际执行父基线必须为独立验收通过的3D-3 freeze SHA。
+**Spec:** [MIRRA_PHASE_3D_DESIGN.md](MIRRA_PHASE_3D_DESIGN.md) §0–35；原始设计 commit `874d80318c56661218fd03579ba2f1253cc35440`；本计划以该规范本次用户批准的 clock / Summary Plans Review 修订为准，实际执行父基线必须为独立验收通过的3D-3 freeze SHA。
 
 ## Global Constraints
 
@@ -30,9 +30,10 @@
 | full suite未干净通过，却拼局部结果或DND静默跳过声称全绿 | Task1 `V-AUTO-01`；核XML的executed/passed/failed/skipped及平台前提 |
 | A成功后死亡仍记ABNORMAL或使用冷启动时间 | Task2 `V-CRASH-02`、`pendingFixtureRecoversAsNormalAtOriginalBoundary` |
 | 结束时风险/撤权/Service stop竞态被忽略，伪造FULL | Task2 `V-CLOSE-11/12`、`lossAtFinalConfirmationNeverProducesTrustedFocus` |
+| backward wall jump将用户困在无法结束，或任意过早boundary被自动夹高 | Task2 `V-CLOCK-01/02`；正常边界仍精确、例外仅明确且已durable loss |
 | PENDING后旧Overlay/通知仍创建Allowance或重开Session | Task2 `V-STALE-01/02`、`pendingStaleActionsCannotCreateLearningFacts` |
 | B失败/PENDING重试漏系统清理，DND失败又改变结束时间 | Task2 `V-CRASH-03`、`V-DND-01`、`pendingRetryAndDndFailureDoNotChangeBoundary` |
-| Summary/历史/搜索结果不同，时间仍增长或返回复活 | Task3 `V-FLOW-01`、`completedRecordIsStableAcrossThreeEntrancesAndElapsedTime` |
+| Summary/历史/搜索结果不同，时间仍增长、返回复活或Summary多push详情页 | Task3 `V-FLOW-01`、`completedRecordIsStableAcrossThreeEntrancesAndElapsedTime`、`summaryViewRecordExpandsWithoutNavigation` |
 | 覆盖安装丢图片/关联/旧历史，或回填effective | Task4 `V-DATA-01`、`coverInstallPreservesExistingFactsWithoutEffectiveBackfill` |
 | APK checksum/commit与实际交付不是同一版本，未测设备写PASS | Task5 `V-DELIVERY-01`、`V-EVIDENCE-01` |
 
@@ -93,10 +94,12 @@ Expected: 一次完整single clean run；失败为0、跳过如实记且不替�
 | V-DND-01 | release失败→结果/保存弱提示→retry | Session事实不变，只处理Mirra-owned规则；fake与真正执行分列 |
 | V-CLOSE-11 | near-closeout撤Usage access/到6秒gap | 先settlement/loss，再结束；FULL不被保住；系统操作需明确授权 |
 | V-CLOSE-12 | near-closeout controlled monitor stop | 当前coverage降级不可逆，正常结束仍保存；无后台重新启动 |
+| V-CLOCK-01 | 隔离真Room + fake ClockSample：start1000，可信边界/active UNMONITORED.start2000，final wall100且elapsed单调，明确backward证据，PARTIAL/lostAt2000；另测真实Repository loss前提 | A / Session boundary2000，NORMAL/COMPLETED；零时长未知段删除，无1ms、无retry-time、无Focus回填、coverage仍PARTIAL、effective unavailable；自动化受控时钟证据，不改AVD系统时间、不冒充普通手工实测 |
+| V-CLOCK-02 | 普通过早boundary，无明确backward证据；另含仅撤权/gap形成PARTIAL，或证据与durable事实不匹配 | 明确拒绝且无结束事实写入；不能把任意早时间通用clamp，不能以不完整事实修饰FULL |
 | V-STALE-01/02 | 捕获本测试episode通知/Overlay旧action，A后和B后分别执行 | 不创建Allowance/Break/Recovery、Session不复活；A间隙用受控fixture，真实已结束旧通知另做实测 |
 | V-PAGE-01/02 | UI 40→临时4→42；Note页35 | 临时4不持久化、最终42；Note35不改进度；真实UI与既有自动化均留证 |
 
-补充具体回归名称：`lossAtFinalConfirmationNeverProducesTrustedFocus`、`pendingStaleActionsCannotCreateLearningFacts`、`pendingRetryAndDndFailureDoNotChangeBoundary`。若已有等价测试则记录其准确全名与结果，不强制重复新增。
+补充具体回归名称：`lossAtFinalConfirmationNeverProducesTrustedFocus`、`pendingStaleActionsCannotCreateLearningFacts`、`pendingRetryAndDndFailureDoNotChangeBoundary`、`backwardClockJumpStillAllowsCloseoutAtLastDurableBoundary`、`ordinaryBoundaryBeforeActiveSegmentStillFailsWithoutClockJumpEvidence`。若已有等价测试则记录其准确全名与结果，不强制重复新增。clock例外必须复跑3D-1 Task1真Room与Task3串行接线，并由3D-2 Validator验证PARTIAL无有效资格；原3C controller fake测试单独通过不能替代durable loss/真实事务证明。若真实loss前提暴露冻结核心冲突，按Scope Guard停止报告，不扩大clamp或修改Schema。
 
 ```powershell
 .\gradlew.bat :app:assembleDebugAndroidTest --no-daemon
@@ -122,7 +125,9 @@ git diff --check
 **Interfaces:** 只调用已冻结Navigation3 routes、SessionManager/FocusSessionActions与ReadingRecordRepository；不添加绕过confirmation/READY的测试用生产接口。
 
 - [ ] Red/Green：`completedRecordIsStableAcrossThreeEntrancesAndElapsedTime`：一个正常记录，从结果/历史/搜索显示完全同值；推进测试clock或真实停留后endedAt、末段、duration不变，不产生新Intent/Session/FGS。`finalFlowPreservesDraftAndEndsOnlyAtFinalConfirm` 保证草稿已保存再弹框、continue仍学习、final唯一boundary。
+- [ ] 复跑3D-3 `summaryViewRecordExpandsWithoutNavigation`：Summary默认简洁，查看后仍为SessionSummaryRoute，back stack不新增SessionSearchDetailRoute、展开真实timeline；History/Search仍进入既有detail并返回各自来源。同projection比较值，不比较三种入口的route结构。
 - [ ] `V-FLOW-01` 真正执行：Start→Preparation→Session→阅读/页码/Note→Break→安全风险App→Overlay或Notification→Allowance→提前结束→Recovery连续90秒→阅读→第一下结束/草稿flush→确认/最终结束→Summary→展开timeline→完成回Start→书籍history→record→Search session result→同一record。
+- [ ] Summary→展开timeline为当前页面inline切换，不是导航；该步骤前后route / back stack不变，不增加第二个详情页。后续history/search回看仍为统一SessionSearchDetailRoute，不能以三入口同源为由改变此UX。
 - [ ] Overlay与Notification分开说明权限/DND前提；POSTED不能写SHOWN。正常DND运行时不为了可见通知关闭/绕过规则；in-app fallback保留。如果外部渠道不可用，记录DEGRADED，不中止阅读或伪造恢复。
 - [ ] `V-FLOW-02` 查看结果停留至少30秒，返回原旧intent/action也不能续读；普通数据duration按旧口径，effective只来自完整可信段；Deep/Stable未实际等待的状态只列已有自动化证明。
 - [ ] `V-VISUAL-01` 真实截图：结束确认、FULL结果、PARTIAL/NONE结果、展开时间线、书籍节奏；320/360/411dp和fontScale2关键按钮可滚动/48dp，使用现有Mirra Blue。不生成概念图、不重做Start/Mine。

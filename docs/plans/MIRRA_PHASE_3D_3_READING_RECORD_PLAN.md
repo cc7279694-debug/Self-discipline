@@ -8,7 +8,7 @@
 
 **Tech Stack:** Kotlin、Flow/ViewModel、Compose/Lifecycle、Navigation 3、Room v4、冻结MirraTheme/Components、现有DndUserActions。
 
-**Spec:** [MIRRA_PHASE_3D_DESIGN.md](MIRRA_PHASE_3D_DESIGN.md) §17–24、26、28–33；唯一设计基线 `874d80318c56661218fd03579ba2f1253cc35440`。
+**Spec:** [MIRRA_PHASE_3D_DESIGN.md](MIRRA_PHASE_3D_DESIGN.md) §17–24、26、28–33；原始设计 commit `874d80318c56661218fd03579ba2f1253cc35440`；本计划以该规范本次用户批准的 Summary inline Plans Review 修订为准。
 
 ## Global Constraints
 
@@ -17,6 +17,7 @@
 - 不再改Closeout、行为阈值、DND ownership、Coverage、READY、FGS；仅消费已完成接口。
 - COMPLETE_TRUSTED才有整场有效时间和整场次数摘要；可信0显示0，不可用不写0。
 - generatedSummary继续存储/搜索，但不作为新结果主视觉统计源。
+- Summary“查看本次记录”在当前SessionSummaryRoute原地展开；History/Search继续SessionSearchDetailRoute。共享projection/content不要求路由结构相同。
 - 相邻连续FOCUS/DEEP_FOCUS仅在展示合并；无package名fallback，不读取真实App内容/通知或现时安装名称。
 - Mirra Blue灰白主体，蓝色只行动/选择，统计文本平面；不默认Material紫色、不写品牌Hex、不建统计Card系统。
 - Start不接Analytics，Mine不做Dashboard；不增加分数、专注百分比、排名、评价、图表或slogan。
@@ -28,6 +29,7 @@
 | 危险场景 | 具体测试 |
 | --- | --- |
 | Summary/History/Search分别算指标，读到不同数值 | Task4 `threeEntryPointsRenderTheSameRecordProjection` |
+| Summary查看记录又push第二个详情页，改变冻结UX | Task4 `summaryViewRecordExpandsWithoutNavigation` |
 | PARTIAL把局部次数或Focus分钟包装成整场数据 | Task2/3 `partialTimelineNeverClaimsWholeSessionCounts` |
 | 可信0用“不足1分钟”或“监测不完整”替代 | Task3 `trustedZeroFocusRendersZeroMinutes` |
 | label缺失泄露包名或查询现有安装名 | Task2 `missingRiskLabelNeverFallsBackToPackageName` |
@@ -123,7 +125,7 @@ class ReadingRecordService(private val validator: SessionTimelineValidator = Ses
 class ReadingRecordViewModel(sessionId: String, repository: ReadingRecordRepository, service: ReadingRecordService) : ViewModel
 // uiState: StateFlow<ReadingRecordUiState>，Loading / Ready(record) / Missing / Error
 @Composable fun ReadingRecordContent(record: ReadingRecordProjection, expanded: Boolean, onToggleTimeline: () -> Unit, modifier: Modifier = Modifier)
-@Composable fun SessionSummaryScreen(viewModel: ReadingRecordViewModel, dndActions: DndUserActions, onViewRecord: (String) -> Unit, onDone: () -> Unit)
+@Composable fun SessionSummaryScreen(viewModel: ReadingRecordViewModel, dndActions: DndUserActions, onDone: () -> Unit)
 @Composable fun SessionSearchDetailScreen(viewModel: ReadingRecordViewModel, onBack: () -> Unit)
 // AppContainer同一实例
 val readingRecordService: ReadingRecordService
@@ -133,9 +135,9 @@ val readingRecordService: ReadingRecordService
 
 - [ ] **Red:** `trustedRecordShowsDurationFocusNotesAndCounts`、`trustedZeroFocusRendersZeroMinutes`、`partialAndNoneUseHonestChineseMessages`、`invalidStructureUsesRecordIncompleteMessage`、`readingRecordDoesNotExposeInternalEnumsScoresOrPackages`。
 - [ ] **Red:** `defaultRecordIsCollapsedAndCanShowRealTimeline`、`missingRecordOffersReturnNotEndAgain`、`dndWarningOnlyAppearsOnJustSavedResultAndUsesReleaseRetry`。
-- [ ] **实现:** Summary标题“本次阅读已保存”；detail标题“阅读记录”。默认页码、总时长、笔记；可信时有效专注/完整次数，按钮“查看本次记录”“完成”。展开列真实区间，中文映射“阅读/休息/临时使用/分心/正在回到学习/监测中断”，显示本地时间、不展示内部事件。
+- [ ] **实现:** Summary标题“本次阅读已保存”，操作“查看本次记录”“完成”；detail标题“阅读记录”，操作“查看本次记录”“返回”。默认页码、总时长、笔记，可信时有效专注/完整次数；两种页面的查看操作都只调用当前ReadingRecordContent.onToggleTimeline。展开列真实区间，中文映射“阅读/休息/临时使用/分心/正在回到学习/监测中断”，显示本地时间、不展示内部事件，不导航到另一个详情页。
 - [ ] **实现:** 可信effective=0精确“0 分钟”；正值不足1min可“不足 1 分钟”。PARTIAL提示“本次手机监测不完整，未生成有效专注时间”；NONE明确“未开启手机监测”；FULL结构无效用“本次记录不完整，未生成有效专注时间”。ABNORMAL保持异常标签、无有效数据，不显示“正常已保存”事实误导。
-- [ ] **实现:** plain LazyColumn/既有Mirra组件，不新Card系统。expanded用rememberSaveable(sessionId)；Loading/Missing/Error不冒充0结果，不展示raw异常。统计数值只从projection取。
+- [ ] **实现:** plain LazyColumn/既有Mirra组件，不新Card系统。各自页面的expanded用rememberSaveable(sessionId)，只改变本页展开状态，不是NavKey、不要求三入口共享expanded。沿用现有完成/返回及系统Back行为，不新增“Back先收起”的隐含流程；Loading/Missing/Error不冒充0结果，不展示raw异常。统计数值只从projection取。
 - [ ] **实现:** 仅刚结束结果/保存界面显示RELEASE_PENDING/RELEASE_FAILED弱提示“Mirra 勿扰状态需要处理”；调用既有DndUserActions接口`suspend fun retryRelease(): Unit`及`fun settingsIntent(): Intent`，前者已委托reconcile并refresh，设置页返回时调用`refresh()`。不调用apply，不修改preference。旧History/Search不持续提示历史DND失败。
 - [ ] **Green / Commit:** ViewModel与Compose通过；`feat(records): share mirra reading record content`。
 
@@ -150,9 +152,10 @@ val readingRecordService: ReadingRecordService
 
 **Interfaces:** `LearningItemDetailScreen(..., onOpenSession: (String) -> Unit)`、`LearningItemReadingSection(..., onOpenSession: (String) -> Unit)`、`SessionHistoryRow(item: SessionHistoryUi, onClick: () -> Unit, modifier: Modifier = Modifier)`。
 
-- [ ] **Red:** `threeEntryPointsRenderTheSameRecordProjection`：同一Room fixture从Summary、书籍history、Search SESSION进入，页码/时长/effective/counts/label/interval逐项相同；`historyAndSearchNeverReopenTheRecordedSession`：无manager.start、无Intent/Session/Segment插入。
+- [ ] **Red:** `threeEntryPointsRenderTheSameRecordProjection`：同一Room fixture从Summary、书籍history、Search SESSION进入，消费同一ReadingRecordProjection，分别原地展开后页码/时长/effective/counts/label/interval逐项相同；不要求route/back stack结构相同。`historyAndSearchNeverReopenTheRecordedSession`：无manager.start、无Intent/Session/Segment插入。
+- [ ] **Red:** `summaryViewRecordExpandsWithoutNavigation`：默认简洁；点击查看后仍为SessionSummaryRoute，真实timeline已展开，back stack保持原值且未新增SessionSearchDetailRoute；ReadingRecordContent只切expanded，不调用导航。
 - [ ] **Red:** `historyBackReturnsToLearningItemAndSearchBackReturnsToResults`，Summary完成回Start不恢复Session；异常历史仍可点击查看且明确排除有效指标。
-- [ ] **实现:** 保留 Routes.kt 现有SessionSummaryRoute和SessionSearchDetailRoute，不新建第二种记录路由。History与Search均打开SessionSearchDetailRoute(sessionId)；Summary“查看本次记录”也打开该route，返回Summary；共同注入Task3同一VM/service/content。
+- [ ] **实现:** 保留 Routes.kt 现有SessionSummaryRoute和SessionSearchDetailRoute，不新建第二种记录路由。Summary查看记录只在当前route内expand，不提供onViewRecord导航callback；完成仍回Start。History与Search均打开SessionSearchDetailRoute(sessionId)，详情页内部同样原地展开，返回各自来源；共同使用Task3的ReadingRecordViewModel/service/content，不更改原导航退出链。
 - [ ] **Green / Commit:** 导航与原MirraAppTest通过；`feat(records): open unified records from reading history`。
 
 ```powershell

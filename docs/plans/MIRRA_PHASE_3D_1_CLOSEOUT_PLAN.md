@@ -8,7 +8,7 @@
 
 **Tech Stack:** Kotlin、Coroutines/Flow、Room 2.8.x / SQLite v4、Compose、Navigation 3、既有 Mirra Theme / Android capability。
 
-**Spec:** [MIRRA_PHASE_3D_DESIGN.md](MIRRA_PHASE_3D_DESIGN.md) §2–9、25–29、31–33；唯一 3D 设计基线 commit `874d80318c56661218fd03579ba2f1253cc35440`。
+**Spec:** [MIRRA_PHASE_3D_DESIGN.md](MIRRA_PHASE_3D_DESIGN.md) §2–9、25–29、31–33；原始设计 commit `874d80318c56661218fd03579ba2f1253cc35440`；本计划以该规范本次用户批准的 Plans Review 修订为准。
 
 ## Global Constraints
 
@@ -17,6 +17,7 @@
 - 3C 阈值、Coverage 不可逆、READY、Usage/FGS 架构、DND ownership 和渠道语义不变；只增加结束资格和接线。
 - Phase 2 analytics 原公式不变；本包不实现有效指标、统一时间线 UI 或后续包。
 - ClockSample 来自最终确认，不重采结束 wall time；Android API 不进入 Room transaction / monitoring mutex。
+- 正常结束边界精确等于 final wall；只有明确 backward clock 样本证据与已 durable loss 同时成立时，才按 DESIGN §4.1 的 safe boundary 结束。普通过早 boundary 仍拒绝；PARTIAL 永不恢复 FULL。
 - Stage A 成功后永久逻辑结束；ABORTED 不使用，禁止 cancel/reopen。PENDING 仍占唯一 Session 槽位，不允许新开一场。
 - 附件是本次任务约束；旧 Phase 3 cancelCloseout 方案已由 DESIGN SPEC 替换。所有路径相对仓库根 `C:/Users/CDD/Documents/ChatGPT/Mirra`。
 
@@ -27,6 +28,8 @@
 | A 已提交但调用者收到 cancellation，误按“未结束”继续读 | Task 3 `cancellationAfterUnknownBeginCommitStillCleansPending` |
 | PENDING 保留 activeSlot，迟到 heartbeat/risk/页码继续写 | Task 2 `pendingRejectsEveryFocusWriteEntryWithOriginalReturnSemantics` |
 | 6 秒失监恰好遇到最终确认，为保 FULL 漏 settlement | Task 3 `realSixSecondGapSettlesBeforeCloseout` |
+| 系统时间后退，durable UNMONITORED 起点高于 final wall，用户无法结束 | Task 1/3 `backwardClockJumpStillAllowsCloseoutAtLastDurableBoundary` |
+| 以任意 PARTIAL / 过早输入伪装 clock jump，通用 clamp 掩盖错误 | Task 1/3 `ordinaryBoundaryBeforeActiveSegmentStillFailsWithoutClockJumpEvidence` |
 | B 保存失败，重试采用新的结束时间或启动变 ABNORMAL | Task 1/4 `completeFailureRetainsPendingAndRetryUsesOriginalBoundary` |
 | DND 已 prepare，结束后迟到 activation 写回 ACTIVE | Task 2 `lateApplyAfterActivationBeforeLifecycleWriteIsCompensated` |
 | 清理失败/阻塞占事实锁，或导致其他清理不执行 | Task 3 `blockedAndroidCleanupDoesNotHoldFactsMutexOrRoomTransaction` |
@@ -38,11 +41,14 @@
 
 当前全部 `observeActiveSession()` / activeSlot 查询表达“槽位占用”；不全局过滤 PENDING。页面/行为是否仍可学习另检查 context ACTIVE。`DndController.kt`、`AndroidDndSystem.kt`、Entity、Migration、`SessionSegmentStateMachine.kt` 和 READY 代码保持冻结。
 
+**Backward clock 前置风险（源码推导，尚未运行新测试）：** 既有 `clock jump clears candidate and never persists a backward boundary` 使用FakeFacts，只证明controller传入loss(2000,2000)，不证明真实Room提交。当前FocusRepository.markMonitoringLost在活动FOCUS起点1000、可信点2000、clock100时，外层允许保留2000，但随后monitoringGap(loadState(...))仍以now100校验，可能拒绝loss。已存在UNMONITORED或trusted恰等于活动起点的分支不同。Task1只验证用户指定的“loss已durable”夹具；Task3必须另验证真实Repository loss前提。若该路径失败且需改冻结核心，保存失败并停止请求授权，不用runtime proof、通用clamp或伪造durable事实掩盖；本轮不修生产代码。
+
 ## Task 1：Room Closeout Facts
 
 **Files**
 
 - Create: `app/src/main/java/com/guanyi/mirra/data/local/model/CloseoutSnapshot.kt`
+- Modify: `app/src/main/java/com/guanyi/mirra/domain/monitoring/MonitoringModels.kt`（只增加非持久化 Closeout clock evidence DTO，不改监测规则）
 - Modify: `app/src/main/java/com/guanyi/mirra/data/local/dao/FocusDao.kt`
 - Modify: `app/src/main/java/com/guanyi/mirra/data/repository/StudyWorkflowRepository.kt`
 - Test/Create: `app/src/androidTest/java/com/guanyi/mirra/data/ModuleThreeDCloseoutRepositoryTest.kt`
@@ -52,8 +58,19 @@
 
 ```kotlin
 data class CloseoutSnapshot(val sessionId: String, val closeoutStartedAt: Long, val requestedEndPage: Int)
+// MonitoringModels.kt：只由controller在既有串行边界内产生，不是Entity或UI状态
+data class BackwardClockCloseoutEvidence(
+    val sessionId: String,
+    val lastTrustedSample: ClockSample,
+    val regressionSample: ClockSample,
+    val durableLossBoundary: Long,
+    val unmonitoredSegmentId: String,
+)
 // StudyWorkflowRepository
-suspend fun beginCloseout(sessionId: String, requestedEndPage: Int, closeoutStartedAt: Long): CloseoutSnapshot
+suspend fun beginCloseout(
+    sessionId: String, requestedEndPage: Int, closeoutStartedAt: Long,
+    backwardClockEvidence: BackwardClockCloseoutEvidence? = null,
+): CloseoutSnapshot
 suspend fun completeCloseout(sessionId: String): StudySessionEntity
 suspend fun getCloseoutState(sessionId: String): FocusCloseoutState?
 fun observeCloseoutState(sessionId: String): Flow<FocusCloseoutState?>
@@ -67,19 +84,23 @@ Task 1 增加接口，现有旧调用暂留以保持每个中间 commit 可编�
 
 `getCloseoutSnapshot`读取既有context：PENDING/COMPLETED且必需字段齐全返回durable snapshot，ACTIVE返回null；PENDING字段损坏明确失败而非返回当前时间。供Task5重建后冻结时长/恢复请求页；不新增数据库字段。
 
+`beginCloseout` 的时间输入始终是原始 final confirmation wall，不由 UI / manager 预先 clamp；返回 snapshot 才是正式冻结边界。可选 evidence 的产生职责属 Task3；默认 null 保持普通入口严格拒绝过早边界。DTO 只补现有串行结束接线，不新增持久化 loss 原因、事件系统或第二套监测算法。
+
 - [ ] **Red:** 编写以下真 Room 测试并运行，确认是缺少 Closeout 行为而失败。
 
 | 测试 | 精确断言 |
 | --- | --- |
 | `beginCloseoutFreezesExactSampleAndReleasesOnlySegmentSlot` | 遍历全部 7 种 Segment；A 后 PENDING、requested page、time 完全等于输入，末段 endedAt 相等；Segment slot 清空、Session slot 仍 1 |
 | `sameBoundaryCloseoutDeletesZeroDurationSegmentWithoutInventedMillis` | active.startedAt==boundary 删除该段，无虚构 1ms；此前闭合段不变 |
-| `boundaryBeforeLatestSegmentIsRejected` | boundary<active.startedAt 或 Session.startedAt 明确失败；段、context 和进度不变 |
+| `backwardClockJumpStillAllowsCloseoutAtLastDurableBoundary` | start1000；连续可信事实至2000、active UNMONITORED.start2000；final wall100且elapsed单调；明确 backward evidence、PARTIAL、monitoringLostAt2000 → A/B boundary均2000，NORMAL/COMPLETED；不写100/重试时间，删除零时长未知段、不制造1ms；PARTIAL及失监事实保留，不具备完整有效指标资格 |
+| `ordinaryBoundaryBeforeActiveSegmentStillFailsWithoutClockJumpEvidence` | 无明确 clock evidence 时 boundary<active.startedAt 或 Session.startedAt 明确失败；段、context和进度不变。另含权限失监形成PARTIAL/UNMONITORED但无backward证据，以及evidence与Session/loss boundary不匹配的负例；不得通用clamp |
 | `endPageBelowPersistedProgressIsRejected` | 当前42，请求40 → `IllegalArgumentException`，文案“不能低于已经记录的阅读位置”；超 totalPages 同样失败 |
 | `beginFailureRollsBackDecisionButRetainsPreviouslyCommittedMonitoringLoss` | A 失败回滚 PENDING/关段；独立已提交的 PARTIAL/UNMONITORED 保留 |
 | `completeFailureRetainsPendingAndRetryUsesOriginalBoundary` | B 写失败保留 A；恢复后 complete NORMAL/COMPLETED，结束时间不是重试时间，进度/summary/FTS 同步 |
 | `duplicateBeginAndCompleteNeverRewriteBoundary` | 重复 begin 返回已存 snapshot（不采纳新请求）；complete 重复返回原 Session，不重写进度/summary/FTS |
 
-- [ ] **最小实现:** A 在同一 `withTransaction` 复核 active Session、ACTIVE context、Learning Item、1..totalPages、最新 currentPage；先 close/delete 段，再条件 `ACTIVE → PENDING`，事务整体提交。段起点大于 boundary 拒绝，不沿用旧 helper 的 `else delete`。没有活动段的损坏 ACTIVE context 明确失败，不制造段。
+- [ ] **最小实现:** A 在同一 `withTransaction` 复核 active Session、ACTIVE context、Learning Item、1..totalPages、最新 currentPage；重读活动段及已有最后闭合段边界。普通路径精确使用final wall，低于Session / active / latest closed boundary即拒绝，不沿用旧helper的`else delete`。没有活动段或读出的最后闭合终点越过活动起点时明确失败，不借例外修复历史；不在Closeout另建整场可信性算法。
+- [ ] **最小实现:** 只有controller按已有jump条件明确确认的backward样本证据匹配当前Session，样本elapsed不倒退且wall明确后退，且事务内PARTIAL、`monitoringLostAt == active.startedAt == evidence.durableLossBoundary`、active类型UNMONITORED及id匹配、durable boundary高于final wall时，采用 `max(final wall, session.startedAt, latestDurableTimelineBoundary)`。latest boundary取活动段startedAt与已有最后闭合段终点，全部来自同一事务；已有闭合终点不得越过活动起点，不用max掩盖损坏结构。不读取UI缓存或当前系统时间，不在Repository另立jump阈值。然后close/delete末段并条件ACTIVE→PENDING，整体提交。相等的零时长UNMONITORED删除，不造1ms；保留PARTIAL/loss，B只读该snapshot。仅gap/撤权/普通旧样本不产生此例外资格。
 - [ ] **最小实现:** B 只读持久化 boundary/page，复核不倒退，在事务内调用既有 SessionDao.finish、advanceProgress、SummaryEngine、SearchIndexWriter.reindexSession，最后条件 `PENDING → COMPLETED`。PENDING 缺少必需字段明确失败并保留事实；已 COMPLETED+NORMAL 返回原事实；其他状态拒绝。
 - [ ] **Green:** 运行上述测试及原 StudyWorkflowRepositoryTest；故障注入只在测试内用临时 SQLite trigger 的 `RAISE(ABORT)`，每例移除/关闭隔离 DB；不进生产 Schema、Migration 或真实用户 DB。
 - [ ] **Commit:** `feat(focus): persist precise closeout decisions`。
@@ -138,6 +159,7 @@ git diff --check
 **Files**
 
 - Modify: `app/src/main/java/com/guanyi/mirra/domain/monitoring/BoundSessionMonitoringController.kt`
+- Modify: `app/src/main/java/com/guanyi/mirra/domain/monitoring/MonitoringModels.kt`（复用Task1的evidence DTO）
 - Modify: `app/src/main/java/com/guanyi/mirra/platform/focus/MonitoringPlatformRuntime.kt`
 - Modify: `app/src/main/java/com/guanyi/mirra/domain/SessionManager.kt`
 - Create: `app/src/main/java/com/guanyi/mirra/domain/SessionFinishResult.kt`
@@ -152,10 +174,10 @@ git diff --check
 ```kotlin
 // RuntimeFactsPort（只读）；RepositoryRuntimeFactsPort复用FocusRepository.observeContext(...).first()
 suspend fun closeoutState(sessionId: String): FocusCloseoutState?
-// BoundSessionMonitoringController；block参数是仅锁内同步调用的纯内存失效hook
-suspend fun <T> closeoutWithFacts(sessionId: String, sample: ClockSample, block: suspend (() -> Unit) -> T): T
+// BoundSessionMonitoringController；提供可空clock证据与仅锁内同步调用的纯内存失效hook
+suspend fun <T> closeoutWithFacts(sessionId: String, sample: ClockSample, block: suspend (BackwardClockCloseoutEvidence?, () -> Unit) -> T): T
 // MonitoringPlatformRuntime
-suspend fun <T> closeoutWithMonitoringFacts(sessionId: String, sample: ClockSample, block: suspend (() -> Unit) -> T): T
+suspend fun <T> closeoutWithMonitoringFacts(sessionId: String, sample: ClockSample, block: suspend (BackwardClockCloseoutEvidence?, () -> Unit) -> T): T
 sealed interface SessionFinishResult {
     data class Completed(val session: StudySessionEntity) : SessionFinishResult
     data class PendingRetry(val sessionId: String) : SessionFinishResult
@@ -165,14 +187,18 @@ suspend fun finish(sessionId: String, endPage: Int, sample: ClockSample): Sessio
 suspend fun retryPendingFinish(sessionId: String): SessionFinishResult
 ```
 
-沿用 DefaultSessionManager，不新增第二个 coordinator。新增构造参数 `closeoutWithMonitoringFacts: suspend (String, ClockSample, suspend (() -> Unit) -> SessionFinishResult) -> SessionFinishResult` 与 `cleanupClosedSession: suspend (String) -> Unit`；通用runtime方法由AppContainer薄lambda适配为该具体结果类型，保留原start回调。旧两个finish callbacks和旧finishWithFacts正常生产路径退出。cleanup函数在AppContainer顺序委托现有intervention/runtime/DND，分别尝试，单步失败不跳过后两步。MonitoringPlatformRuntime的`releaseSession(sessionId)`原签名与ownership不变，只调整调用位置。
+沿用 DefaultSessionManager，不新增第二个 coordinator。新增构造参数 `closeoutWithMonitoringFacts: suspend (String, ClockSample, suspend (BackwardClockCloseoutEvidence?, () -> Unit) -> SessionFinishResult) -> SessionFinishResult` 与 `cleanupClosedSession: suspend (String) -> Unit`；通用runtime方法由AppContainer薄lambda适配为该具体结果类型，保留原start回调。manager只将原sample.wall与controller evidence传给A，不自行算safe boundary。旧两个finish callbacks和旧finishWithFacts正常生产路径退出。cleanup函数在AppContainer顺序委托现有intervention/runtime/DND，分别尝试，单步失败不跳过后两步。MonitoringPlatformRuntime的`releaseSession(sessionId)`原签名与ownership不变，只调整调用位置。
 
 - [ ] **Red:** `realSixSecondGapSettlesBeforeCloseout`：sample=最后健康查询+6000ms，先 durable loss 再 A，最终 PARTIAL/UNMONITORED；`olderConfirmSampleDoesNotInventMonitoringLoss` 保留 1ms inversion 语义，旧 sample仍执行最终命令。
+- [ ] **Red:** `backwardClockJumpStillAllowsCloseoutAtLastDurableBoundary` 在controller/manager接线层复现Task1的1000→2000→final100 fixture；分别覆盖最终settlement发生jump和此前onSample已保存jump。沿用原 `clock jump clears candidate and never persists a backward boundary`，验证样本单调、证据只在loss提交后给A、snapshot2000、零未知段删除、NORMAL/COMPLETED与PARTIAL不变；B失败/重试不重采时间、不回填Focus。3D-2接入时继续验证effective unavailable。
+- [ ] **Red:** `ordinaryBoundaryBeforeActiveSegmentStillFailsWithoutClockJumpEvidence` 在接线层证明6秒gap、权限撤销、1ms旧样本或其他Session证据不能生成backward例外，普通非法boundary仍拒绝。durable loss写入失败则仍阻断A，不能只凭runtime标记结束。
+- [ ] **前置真Room验证:** 在ModuleThreeDCloseoutRepositoryTest中增加 `backwardClockJumpLossIsDurableBeforeCloseout`，使用真实FocusRepository/RepositoryRuntimeFactsPort与注入clock，覆盖FOCUS起点1000、可信点2000、wall100的loss→A链路（非仅fake）。此项与已durable夹具分列；若触发上述冻结核心校验冲突，停止并报告，不把它计为Closeout例外已通过，不自行修改状态机或放宽guard。
 - [ ] **Red:** `closeoutRacesRiskAndBehaviorWithoutReopeningSegments` 与 `doubleFinalConfirmUsesOneBoundary`：barrier 控制提交顺序，只有边界前已 durable 确认才留下事实；未确认 candidate 不补证。
 - [ ] **Red:** `cancellationBeforeBeginCommitLeavesReadingActive`、`cancellationAfterUnknownBeginCommitStillCleansPending`、`cancellationAfterCompletePreservesOriginalNormalResult`：不能只靠 begun 局部布尔判断；回查 durable 状态决定 cleanup。
 - [ ] **Red:** `blockedAndroidCleanupDoesNotHoldFactsMutexOrRoomTransaction`：fake Android cleanup 挂起时另一 controller命令可完成且测试 hook 内 `database.inTransaction()==false`；`cleanupFailureDoesNotSkipMonitorAndDndRelease` 验证三步独立。
 - [ ] **Red:** `beginCommittedThenCompleteFailsClearsPromptBeforeCleanupStarts`：A成功B失败、锁外cleanup挂起时prompt/evidence/candidate已失效；未知A-commit取消走finally durable复查同样失效。
 - [ ] **实现:** 在现有mutex下unresolvedLoss guard → settleMonitoring → A → 调用纯内存失效hook → B。hook只清prompt/evidence/candidate/计时runtime，不访问Android API、不执行异步平台cleanup；不是第二套状态机。PENDING后refresh仍返回Unit并清runtime，action返回EXPIRED，不重开段。
+- [ ] **实现:** 既有onSample/settlement明确判定backward跳变时，只在同一binding / mutex内保留最后可信与回退的真实ClockSample对，不从heartbeat拼elapsed、不把已夹高的wall当原始sample；成功持久化loss并回读匹配PARTIAL/lostAt/活动UNMONITORED后才形成BackwardClockCloseoutEvidence。提供前核对当前binding/generation与保留证据属于同一场。只做此结束证据接线，既有jump阈值、轮询/FGS、旧样本保护和FULL→PARTIAL规则不改；旧页面sample早于最新query不算jump。不能从generic gapReason字符串、PARTIAL或已失监推断backward。此前已经lost时仍可提供原已确认证据，不再次写loss；binding切换/释放或结束runtime失效后清除，不能泄漏给下一场。
 - [ ] **实现:** controller锁内try/finally用有限NonCancellable查询RuntimeFactsPort.closeoutState，PENDING/COMPLETED再次幂等失效，覆盖A已提交但return被取消、未能调用hook的路径；非关闭状态不丢合法阅读runtime。查询失败保持错误可见，不以失败读伪造FULL/结束成功；锁外manager亦回查决定cleanup。
 - [ ] **实现:** B 失败返回 PendingRetry，A 失败抛原错误且保留 ACTIVE 监测。retry 只 complete 原 PENDING，不重新 settle/begin/采 ClockSample；已 COMPLETED 返回原记录。
 - [ ] **实现:** exception/cancellation 收尾在有限 `NonCancellable` 区段中回查 getCloseoutState；只有 PENDING/COMPLETED 才在事实锁外清理。取消仍向调用者传播，结果通过 durable state 恢复，不把整个流程置为不可取消。

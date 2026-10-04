@@ -2,7 +2,7 @@
 
 版本：v1；确认日期：2026-10-04。
 
-状态：用户已确认的正式 DESIGN SPEC；尚未实施 Phase 3D。本回合只保存、提交和推送本文件，不编写实施计划，不进入 3D-1～3D-4。
+状态：用户已确认的正式 DESIGN SPEC；尚未实施 Phase 3D。首次设计落库已完成，本次仅按 Plans Review 修订时钟回退结束例外与 Summary 原地展开，不进入 3D-1～3D-4。
 
 ## 0. 来源、基线与权限
 
@@ -13,6 +13,7 @@
 - 设计分支：`codex/phase-3d-design`，从上述冻结 HEAD 建立。
 - Room 保持 v4，schemas 1–4 与 Migration 不变。不得修改 3C 冻结实现、生产代码、测试、Manifest、Gradle 或数据库。
 - 本规范描述将来获授权后应实现的行为，不把设计写成当前已具备能力。实施计划须在用户复核已提交的书面规范后另行编写。
+- Plans Review 修订基线：`codex/phase-3d-plans` / `664a7ce13d10a9d3f887ce486d938b6c390304a4`。本次用户批准的两项修订以本文件和对应计划的修订内容为准，不改变 Room v4 或其他冻结语义。
 
 本规范在 3D 范围内明确替换旧 `PHASE_3_IMPLEMENTATION.md` 的可取消 Closeout、恢复 FOCUS、关闭过程中崩溃一律 ABNORMAL 等设计。原文件作为历史保留；其他冻结产品语义继续继承，不据此扩大 Scope。
 
@@ -34,8 +35,8 @@
 
 2. 页码默认使用当前持久化 `currentPage`，不加 1。可编辑为合法的更后页码，不得低于数据库已经记录的位置；较小输入必须明确提示“不能低于已经记录的阅读位置”，不能静默夹成另一数字。
 3. 最终确认前，选择“继续阅读”只关闭确认框，Session、计时、监测和原行为状态继续。确认框不堆放统计信息。
-4. 最终确认按钮点击时采集的 `ClockSample` 定义唯一正式结束边界。阶段 A 成功保存该决定后，当前 Session 永久不能恢复；继续阅读必须新建一场 Session。
-5. 例如最终确认于 20:00:00，则 Session 和最后一段均结束于 20:00:00。数据库处理、清理提醒、停止 FGS、释放 DND 与结果页停留都不能增加阅读时间。
+4. 最终确认按钮点击时采集唯一 `ClockSample`。正常时钟下，其 wall time 就是正式结束边界；只有第 4.1 节明确的 backward wall-clock jump 例外才允许采用更后的 durable boundary。阶段 A 成功保存该决定后，当前 Session 永久不能恢复；继续阅读必须新建一场 Session。
+5. 例如正常时钟下最终确认于 20:00:00，则 Session 和最后一段均结束于 20:00:00。数据库处理、清理提醒、停止 FGS、释放 DND 与结果页停留都不能增加阅读时间；异常例外也不能使用重试或清理时的新时间。
 6. 阅读进度只前进；`Note.pageNumber` 仍可填写旧页。当前 62 页给第 35 页补笔记，不推进或回退 Session / Learning Item 进度。
 
 ## 3. Closeout 复用 Room v4
@@ -63,12 +64,29 @@
 
 - 复核 Session 仍 active、context 的 `closeoutState == ACTIVE`。
 - 复核请求页在书籍合法范围且 `requestedEndPage >=` 最新持久化 `currentPage`。
-- 取得当前 active Segment，遵守现有时间边界，不写倒序或虚构时长。
-- 写 `closeoutState = PENDING`、用户请求页和 `closeoutStartedAt = finalConfirmSample.wallNowMillis`。
+- 重新读取当前 active Segment 与已有最后闭合 Segment boundary，遵守现有时间边界，不写倒序或虚构时长，不使用 UI 缓存。
+- 正常时钟下写 `closeoutState = PENDING`、用户请求页和 `closeoutStartedAt = finalConfirmSample.wallNowMillis`；异常边界只按下列唯一例外处理。
 - 将最后活动 Segment 精确关闭在 `closeoutStartedAt` 并释放其 active slot。
 - `activeSegment.startedAt < closeoutStartedAt` 时正常 close；相等时使用既有零时长保护删除该零时长活动段，不虚构 1ms。
 
 阶段 A 失败不得留下半份结束决定；已独立落库的真实失监不能被回滚成 FULL。阶段 A 成功意味着学习事实永久停止，尚保留 Session active slot 不代表仍在阅读。
+
+#### 唯一例外：明确 backward wall-clock jump
+
+如果最终 settlement 或此前同一监测事实串行边界已经明确观测到系统 wall time 后退，且对应 monitoring loss 已持久化、coverage 已降为 PARTIAL、当前活动段为 UNMONITORED，并且 durable timeline boundary 高于最终确认 wall time，阶段 A 不得让用户等待时钟追上或因此拒绝结束。
+
+```text
+latestDurableTimelineBoundary = max(activeSegment.startedAt, 已有最后闭合 Segment boundary)
+safeCloseoutBoundary = max(finalConfirmSample.wallNowMillis,
+                          session.startedAt,
+                          latestDurableTimelineBoundary)
+```
+
+这些 durable facts 必须在阶段 A transaction 内重新读取并校验；没有闭合段时使用活动段起点。正常路径仍直接使用最终确认 wall time，不执行通用 clamp。普通 `boundary < activeSegment.startedAt / session.startedAt` 且没有明确 backward clock / durable loss 证据时，仍拒绝为冲突或数据错误。
+
+Room v4 没有持久化 loss 原因字段。实现必须把 controller 在本进程、同一 mutex 中明确观测的 backward 样本证据，与事务内的 PARTIAL / monitoringLostAt / UNMONITORED 事实共同核验；只凭 PARTIAL、任意失监或 UI 布尔值不能启用此例外。不新增字段或索引，也不改变既有 clock-jump 阈值、旧样本保护或失监规则。阶段 A 一旦提交，重试和冷启动只读已经冻结的 boundary，不重新申请例外。
+
+异常路径的 `context.closeoutStartedAt` 与 `Session.endedAt` 都使用 safe boundary，最终仍 NORMAL / COMPLETED；coverage 保持 PARTIAL，不能生成完整有效指标。若活动 UNMONITORED 的起点正好等于 safe boundary，删除该零时长段，不制造 1ms、不回填未知时间为 Focus。不得改写已有闭合历史、恢复 FULL 或采用 retry 时刻。
 
 ### 4.2 阶段 B：完成正常 Session
 
@@ -219,7 +237,7 @@ BREAK、TEMPORARY_ALLOWANCE、DISTRACTION、RECOVERY、UNMONITORED 均不计入�
 >
 > 查看本次记录　｜　完成
 
-默认简洁，用户主动查看后才展开时间线。不显示专注率、分数、排名、好坏评价或 Dashboard 卡片墙。
+默认简洁，点击“查看本次记录”只切换当前 `ReadingRecordContent.expanded`，在 SessionSummaryRoute 原地展开真实时间线；不 push SessionSearchDetailRoute，不增加 back stack。不显示专注率、分数、排名、好坏评价或 Dashboard 卡片墙。
 
 ## 18. 监测不完整的结果
 
@@ -259,7 +277,7 @@ BREAK、TEMPORARY_ALLOWANCE、DISTRACTION、RECOVERY、UNMONITORED 均不计入�
 2. Learning Item 阅读历史详情，标题“阅读记录”。
 3. Search 阅读记录详情，标题“阅读记录”。
 
-三入口必须使用同一事实 projection 和可信性判断，不各自实现统计算法。
+三入口必须使用同一 ReadingRecordProjection、ReadingRecordViewModel / ReadingRecordContent 和可信性判断，不各自实现统计算法。Summary 在原 route 内展开；History / Search 仍进入现有 `SessionSearchDetailRoute(sessionId)`，该详情页也默认简洁并原地展开。共用数据不要求三入口 route 结构相同，展开状态属于各自页面；不借此改变既有完成 / 返回行为。
 
 ## 23. 书籍详情阅读节奏
 
@@ -291,7 +309,7 @@ Mine 不扩成 Dashboard，不增加长期专注分数、分心/App 排行、打
 - 阶段 A commit 后，旧 callback / 页面证据 / heartbeat / 用户行为不能改冻结边界、重开 Segment 或恢复 Active reading。
 - 尚未成为 durable RISK_APP_CONFIRMED 的 candidate 不由 closeout 猜测或补确认；只使用结束边界前已按冻结规则建立的 durable facts。
 - 双击最终确认只产生同一 durable 结束决定；重试完成而非重建结束时间。
-- 运行连续性仍用 monotonic time，历史事实用 wall time。明显 wall-clock jump 继续保守失监，时间线不得倒序、重叠或靠改写历史修饰。
+- 运行连续性仍用 monotonic time，历史事实用 wall time。明显 wall-clock jump 继续保守失监，时间线不得倒序、重叠或靠改写历史修饰；明确后退且已 durable loss 时，结束边界只使用第 4.1 节唯一例外，不作普通 boundary clamp。
 
 ## 26. Android 系统清理与 DND
 
@@ -352,6 +370,7 @@ DND release 失败不能修改 NORMAL / PENDING 边界，沿现有 ownership-saf
 
 - 从 FOCUS、DEEP_FOCUS、BREAK、TEMPORARY_ALLOWANCE、DISTRACTION、RECOVERY、UNMONITORED 与 NONE Session 结束，最后 Segment / Session 共用正式边界。
 - 双确认；closeout 与 monitoring loss / risk confirmation / page update 并发；阶段 A 失败；阶段 A 成功后进程死亡；阶段 B 失败与幂等 retry。
+- 明确 backwards wall jump：Session 起点 1000、最后可信 / 活动 UNMONITORED 起点 2000、最终 wall 100、elapsed 单调前进、PARTIAL / monitoringLostAt 2000。结束成功且 A / Session 边界为 2000，NORMAL / COMPLETED；零时长 UNMONITORED 删除，不写 100 / 重试时间、不生成完整有效指标。无明确 clock-jump 证据的普通过早边界仍拒绝。
 - DND release 失败不污染数据库；旧外部 action 在 PENDING / 已结束后不复活；系统 cleanup 不占事务或事实锁。
 
 ### Timeline / effective
@@ -364,6 +383,7 @@ DND release 失败不能修改 NORMAL / PENDING 边界，沿现有 ownership-saf
 ### UI / final integration
 
 - FULL、PARTIAL、NONE、零有效时长、结构异常均诚实展示；阅读区间合并；label 正常/缺失；history/search/刚结束三个入口一致。
+- Summary“查看本次记录”展开真实时间线但 route / back stack 不变；History / Search 仍走统一 detail route。三入口比较同一 projection，不强制导航结构相同。
 - 320/360/411dp、fontScale 2、关键按钮可达，TalkBack 仅实际执行后才记结果。
 - 最终链路：Start → Session → Break → risk App → Overlay/Notification → Allowance → Recovery → 阅读 → 最终结束 → 结果 → 历史。
 - 未来完整 JVM / Room / Migration / Compose / Instrumented / lint / build、离线、覆盖安装数据保留、Force Stop / 冷启动与 Closeout crash 窗口分别留下证据。
@@ -385,21 +405,22 @@ v4 SHA-256：`EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`�
 
 ## 34. 设计交付与授权状态
 
-本规范是用户已确认的设计基线。本回合唯一允许的文件变更为新增本文件，提交 `docs(focus): add phase 3d design spec`，推送 `codex/phase-3d-design` 后停止。
+本规范是用户已确认的设计基线。首次设计落库仅新增本文件，提交 `docs(focus): add phase 3d design spec`，推送 `codex/phase-3d-design`；该步骤已完成。
 
-不得修改既有规范/状态/决策文件来冒充实现进度，不得开始 3D-1～3D-4，也不提前编写实施计划。已提交书面规范经用户复核后才另行规划。
+当前 Plans Review 只修订用户限定的设计 / 计划文档，不修改状态 / 决策文件来冒充实现进度，不修改业务 / 测试 / 数据库，也不开始 3D-1～3D-4。后续实施仍须另获明确授权。
 
 ## 35. 规范交付自检
 
 提交前逐项核验：
 
 - ACTIVE → PENDING → COMPLETED 与 PENDING 优先冷启动恢复一致，不提供确认后取消。
-- 正式 end boundary 与最后 Segment boundary 一致，不计入清理时长。
+- 正式 end boundary 与最后保留 Segment boundary 一致，不计入清理时长；正常时钟使用最终确认 wall，明确 backward 例外使用事务内 durable boundary，普通过早边界仍拒绝，零时长不伪造。
 - Note flush 在确认框之前，保存失败仍 ACTIVE。
 - stage A / B 连续数据库事务，Android API 在事实锁之外；PENDING 不再产生学习事实。
 - page update 的事务 guard 与晚到 callback / stale action 防护明确。
 - effective 只来自完整可信时间线；可信 0 与 unavailable 分开，0 页分母不删。
 - Phase 2 overall / calendar semantics 不变，统一 projection、派生不持久化、无 N+1。
+- Summary 原地展开，不新增详情路由；History / Search 继续现有 detail route，同源不等于同导航栈。
 - 旧 cancelCloseout 和早期不一致顺序明确 superseded，Room v4 不变。
 - 核心语义无待定占位，设计与当前实现区分，无提前实施。
 - `git diff --check`、文件范围、秘密模式、Schema hash 与 local/remote SHA 核验，工作区干净。
