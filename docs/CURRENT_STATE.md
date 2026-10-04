@@ -6,6 +6,13 @@
 
 Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1–5 与限定 DND 修补已通过验收；按用户批准的 3C master plan，3B 可作为个人试用开发基线继续 3C，但不等于发布级设备能力验收完成。一加 13T 日常试用反馈不替代完整兼容性验收。Module 3C-1 行为内核、采样竞态 Acceptance Patch 与 Module 3C-2 应用内体验保持正式冻结。3C-1 原始基线为 `61ed78f94125e7049c5d4ca73be1b16c5416043b`；3C-2 与 Acceptance Patch 的统一冻结实现提交为 `f275334e233298b872bb507a82dcd875ff3135d5`。Module 3C-3 已通过用户独立源码、测试与已提交证据审查，正式冻结实现为 `b9843eb5c3879899e148792a6a1f252e4b6d573d`。Module 3C-4 已通过用户独立源码、diff、测试与已提交证据审查，正式冻结实现为 `da461423dbbe17f0a875373d7a4c38f2a1830788`；整个 Module 3C 正式验收通过并关闭，冻结的是产品行为与个人试用开发基线，不是发布级全设备兼容性。Room v4 与 schemas 1–4 保持不变。API 23–36、OEM、实体设备完整矩阵、TalkBack 与发行环境未测项继续 `NOT RUN`，API 37 AVD 结果不得外推为其他平台 PASS；一加 13T 新版 3C-4 个人试用反馈仍待取得。Closeout、有效指标与 Phase 3D 尚未开始。
 
+## Current Clock Rollback Correction
+
+- Phase 3D 设计与实施计划已落库，规划冻结基线为 `758b3bc163ccc7a187f85594d1c04fbda5ecf7d4`。当前分支为 `codex/phase-3d-closeout`；本轮仅执行用户授权的 3C 冻结语义 implementation correction，不实施 3D-1 Task 1–6 或后续交付包。
+- backward wall-clock loss 已可经真实 Controller → Repository → Room 持久化为 `PARTIAL + UNMONITORED`；异常恢复不会早于已持久化的 Session / Segment / heartbeat / monitoringLostAt 边界，且不保存零时长未知段。普通 transition / heartbeat 的时间规则不放宽，StateMachine、Room v4、Schema 1–4、Migration、DND、READY / FGS 与行为阈值不变。
+- 本轮实际验证：指定 JVM 35/35、完整未过滤 JVM 225/225；API 37 AVD 一次定向 Room / Instrumented 63/63，均 0 failure/error/skipped；lintDebug / assembleDebug / assembleDebugAndroidTest 通过。原始 RED 与恢复 RED 记录见 `docs/checkpoints/2026-10-04-clock-rollback-correction.md`。
+- 63 项不是全量 connected / Compose；本轮没有重新执行完整 UI 闭环、实体/OEM 或系统真实改时测试。既有 API 23–36、OEM、实体设备矩阵、TalkBack、release 的 `NOT RUN` 与历史失败保留。修补完成后停止，等待用户独立复验，不继续 Phase 3D 实施。
+
 ## Verified Completed
 
 - GitHub 仓库已创建，远程 main 原始状态仅包含 README。
@@ -180,7 +187,8 @@ Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1�
 
 ## Git
 
-- Current branch: `codex/phase-3c-final-validation`
+- Current branch: `codex/phase-3d-closeout`
+- Current planning freeze base: `758b3bc163ccc7a187f85594d1c04fbda5ecf7d4`；本次 narrow clock rollback correction 与对应 checkpoint 同次提交，未合并 main。
 - Frozen 3C-4 implementation commit: `da461423dbbe17f0a875373d7a4c38f2a1830788`（`feat(focus): finalize module 3c experience`），已由用户核对远程并正式验收；Module 3C 整体正式冻结，未合并 main。
 - Frozen 3C-3 implementation commit: `b9843eb5c3879899e148792a6a1f252e4b6d573d`（`feat(focus): add safe cross-app intervention`），已由用户核对远程并正式验收；未合并 main。
 - 3C-1 original implementation base: `61ed78f94125e7049c5d4ca73be1b16c5416043b`
@@ -190,4 +198,4 @@ Phase 2、Module 3A 与 Mirra Blue / Visual Parity 已冻结。Module 3B Task 1�
 
 ## Next Recommended Task
 
-Module 3C 已正式关闭；完成本次纯文档冻结提交后停止。继承冻结行为内核、采样竞态修补、UI 接线、渠道治理与 Room v4，保留一加 13T 新版个人试用反馈待取得，以及 API 23–36、OEM、实体设备完整矩阵、TalkBack 与发行环境的 `NOT RUN` 边界。Phase 3D 尚未开始，需后续单独授权；不得自动进入 Closeout、有效专注指标或 Phase 3D。
+本次 clock rollback correction 完成后停止，等待用户独立复验及下一次明确任务指令。继承 Module 3C 冻结行为、采样修补、UI、渠道治理与 Room v4；不继续 3D-1 Task 1–6、Closeout、有效指标或后续交付包。保留一加 13T 新版个人试用反馈待取得，以及 API 23–36、OEM、实体设备完整矩阵、TalkBack 与发行环境的 `NOT RUN` 边界。

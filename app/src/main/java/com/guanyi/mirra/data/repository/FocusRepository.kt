@@ -236,14 +236,17 @@ class DefaultFocusRepository(
             }
             // After a backward wall-clock jump, the last trusted persisted boundary may be
             // ahead of the new wall time. Preserve that boundary; never write time backwards.
-            require(detectedAt <= maxOf(clock(), lastTrustedAt) && lastTrustedAt <= detectedAt) { "监测缺口时间非法" }
+            val observedNow = clock()
+            require(detectedAt <= maxOf(observedNow, lastTrustedAt) && lastTrustedAt <= detectedAt) { "监测缺口时间非法" }
             require(lastTrustedAt >= current.startedAt) { "监测缺口越过当前 Segment" }
             if (current.type == SessionSegmentType.UNMONITORED) {
                 // Repeated loss signals retain the same open unknown interval.
             } else if (lastTrustedAt == current.startedAt) {
                 check(dao.changeActiveSegmentType(current.id, sessionId, SessionSegmentType.UNMONITORED) == 1)
             } else {
-                machine.monitoringGap(loadState(sessionId), lastTrustedAt, detectedAt)
+                // This upper bound belongs only to loss validation, not ordinary transitions.
+                val lossValidationUpperBound = maxOf(observedNow, detectedAt, lastTrustedAt)
+                machine.monitoringGap(loadState(sessionId).copy(now = lossValidationUpperBound), lastTrustedAt, detectedAt)
                 check(dao.closeActiveSegment(current.id, sessionId, lastTrustedAt) == 1)
                 dao.insertSegment(segment(sessionId, SessionSegmentType.UNMONITORED, lastTrustedAt, active = true))
             }

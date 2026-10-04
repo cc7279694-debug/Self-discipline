@@ -239,10 +239,20 @@ class DefaultStudyWorkflowRepository(
         database.withTransaction {
             val now = clock()
             sessionDao.getActive()?.let { active ->
-                closeActiveSegmentForRecovery(active.id, now)
+                val segment = focusDao.getActiveSegment(active.id)
+                val context = focusDao.getContext(active.id)
+                // A regressed wall clock cannot truncate facts already durable in Room.
+                val recoveryBoundary = maxOf(
+                    now,
+                    active.startedAt,
+                    segment?.startedAt ?: active.startedAt,
+                    context?.lastHeartbeatAt ?: active.startedAt,
+                    context?.monitoringLostAt ?: active.startedAt,
+                )
+                closeActiveSegmentForRecovery(active.id, recoveryBoundary)
                 sessionDao.finish(
                     id = active.id,
-                    endedAt = now,
+                    endedAt = recoveryBoundary,
                     endPage = active.currentPage,
                     endType = SessionEndType.ABNORMAL,
                     summary = null,
@@ -278,13 +288,15 @@ class DefaultStudyWorkflowRepository(
             )
         } else {
             check(focusDao.closeActiveSegment(active.id, sessionId, trustedAt) == 1)
-            focusDao.insertSegment(
-                SessionSegmentEntity(
-                    id = newId(), sessionId = sessionId, type = SessionSegmentType.UNMONITORED,
-                    startedAt = trustedAt, endedAt = detectedAt, packageName = null, reason = null,
-                    plannedEndAt = null, extensionCount = 0, relatedSegmentId = null, activeSlot = null,
-                ),
-            )
+            if (trustedAt < detectedAt) {
+                focusDao.insertSegment(
+                    SessionSegmentEntity(
+                        id = newId(), sessionId = sessionId, type = SessionSegmentType.UNMONITORED,
+                        startedAt = trustedAt, endedAt = detectedAt, packageName = null, reason = null,
+                        plannedEndAt = null, extensionCount = 0, relatedSegmentId = null, activeSlot = null,
+                    ),
+                )
+            }
         }
         if (context != null) {
             val degraded = if (context.monitoringStatus == MonitoringCoverage.FULL) {

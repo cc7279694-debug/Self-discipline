@@ -29,6 +29,24 @@ class SessionSegmentStateMachineTest {
     }
 
     @Test
+    fun ordinaryTransitionStillRejectsBoundaryBeyondCurrentWall() {
+        val regressed = state().copy(sessionStartedAt = 10, activeSegmentStartedAt = 50, now = 100)
+
+        assertFails { machine.transition(regressed, SessionSegmentType.BREAK, at = 2_000) }
+    }
+
+    @Test
+    fun lossValidationCopyDoesNotMutateOrdinaryState() {
+        val regressed = state().copy(sessionStartedAt = 10, activeSegmentStartedAt = 50, now = 100)
+        val decision = machine.monitoringGap(regressed.copy(now = 2_000), lastTrustedAt = 2_000, detectedAt = 2_000)
+
+        assertEquals(2_000L, decision.closeCurrentAt)
+        assertEquals(100L, regressed.now)
+        assertFails { machine.transition(regressed, SessionSegmentType.BREAK, at = 2_000) }
+        assertFails { machine.monitoringGap(regressed, lastTrustedAt = 2_000, detectedAt = 2_000) }
+    }
+
+    @Test
     fun `partial never returns to full while initially none can become partial`() {
         assertEquals(
             MonitoringCoverage.PARTIAL,
