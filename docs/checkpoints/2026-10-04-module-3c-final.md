@@ -145,3 +145,13 @@
 8. 正常结束，确认页码、笔记和勿扰释放。
 
 没有授权时仍可阅读；无外部渠道时回 App 才提示。用户反馈仅记个人 smoke，不能替代发布级兼容性矩阵。
+
+## Independent acceptance and Module 3C freeze
+
+- 2026-10-04，用户已独立检查远程分支 `codex/phase-3c-final-validation`、实现提交 `da461423dbbe17f0a875373d7a4c38f2a1830788`（`feat(focus): finalize module 3c experience`）与从冻结父提交 `6384cc634b080ac9554ac20cd4c95b9b5e13a262` 开始的实际 diff，并复核源码、测试和已提交执行证据；未发现新的阻塞缺陷。
+- 页码修补只分离输入态与持久化进度：40→42 的临时文本 4 可以显示，但不会调用持久化推进；Note 默认页仍为 40，旧页 Note 可记录 35。DAO 的单向推进约束与 `finishSession()` 的 `maxOf(session.currentPage, endPage)` 保持不变，输入中或误触结束都不允许正式阅读进度倒退。
+- JVM 223/223、connected 178/178（0 failed / 0 skipped）、lint 0 errors、assembleDebug，以及 API 37 AVD 完整闭环、91.753 秒 Recovery、Overlay / Notification / DND、Force Stop、覆盖安装、离线和最终 APK checksum，均属于上文已经提交的执行证据。本次独立验收没有重新运行 Gradle / AVD；本次纯文档状态同步也不重跑，不冒充新的执行结果。
+- Room 仍为 v4，schemas 1–4、Entity、Column、Index 与 Migration 未变化；v4 SHA-256 保持 `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`。DND ownership、Monitoring / READY、FocusRepository / FocusDao、Coverage、状态机与 3C-3 Presenter 冻结边界未被重新打开。
+- Module 3C-1、Sampling Acceptance Patch、3C-2、3C-3 保持原冻结状态；Module 3C-4 独立验收通过并冻结，整个 Module 3C 正式关闭。冻结范围是产品行为与个人试用开发基线，不是 Android 全设备 / OEM / 发布级兼容性验收；此结论关闭上文历史执行阶段的“等待用户独立验收”，不改写此前记录。
+- API 23–36、完整 OEM / 实体设备矩阵、TalkBack、release / 发行环境未测项继续 `NOT RUN`；API 37 AOSP AVD 结果不得外推为其他平台 PASS。C25 已交付个人试用 APK / checklist，一加 13T 新版 3C-4 反馈仍待取得；后续日常使用反馈最多记个人 daily-use smoke，不升级 OEM compatibility PASS，也不阻塞本次开发基线冻结。
+- 原始 RED、夹具失败、模拟器 / ADB / 系统进程波动及其他历史失败记录全部保留，不以最终 PASS 抹除历史。Phase 3D、Closeout 与 effective metrics 尚未开始，本次只同步冻结文档，不实施下一阶段。
