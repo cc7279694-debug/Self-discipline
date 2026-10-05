@@ -53,3 +53,9 @@ Ordinary UI execution、controlled fault + actual cold start、isolated Room/fak
 All captures are dedicated-AVD actual UI with controlled test data, not seeded FULL fixture, generated concept art or physical-device proof. Full raw logs and permission snapshots remain local only. Session Notification fallback remainsNOT RUN; platform notification assertions provePOSTED, notSHOWN.
 
 Additional Break / in-app / extension / pre-success Recovery snapshots stay in the local ignored ledger; only five essential new captures are submitted.
+
+## Recovery evidence-chain diagnostic — 2026-10-05
+
+后续只诊断的实际记录见 [Recovery evidence chain diagnostic](recovery-evidence-chain-diagnostic.md)。基线 `9efea119667b6ae5adf1761521ea785edabb1cb0`；一个新受控 FULL Session 内一次 in-app 对照及两次已消费的 Overlay OPEN_ALLOWANCE，三次 Recovery 分别90,827 / 90,858 / 91,006ms成功，均有 proof/write/Room milestone，FULL未降级。
+
+原异常未复现，A–F没有确认依据，结论 **RECOVERY_DIAGNOSTIC_INCONCLUSIVE**。这不覆盖历史失败，也不宣布问题修复或3D-4完成。临时日志源码全部恢复，原APK覆盖恢复，权限/偏好/风险选择/网络读回原状态，正常结束后无活动Session/Segment、FGS、Mirra Overlay、干预通知或意外active Mirra rule。完整日志与快照仅在本地；只提交脱敏诊断文档和本索引。API37成功不外推API/OEM/实体设备未测项目。
