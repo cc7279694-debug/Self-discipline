@@ -110,7 +110,7 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
         block: suspend (BackwardClockCloseoutEvidence?, () -> Unit) -> T): T = mutex.withLock {
         var primary: Throwable? = null
         try {
-            check(!unresolvedLoss) { "Monitoring loss has not been saved" }
+            check(activeBinding?.sessionId != sessionId || !unresolvedLoss) { "Monitoring loss has not been saved" }
             settleMonitoring(sessionId, sample)
             if (activeBinding?.sessionId == sessionId) validateBackwardCloseoutEvidence()
             val evidence = backwardCloseoutEvidence?.takeIf { activeBinding?.sessionId == sessionId && it.sessionId == sessionId }
@@ -129,14 +129,24 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
     }
 
     private fun invalidateCloseoutRuntime(sessionId: String) {
-        if (activeBinding?.sessionId != sessionId && mutableStatus.value.sessionId != sessionId &&
-            mutableIntervention.value?.sessionId != sessionId) return
-        candidate?.clear(); candidate = null; clearBehaviorRuntime()
-        backwardCloseoutEvidence = null; lastRawQueryClock = null; observedBackwardClock = null
+        if (activeBinding?.sessionId == sessionId) {
+            // Logical close releases only memory ownership. Android cleanup remains outside this mutex.
+            activeBinding = null
+            candidate?.clear(); candidate = null
+            lastSuccessfulQueryElapsed = null; lastHeartbeatElapsed = null; lastTrustedWall = null
+            backwardCloseoutEvidence = null; lastRawQueryClock = null; observedBackwardClock = null
+            lost = false; unresolvedLoss = false
+            diagnostics = RuntimeFactDiagnostics()
+        }
+        if (mutableStatus.value.sessionId == sessionId || mutableIntervention.value?.sessionId == sessionId) {
+            clearBehaviorRuntime()
+        }
     }
 
     suspend fun onSample(binding: MonitoringBinding?, snapshot: MonitorSnapshot, sample: ClockSample) = mutex.withLock {
         if (binding == null) return@withLock
+        // A queued callback for a logically closed Session cannot recapture runtime ownership.
+        val initialFacts = factsPort.read(binding.sessionId) ?: return@withLock
         if (activeBinding != binding) {
             activeBinding = binding
             candidate = null
@@ -145,7 +155,7 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
             backwardCloseoutEvidence = null
             observedBackwardClock = null
             lastHeartbeatElapsed = null
-            lastTrustedWall = factsPort.read(binding.sessionId)?.lastHeartbeatAt
+            lastTrustedWall = initialFacts.lastHeartbeatAt
             lost = false
             clearBehaviorRuntime()
             diagnostics = RuntimeFactDiagnostics(binding.sessionId, binding.generation)
@@ -161,7 +171,7 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
             return@withLock
         }
         if (snapshot.lastSuccessfulQueryElapsed != sample.elapsedNowMillis) return@withLock
-        var facts = factsPort.read(binding.sessionId) ?: return@withLock
+        var facts = initialFacts
         if (facts.coverage == MonitoringCoverage.NONE) return@withLock
         diagnostics = diagnostics.copy(segment = facts.activeSegment.type, coverage = facts.coverage,
             riskSnapshotCount = facts.riskPackages.size)
@@ -251,12 +261,13 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
 
     suspend fun onServiceLost(binding: MonitoringBinding?, sample: ClockSample, reason: String) = mutex.withLock {
         if (binding == null) return@withLock
+        val facts = factsPort.read(binding.sessionId) ?: return@withLock
         if (activeBinding != binding) {
             activeBinding = binding
             lastRawQueryClock = null
             backwardCloseoutEvidence = null
             observedBackwardClock = null
-            lastTrustedWall = factsPort.read(binding.sessionId)?.lastHeartbeatAt
+            lastTrustedWall = facts.lastHeartbeatAt
         }
         lose(binding, sample, reason)
     }
@@ -383,7 +394,7 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
     override suspend fun refresh(sessionId: String, sample: ClockSample) = mutex.withLock {
         settleMonitoring(sessionId, sample)
         val facts = factsPort.read(sessionId)
-        if (facts == null) { clearBehaviorRuntime(); return@withLock }
+        if (facts == null) { invalidateCloseoutRuntime(sessionId); return@withLock }
         expireIfDue(facts, sample)
         factsPort.read(sessionId)?.let { publish(it, sample) }
         Unit

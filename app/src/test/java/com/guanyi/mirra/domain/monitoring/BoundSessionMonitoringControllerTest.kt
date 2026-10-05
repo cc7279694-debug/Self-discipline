@@ -1,6 +1,7 @@
 package com.guanyi.mirra.domain.monitoring
 
 import com.guanyi.mirra.data.local.entity.MonitoringCoverage
+import com.guanyi.mirra.data.local.entity.FocusCloseoutState
 import com.guanyi.mirra.data.local.entity.SessionSegmentEntity
 import com.guanyi.mirra.data.local.entity.SessionSegmentType
 import com.guanyi.mirra.data.repository.RiskConfirmation
@@ -9,6 +10,7 @@ import com.guanyi.mirra.platform.focus.MonitorSnapshot
 import com.guanyi.mirra.platform.focus.MonitoringBinding
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -123,13 +125,13 @@ class BoundSessionMonitoringControllerTest {
         } catch (_: IllegalStateException) { }
         var finished = false
         try {
-            controller.closeoutWithFacts("s", ClockSample(4_000, 3_000)) { _, _ -> finished = true }
+            controller.closeoutWithFacts(binding.sessionId, ClockSample(4_000, 3_000)) { _, _ -> finished = true }
             fail("Finish must not leave an unrecorded loss as FULL")
         } catch (_: IllegalStateException) { }
         assertFalse(finished)
         port.failLoss = false
         controller.onServiceLost(binding, ClockSample(5_000, 4_000), "retry")
-        controller.closeoutWithFacts("s", ClockSample(5_000, 4_000)) { _, _ -> finished = true }
+        controller.closeoutWithFacts(binding.sessionId, ClockSample(5_000, 4_000)) { _, _ -> finished = true }
         assertTrue(finished)
         assertEquals(1, port.losses.size)
     }
@@ -187,5 +189,63 @@ class BoundSessionMonitoringControllerTest {
             ClockSample(1_000 + second * 1_000, second * 1_000))
         assertEquals(1, p.confirmations.size)
         assertEquals(1_500L, p.confirmations.single().candidateStartedAt)
+    }
+
+    @Test fun lateClosedSessionObservationsCannotRecaptureNewRuntime() = runTest {
+        for (action in listOf("query", "lost", "refresh")) {
+            val p = FakeFacts(segment)
+            var closed = false
+            val port = object : RuntimeFactsPort by p {
+                override suspend fun read(sessionId: String) =
+                    if (sessionId == "session" && closed) null
+                    else p.current.copy(activeSegment = p.current.activeSegment.copy(sessionId = sessionId))
+            }
+            val c = BoundSessionMonitoringController(port)
+            c.onSample(binding, snapshot(2_000, 1_000), ClockSample(2_000, 1_000))
+            p.closeout = FocusCloseoutState.COMPLETED
+            c.closeoutWithFacts("session", ClockSample(2_000, 1_000)) { _, invalidate -> invalidate() }
+            closed = true
+            c.refresh("new", ClockSample(3_000, 2_000))
+            val status = c.focusStatus.value
+            when (action) {
+                "lost" -> c.onServiceLost(binding, ClockSample(3_001, 2_001), "late old service")
+                "query" -> c.onSample(binding, snapshot(3_001, 2_001), ClockSample(3_001, 2_001))
+                else -> c.refresh("session", ClockSample(3_001, 2_001))
+            }
+            assertEquals(status, c.focusStatus.value)
+            assertNull(c.diagnostics.sessionId)
+        }
+    }
+
+    @Test fun completedReplayDoesNotBorrowOtherSessionsUnresolvedLoss() = runTest {
+        val p = FakeFacts(segment)
+        val port = object : RuntimeFactsPort by p {
+            override suspend fun lose(sessionId: String, trustedAt: Long, detectedAt: Long) { error("loss save failed") }
+        }
+        val c = BoundSessionMonitoringController(port)
+        c.onSample(binding, snapshot(2_000, 1_000), ClockSample(2_000, 1_000))
+        try { c.onServiceLost(binding, ClockSample(3_000, 2_000), "service lost"); fail() }
+        catch (_: IllegalStateException) { }
+        var completed = false
+        c.closeoutWithFacts("old", ClockSample(3_000, 2_000)) { _, invalidate ->
+            completed = true; invalidate()
+        }
+        assertTrue(completed)
+    }
+
+    @Test fun closedBindingIsDetachedBeforeNewUnmonitoredSessionRefresh() = runTest {
+        val p = FakeFacts(segment)
+        val port = object : RuntimeFactsPort by p {
+            override suspend fun read(sessionId: String) = p.current.copy(activeSegment = p.current.activeSegment.copy(sessionId = sessionId))
+        }
+        val c = BoundSessionMonitoringController(port)
+        c.onSample(binding, snapshot(2_000, 1_000), ClockSample(2_000, 1_000))
+        p.closeout = com.guanyi.mirra.data.local.entity.FocusCloseoutState.COMPLETED
+        c.closeoutWithFacts("session", ClockSample(2_000, 1_000)) { _, invalidate -> invalidate() }
+        c.refresh("new", ClockSample(3_000, 2_000))
+        val status = c.focusStatus.value
+        assertEquals("new", status.sessionId)
+        c.closeoutWithFacts("session", ClockSample(2_000, 1_000)) { _, invalidate -> invalidate() }
+        assertEquals(status, c.focusStatus.value)
     }
 }
