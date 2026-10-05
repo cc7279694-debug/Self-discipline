@@ -10,9 +10,13 @@ import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ApplicationProvider
 import com.guanyi.mirra.data.local.entity.*
 import com.guanyi.mirra.feature.session.*
+import com.guanyi.mirra.domain.SessionFinishResult
+import com.guanyi.mirra.domain.SessionManager
+import com.guanyi.mirra.domain.monitoring.ClockSample
 import com.guanyi.mirra.navigation.TopLevelDestination
 import com.guanyi.mirra.ui.theme.MirraTheme
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -65,6 +69,40 @@ class SessionCloseoutUiTest {
             assertEquals(SessionEndType.NORMAL, ended.endType); assertEquals(42, ended.endPage)
             assertEquals(42, runBlocking { c.database.learningItemDao().get(s.learningItemId) }!!.currentPage)
         } finally { rule.activityRule.scenario.close(); vm.viewModelScope.cancel(); c.close() }
+    }
+    @Test fun savingBeforeDurablePendingDoesNotClaimReadingEnded() {
+        val c = TestAppContainer(ApplicationProvider.getApplicationContext()); val s = start(c)
+        val beforeBegin = CompletableDeferred<Unit>(); val allowBegin = CompletableDeferred<Unit>()
+        val manager = object : SessionManager by c.sessionManager {
+            override suspend fun finish(sessionId: String, endPage: Int, sample: ClockSample): SessionFinishResult {
+                beforeBegin.complete(Unit)
+                allowBegin.await()
+                return c.sessionManager.finish(sessionId, endPage, sample)
+            }
+        }
+        val vm = SessionViewModel(s.id, c.studyWorkflowRepository, c.noteRepository, manager,
+            focusActions = c.focusSessionActions)
+        var completed = false
+        try {
+            rule.setContent { MirraTheme { SessionScreen(vm, { completed = true }, {}, {}) } }
+            rule.waitUntil(5_000) { vm.currentPageText == "40" }
+            rule.onNodeWithText("结束本次阅读").performScrollTo().performClick()
+            rule.onNodeWithTag("confirm-session-finish").performClick()
+            rule.waitUntil(5_000) { beforeBegin.isCompleted }
+            assertEquals(FocusCloseoutState.ACTIVE, runBlocking { c.studyWorkflowRepository.getCloseoutState(s.id) })
+            assertNull(runBlocking { c.database.sessionDao().get(s.id) }!!.endedAt)
+            rule.onNodeWithText("正在保存本次阅读…").assertExists()
+            rule.onNodeWithText("阅读已结束").assertDoesNotExist()
+            rule.onNodeWithText("快速笔记").assertDoesNotExist()
+            rule.runOnIdle { assertFalse(completed) }
+            allowBegin.complete(Unit)
+            rule.waitUntil(5_000) { completed }
+            assertEquals(FocusCloseoutState.COMPLETED, runBlocking { c.studyWorkflowRepository.getCloseoutState(s.id) })
+            assertEquals(SessionEndType.NORMAL, runBlocking { c.database.sessionDao().get(s.id) }!!.endType)
+        } finally {
+            allowBegin.complete(Unit)
+            rule.activityRule.scenario.close(); vm.viewModelScope.cancel(); c.close()
+        }
     }
     @Test fun recreatedPendingBackCannotResumeAndRetryUsesFrozenDecision() {
         val c = TestAppContainer(ApplicationProvider.getApplicationContext()); val s = start(c)

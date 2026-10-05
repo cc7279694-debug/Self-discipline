@@ -321,6 +321,173 @@ class ModuleThreeDCloseoutRepositoryTest {
         assertEquals(listOf(SessionSegmentType.FOCUS), db.focusDao().listSegments(s.id).map { it.type })
     }
 
+    @Test fun newerDurableRiskConfirmationRejectsOlderCloseoutBoundary() = runTest {
+        val s = startMonitored()
+        val active = db.focusDao().getActiveSegment(s.id)!!
+        // Real Room fixture: confirmation is later than its backdated distraction start.
+        db.focusDao().changeActiveSegmentToRisk(active.id, s.id, SessionSegmentType.DISTRACTION, "risk")
+        val event = com.guanyi.mirra.data.local.entity.FocusEventEntity("risk-confirmed", s.id,
+            com.guanyi.mirra.data.local.entity.FocusEventType.RISK_APP_CONFIRMED, 2_001, "risk", active.id, null)
+        db.focusDao().insertEvent(event)
+        assertOlderDecisionRejected(s, 2_000)
+        assertEquals(event, db.focusDao().listEvents(s.id).single())
+        assertEquals(1_000L, db.focusDao().getActiveSegment(s.id)?.startedAt)
+        assertFreshDecisionIncludesFacts(s, 2_001)
+    }
+
+    @Test fun newerDurableHeartbeatRejectsOlderCloseoutBoundary() = runTest {
+        val s = startMonitored()
+        wallNow = 2_001
+        focus().updateHeartbeat(s.id, wallNow)
+        assertOlderDecisionRejected(s, 2_000)
+        assertEquals(2_001L, db.focusDao().getContext(s.id)?.lastHeartbeatAt)
+        assertFreshDecisionIncludesFacts(s, 2_001)
+    }
+
+    @Test fun newerDurableStableMilestoneRejectsOlderCloseoutBoundary() = runTest {
+        val s = startMonitored()
+        // Isolate the existing milestone timestamp from heartbeat/event timestamps.
+        assertEquals(1, db.focusDao().markStableStarted(s.id, 2_001))
+        assertOlderDecisionRejected(s, 2_000)
+        assertEquals(2_001L, db.sessionDao().get(s.id)?.stableStartedAt)
+        assertFreshDecisionIncludesFacts(s, 2_001)
+    }
+
+    @Test fun newerPresentationReceiptCannotRemainAfterClosedSessionBoundary() = runTest {
+        val s = startMonitored()
+        val active = db.focusDao().getActiveSegment(s.id)!!
+        db.focusDao().changeActiveSegmentToRisk(active.id, s.id, SessionSegmentType.DISTRACTION, "risk")
+        db.focusDao().insertEvent(com.guanyi.mirra.data.local.entity.FocusEventEntity("risk", s.id,
+            com.guanyi.mirra.data.local.entity.FocusEventType.RISK_APP_CONFIRMED, 1_500, "risk", active.id, null))
+        val prompt = com.guanyi.mirra.domain.monitoring.InterventionUiModel(s.id, "risk", "risk", active.id, "risk", 0, 0)
+        val receipts = com.guanyi.mirra.data.repository.InterventionReceiptRepository(db, { it == prompt }, { 2_001 })
+        assertTrue(receipts.record(prompt, com.guanyi.mirra.domain.intervention.InterventionDeliveryReceipt.IN_APP_PRESENTED))
+        assertOlderDecisionRejected(s, 2_000)
+        assertEquals(2_001L, db.focusDao().listEvents(s.id).last().occurredAt)
+        assertFreshDecisionIncludesFacts(s, 2_001)
+    }
+
+    @Test fun newerDndMetadataDoesNotMoveLearningEndBoundary() = runTest {
+        val s = startMonitored()
+        db.focusDao().setDndLifecycle(s.id, com.guanyi.mirra.data.local.entity.DndLifecycle.APPLY_FAILED, 99_000)
+        assertEquals(99_000L, db.focusDao().getContext(s.id)?.updatedAt)
+        assertFreshDecisionIncludesFacts(s, 2_000)
+    }
+
+    @Test fun backwardProofRejectsEventBeyondDurableLossBoundary() = runTest {
+        verifyBackwardProofRejectsLaterFact { s ->
+            db.focusDao().insertEvent(com.guanyi.mirra.data.local.entity.FocusEventEntity("later-event", s.id,
+                com.guanyi.mirra.data.local.entity.FocusEventType.INTERVENTION_SHOWN, 2_001, null, null, null))
+        }
+    }
+
+    @Test fun backwardProofRejectsHeartbeatBeyondDurableLossBoundary() = runTest {
+        verifyBackwardProofRejectsLaterFact { s -> db.focusDao().updateHeartbeat(s.id, 2_001) }
+    }
+
+    @Test fun backwardProofRejectsStableFactBeyondDurableLossBoundary() = runTest {
+        verifyBackwardProofRejectsLaterFact { s -> db.focusDao().markStableStarted(s.id, 2_001) }
+    }
+
+    private suspend fun verifyBackwardProofRejectsLaterFact(addFact: suspend (StudySessionEntity) -> Unit) {
+        val s = startMonitored()
+        wallNow = 100
+        focus().markMonitoringLost(s.id, 2_000, 2_000)
+        val active = db.focusDao().getActiveSegment(s.id)!!
+        addFact(s)
+        val before = db.sessionDao().get(s.id)!!
+        val proof = BackwardClockCloseoutEvidence(s.id, ClockSample(2_000, 1_000), ClockSample(100, 2_000), 2_000, active.id)
+        assertOlderDecisionRejected(before, 100, proof)
+    }
+
+    @Test fun newerMonitoringCommitPrecedesOlderFinalSampleAtControllerMutex() = runTest {
+        focus().replaceRiskApp("risk", "Test risk app")
+        val s = startMonitored()
+        val real = RepositoryRuntimeFactsPort(focus())
+        val committed = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val port = object : RuntimeFactsPort by real {
+            override suspend fun confirm(command: com.guanyi.mirra.data.repository.RiskConfirmation): Boolean {
+                val result = real.confirm(command)
+                check(result)
+                committed.complete(Unit)
+                release.await() // Hold the real controller mutex after the real Room commit.
+                return result
+            }
+        }
+        val controller = BoundSessionMonitoringController(port)
+        val binding = MonitoringBinding(s.id, "clock-fixture", 0)
+        suspend fun observe(at: Long, generation: Long) {
+            wallNow = at
+            val sample = ClockSample(at, at - 1_000)
+            controller.onSample(binding, MonitorSnapshot(running = true, queryGeneration = generation,
+                lastSuccessfulQueryElapsed = sample.elapsedNowMillis, lastSuccessfulQueryClock = sample,
+                observation = com.guanyi.mirra.domain.monitoring.ForegroundObservation.Package("risk", sample.elapsedNowMillis, 10_001)), sample)
+        }
+        observe(10_001, 2)
+        observe(13_000, 3)
+        observe(16_000, 4)
+        observe(19_000, 5)
+        val manager = DefaultSessionManager(workflow(), closeoutWithMonitoringFacts = { id, sample, block ->
+            controller.closeoutWithFacts(id, sample, block)
+        })
+        val olderFinalSample = ClockSample(20_000, 19_000)
+        val observing = async(Dispatchers.IO) { observe(20_001, 6) }
+        var closing: kotlinx.coroutines.Deferred<Result<SessionFinishResult>>? = null
+        try {
+            withContext(Dispatchers.IO) { withTimeout(5_000) { committed.await() } }
+            val events = db.focusDao().listEvents(s.id)
+            assertTrue(events.any { it.type == com.guanyi.mirra.data.local.entity.FocusEventType.RISK_APP_CONFIRMED && it.occurredAt == 20_001L })
+            // Undispatched execution reaches the occupied controller mutex before returning.
+            val queuedClose = async(Dispatchers.IO, start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+                runCatching { manager.finish(s.id, 20, olderFinalSample) }
+            }
+            closing = queuedClose
+            release.complete(Unit)
+            observing.await()
+            val failure = queuedClose.await().exceptionOrNull()
+            assertTrue(failure is IllegalArgumentException)
+            assertEquals("阅读状态刚刚更新，请再次确认结束", failure?.message)
+            assertEquals(FocusCloseoutState.ACTIVE, workflow().getCloseoutState(s.id))
+            assertNull(db.sessionDao().get(s.id)?.endedAt)
+            assertEquals(events, db.focusDao().listEvents(s.id))
+            assertEquals(SessionSegmentType.DISTRACTION, db.focusDao().getActiveSegment(s.id)?.type)
+            assertEquals(10_001L, db.focusDao().getActiveSegment(s.id)?.startedAt)
+            assertEquals(MonitoringCoverage.FULL, db.focusDao().getContext(s.id)?.monitoringStatus)
+            manager.finish(s.id, 20, ClockSample(20_001, 19_001))
+            assertEquals(20_001L, db.sessionDao().get(s.id)?.endedAt)
+            assertTrue(db.focusDao().listEvents(s.id).all { it.occurredAt <= 20_001 })
+        } finally {
+            release.complete(Unit)
+            observing.cancelAndJoin()
+            closing?.cancelAndJoin()
+        }
+    }
+
+    private suspend fun assertOlderDecisionRejected(s: StudySessionEntity, at: Long,
+        proof: BackwardClockCloseoutEvidence? = null) {
+        val context = db.focusDao().getContext(s.id)
+        val session = db.sessionDao().get(s.id)
+        val segments = db.focusDao().listSegments(s.id)
+        val events = db.focusDao().listEvents(s.id)
+        assertIllegalBoundary { workflow().beginCloseout(s.id, 20, at, proof) }
+        assertEquals(context, db.focusDao().getContext(s.id))
+        assertEquals(segments, db.focusDao().listSegments(s.id))
+        assertEquals(events, db.focusDao().listEvents(s.id))
+        assertEquals(session, db.sessionDao().get(s.id))
+        assertEquals(FocusCloseoutState.ACTIVE, workflow().getCloseoutState(s.id))
+        assertNull(db.sessionDao().get(s.id)?.endedAt)
+    }
+
+    private suspend fun assertFreshDecisionIncludesFacts(s: StudySessionEntity, at: Long) {
+        val events = db.focusDao().listEvents(s.id)
+        val frozen = workflow().beginCloseout(s.id, 20, at)
+        assertEquals(at, frozen.closeoutStartedAt)
+        assertEquals(at, workflow().completeCloseout(s.id).endedAt)
+        assertEquals(events, db.focusDao().listEvents(s.id))
+        assertTrue(events.all { it.occurredAt <= at })
+    }
+
     @Test fun blockedAndroidCleanupDoesNotHoldFactsMutexOrRoomTransaction() = runTest {
         val s = startMonitored()
         val controller = BoundSessionMonitoringController(RepositoryRuntimeFactsPort(focus()))

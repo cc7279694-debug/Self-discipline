@@ -516,6 +516,19 @@ class SessionViewModel(
         }
         pendingSaves.removeAll(saves.toSet()); pendingPageWrites.removeAll(pages.toSet())
         outcomes.forEach { it.getOrThrow() }
+        val latest = checkNotNull(workflow.observeSession(sessionId).first()) { "Session 不存在" }
+        val requestedPage = currentPageText.toIntOrNull()
+        if (requestedPage != null && requestedPage > 0) {
+            if (requestedPage > latest.currentPage) {
+                // A previous failed Deferred is gone; retry the unchanged input before confirming.
+                val outcome = editResult { sessionManager.updatePage(sessionId, requestedPage) }
+                pageWriteError = outcome.exceptionOrNull()
+                outcome.getOrThrow()
+            } else {
+                // Matching or partial smaller input already has a durable, non-regressing position.
+                pageWriteError = null
+            }
+        }
         pageWriteError?.let { throw it }
         saveDraft() // Flush newer input that arrived while an earlier autosave was in flight.
     }
@@ -630,7 +643,12 @@ fun SessionScreen(
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)) {
             val failed = finishUi as? SessionFinishUiState.SaveFailed
-            Text(if (failed == null || failed.logicallyClosed) "阅读已结束" else "正在确认保存状态",
+            val heading = when {
+                finishUi is SessionFinishUiState.Saving -> "正在保存本次阅读…"
+                finishUi is SessionFinishUiState.Completed || failed?.logicallyClosed == true -> "阅读已结束"
+                else -> "正在确认保存状态"
+            }
+            Text(heading,
                 style = MaterialTheme.typography.headlineMedium)
             viewModel.closeoutSnapshot?.let { frozen ->
                 Text("这次读到：第 ${frozen.requestedEndPage} 页")

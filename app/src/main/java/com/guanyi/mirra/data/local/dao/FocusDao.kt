@@ -44,6 +44,10 @@ interface FocusDao {
 
     @Query("SELECT * FROM focus_events WHERE sessionId = :sessionId AND type = 'RISK_APP_CONFIRMED' ORDER BY occurredAt DESC, id DESC LIMIT 1")
     suspend fun latestRiskConfirmation(sessionId: String): FocusEventEntity?
+
+    @Query("SELECT MAX(occurredAt) FROM focus_events WHERE sessionId = :sessionId")
+    suspend fun latestEventOccurredAt(sessionId: String): Long?
+
     @Query("""UPDATE session_focus_contexts SET priorDndInterruptionFilter = :prior,
         dndRuleId = :ruleId, dndLifecycle = 'NOT_APPLIED', dndAccessAtStart = 1, updatedAt = :at
         WHERE sessionId = :sessionId""")

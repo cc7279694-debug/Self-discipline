@@ -82,7 +82,12 @@ class DefaultStudyWorkflowRepository(
         val closedBoundary = focusDao.listSegments(sessionId).filter { it.activeSlot == null }
             .map { checkNotNull(it.endedAt) { "已闭合 Segment 缺少结束时间" } }.maxOrNull()
         check(closedBoundary == null || closedBoundary <= active.startedAt) { "Segment 时间线重叠" }
-        val latestBoundary = maxOf(session.startedAt, active.startedAt, closedBoundary ?: session.startedAt)
+        // A late confirmation/receipt may be newer than its backdated Segment start.
+        // Recheck all durable learning facts in this transaction, not a runtime query clock.
+        // updatedAt is deliberately excluded: it also timestamps DND/cleanup metadata.
+        val latestBoundary = listOfNotNull(session.startedAt, active.startedAt, closedBoundary,
+            context.lastHeartbeatAt, context.monitoringLostAt, session.stableStartedAt,
+            focusDao.latestEventOccurredAt(sessionId)).max()
         val boundary = if (closeoutStartedAt >= latestBoundary) closeoutStartedAt else {
             val proof = backwardClockEvidence
             require(proof != null && proof.sessionId == sessionId &&
@@ -91,7 +96,8 @@ class DefaultStudyWorkflowRepository(
                 context.monitoringStatus == MonitoringCoverage.PARTIAL &&
                 context.monitoringLostAt == active.startedAt && active.startedAt == proof.durableLossBoundary &&
                 active.type == SessionSegmentType.UNMONITORED && active.id == proof.unmonitoredSegmentId &&
-                proof.durableLossBoundary > closeoutStartedAt) { "结束时间早于已保存的时间线" }
+                proof.durableLossBoundary > closeoutStartedAt &&
+                latestBoundary <= proof.durableLossBoundary) { "阅读状态刚刚更新，请再次确认结束" }
             maxOf(closeoutStartedAt, latestBoundary)
         }
         when {
