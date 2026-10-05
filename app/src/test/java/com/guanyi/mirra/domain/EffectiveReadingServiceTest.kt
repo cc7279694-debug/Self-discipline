@@ -137,6 +137,12 @@ class EffectiveReadingServiceTest {
         assertEquals(Duration.ofMinutes(1), service.estimate(item().copy(currentPage = 199), fast, time).remainingEffectiveReadingTime)
     }
 
+    @Test fun exactWholeMinuteBoundaryIsNotRoundedUpByFloatingPointError() {
+        val source = source(row("a", 1, 20), row("b", 0, 20), row("c", 0, 15))
+        val result = service.estimate(item().copy(currentPage = 199), source, time)
+        assertEquals(Duration.ofMinutes(55), result.remainingEffectiveReadingTime)
+    }
+
     @Test fun outOfRangeArithmeticNeverProducesNonFiniteValues() {
         val focusOverflow = listOf(sample("a", 0, focus = Long.MAX_VALUE), sample("b", 0), sample("c", 0))
         assertThrows(ArithmeticException::class.java) { service.selectWindow(focusOverflow, time) }

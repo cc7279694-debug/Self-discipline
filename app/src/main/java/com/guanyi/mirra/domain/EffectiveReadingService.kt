@@ -4,9 +4,9 @@ import com.guanyi.mirra.data.local.entity.LearningItemEntity
 import com.guanyi.mirra.data.local.entity.LearningItemStatus
 import com.guanyi.mirra.data.local.entity.SessionEndType
 import com.guanyi.mirra.data.local.model.EffectiveReadingSource
+import java.math.BigInteger
 import java.time.Duration
 import java.time.Instant
-import kotlin.math.ceil
 
 class EffectiveReadingService(private val validator: SessionTimelineValidator = SessionTimelineValidator()) {
     fun qualify(source: EffectiveReadingSource, time: AnalyticsTimeContext): List<QualifiedEffectiveSession> =
@@ -61,9 +61,13 @@ class EffectiveReadingService(private val validator: SessionTimelineValidator = 
             val futureTime = if (item.status == LearningItemStatus.IN_PROGRESS && item.totalPages > 0 &&
                 remainingPages > 0 && window.effectivePagesPerHour > 0
             ) {
-                val minutes = ceil(remainingPages.toDouble() / window.effectivePagesPerHour * 60.0)
-                // toLong saturates: reject the rounded Double boundary before conversion.
-                if (!minutes.isFinite() || minutes <= 0 || minutes >= Long.MAX_VALUE.toDouble()) {
+                // Ceil the exact ratio: a rounded Double speed can turn exactly 55 min into 56.
+                // BigInteger keeps the intermediate product safe without a new dependency.
+                val numerator = BigInteger.valueOf(remainingPages)
+                    .multiply(BigInteger.valueOf(window.totalEffectiveFocusMillis))
+                val denominator = BigInteger.valueOf(window.totalPagesRead).multiply(BigInteger.valueOf(60_000L))
+                val minutes = numerator.add(denominator).subtract(BigInteger.ONE).divide(denominator)
+                if (minutes.signum() <= 0 || minutes > BigInteger.valueOf(Long.MAX_VALUE)) {
                     throw ArithmeticException("Remaining effective time out of range")
                 }
                 Duration.ofMinutes(minutes.toLong())
