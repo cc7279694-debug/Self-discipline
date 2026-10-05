@@ -175,7 +175,9 @@ class StudyWorkflowRepositoryTest {
         workflow.updateCurrentPage(session.id, 35)
         notes.save(session.learningItemId, session.id, "旧页摘录", pageNumber = 12)
 
-        val completed = workflow.finishSession(session.id, endPage = 35)
+        assertSuspendThrows<IllegalArgumentException> { workflow.beginCloseout(session.id, 35, now) }
+        workflow.beginCloseout(session.id, 40, now)
+        val completed = workflow.completeCloseout(session.id)
 
         assertEquals(SessionEndType.NORMAL, completed.endType)
         assertEquals(40, completed.currentPage)
@@ -220,7 +222,8 @@ class StudyWorkflowRepositoryTest {
         notes.save(item.id, normal.id, "第一条", 20)
         notes.save(item.id, normal.id, "第二条", 21)
         now += 42 * 60 * 1_000L
-        workflow.finishSession(normal.id, 25)
+        workflow.beginCloseout(normal.id, 25, now)
+        workflow.completeCloseout(normal.id)
 
         now += 1_000L
         workflow.startSession(workflow.createIntent(item.id).id, 25)

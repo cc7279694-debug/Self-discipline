@@ -85,7 +85,8 @@ class ModuleThreeCBehaviorRepositoryTest {
         try { focus.applyBehavior(BehaviorCommand(s, source.id, BehaviorAction.START_BREAK, now, "b", durationMillis = 300_000)); fail() }
         catch (e: android.database.sqlite.SQLiteException) { }
         assertEquals(source, db.focusDao().getActiveSegment(s))
-        workflow.finishSession(s, 10)
+        workflow.beginCloseout(s, 10, now)
+        workflow.completeCloseout(s)
         assertNull(focus.applyBehavior(BehaviorCommand(s, source.id, BehaviorAction.START_BREAK, now, "old", durationMillis = 300_000)))
     }
 

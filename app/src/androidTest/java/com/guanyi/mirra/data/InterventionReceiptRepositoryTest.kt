@@ -51,7 +51,8 @@ class InterventionReceiptRepositoryTest {
         assertEquals(1, c.database.focusDao().listEvents(p.sessionId).size)
     } }
     @Test fun endedSessionRejectsLateReceipt() = runTest { fixture { c, p, r ->
-        c.studyWorkflowRepository.finishSession(p.sessionId, 1)
+        c.studyWorkflowRepository.beginCloseout(p.sessionId, 1, System.currentTimeMillis())
+        c.studyWorkflowRepository.completeCloseout(p.sessionId)
         assertFalse(r.record(p, InterventionDeliveryReceipt.OVERLAY_ATTACHED))
         assertEquals(1, c.database.focusDao().listEvents(p.sessionId).size)
     } }

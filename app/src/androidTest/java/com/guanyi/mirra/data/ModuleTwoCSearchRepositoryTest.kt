@@ -141,7 +141,8 @@ class ModuleTwoCSearchRepositoryTest {
         now = 101L
         val session = workflow.startSession(intent.id, 1)
         now = 3_600_101L
-        workflow.finishSession(session.id, 10)
+        workflow.beginCloseout(session.id, 10, now)
+        workflow.completeCloseout(session.id)
 
         assertEquals(listOf(session.id), repository.search("用时").items.map { it.id })
     }

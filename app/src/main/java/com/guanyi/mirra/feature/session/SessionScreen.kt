@@ -254,10 +254,13 @@ class SessionViewModel(
             saveJob?.cancel()
             runCatching {
                 saveDraft()
-                sessionManager.finish(sessionId, endPage)
+                sessionManager.finish(sessionId, endPage, clockSample())
             }.onSuccess {
                 draftContent = ""
-                onFinished(it.id)
+                when (it) {
+                    is com.guanyi.mirra.domain.SessionFinishResult.Completed -> onFinished(it.session.id)
+                    is com.guanyi.mirra.domain.SessionFinishResult.PendingRetry -> error = "阅读已结束，保存失败，请重试"
+                }
             }
                 .onFailure { error = it.message ?: "Session 结束失败" }
         }

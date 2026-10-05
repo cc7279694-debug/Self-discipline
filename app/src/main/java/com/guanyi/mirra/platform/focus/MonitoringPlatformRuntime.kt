@@ -8,6 +8,7 @@ import androidx.core.content.ContextCompat
 import com.guanyi.mirra.domain.MonitoredStartPort
 import com.guanyi.mirra.domain.monitoring.BoundSessionMonitoringController
 import com.guanyi.mirra.domain.monitoring.ClockSample
+import com.guanyi.mirra.domain.monitoring.BackwardClockCloseoutEvidence
 import com.guanyi.mirra.domain.monitoring.FocusSessionActions
 import com.guanyi.mirra.data.repository.FocusRepository
 import com.guanyi.mirra.data.local.entity.StudySessionEntity
@@ -45,8 +46,9 @@ class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPo
         factController = BoundSessionMonitoringController(repository)
     }
 
-    suspend fun finishWithMonitoringFacts(block: suspend () -> StudySessionEntity): StudySessionEntity =
-        checkNotNull(factController) { "Runtime facts not attached" }.finishWithFacts(block)
+    suspend fun <T> closeoutWithMonitoringFacts(sessionId: String, sample: ClockSample,
+        block: suspend (BackwardClockCloseoutEvidence?, () -> Unit) -> T): T =
+        checkNotNull(factController) { "Runtime facts not attached" }.closeoutWithFacts(sessionId, sample, block)
 
     suspend fun onMonitorSample(generation: String, snapshot: MonitorSnapshot, sample: ClockSample) {
         factController?.onSample(binding?.takeIf { it.generation == generation }, snapshot, sample)

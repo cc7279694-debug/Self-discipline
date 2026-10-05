@@ -62,7 +62,8 @@ class ModuleThreeAFocusRepositoryTest {
         assertEquals(timeline[0].endedAt, breakSegment.startedAt)
         assertFails { focus.transition(SegmentTransitionCommand(session.id, SessionSegmentType.FOCUS, now)) }
         now = 3_000
-        workflow.finishSession(session.id, session.currentPage)
+        workflow.beginCloseout(session.id, session.currentPage, now)
+        workflow.completeCloseout(session.id)
         assertFails { focus.transition(SegmentTransitionCommand(session.id, SessionSegmentType.FOCUS, now)) }
         assertFails { focus.updateHeartbeat(session.id, now) }
         assertNull(db.focusDao().getActiveSegment(session.id))

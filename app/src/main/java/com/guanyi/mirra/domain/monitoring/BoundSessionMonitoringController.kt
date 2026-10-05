@@ -2,6 +2,7 @@ package com.guanyi.mirra.domain.monitoring
 
 import com.guanyi.mirra.data.local.entity.MonitoringCoverage
 import com.guanyi.mirra.data.local.entity.SessionSegmentType
+import com.guanyi.mirra.data.local.entity.FocusCloseoutState
 import com.guanyi.mirra.data.repository.FocusRepository
 import com.guanyi.mirra.data.repository.RiskConfirmation
 import com.guanyi.mirra.data.repository.RuntimeFocusFacts
@@ -12,6 +13,11 @@ import com.guanyi.mirra.data.repository.SegmentTransitionCommand
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import com.guanyi.mirra.platform.focus.MonitorSnapshot
 import com.guanyi.mirra.platform.focus.MonitoringBinding
 import kotlinx.coroutines.sync.Mutex
@@ -32,6 +38,7 @@ data class RuntimeFactDiagnostics(
 )
 
 interface RuntimeFactsPort {
+    suspend fun closeoutState(sessionId: String): FocusCloseoutState? = FocusCloseoutState.ACTIVE
     suspend fun behavior(command: BehaviorCommand): SessionSegmentEntity? = null
     suspend fun milestone(sessionId: String, at: Long, evidence: StableEvidence): Boolean = false
     suspend fun demoteDeep(sessionId: String, at: Long): Boolean = false
@@ -44,6 +51,7 @@ interface RuntimeFactsPort {
 }
 
 class RepositoryRuntimeFactsPort(private val focus: FocusRepository) : RuntimeFactsPort {
+    override suspend fun closeoutState(sessionId: String) = focus.observeContext(sessionId).first()?.closeoutState
     override suspend fun behavior(command: BehaviorCommand) = focus.applyBehavior(command)
     override suspend fun milestone(sessionId: String, at: Long, evidence: StableEvidence): Boolean {
         when (evidence.milestone) {
@@ -75,6 +83,11 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
     private var candidate: CandidateRiskAppMachine? = null
     private var lastSuccessfulQueryElapsed: Long? = null
     private var lastTrustedWall: Long? = null
+    private var lastRawQueryClock: ClockSample? = null
+    private var backwardCloseoutEvidence: BackwardClockCloseoutEvidence? = null
+    private data class ObservedBackwardClock(val binding: MonitoringBinding, val trusted: ClockSample,
+        val regression: ClockSample, val lossBoundary: Long)
+    private var observedBackwardClock: ObservedBackwardClock? = null
     private var lastHeartbeatElapsed: Long? = null
     private var lost = false
     private var unresolvedLoss = false
@@ -92,10 +105,34 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
     var diagnostics = RuntimeFactDiagnostics()
         private set
 
-    /** Finish and durable monitoring-loss transitions share one ordering boundary. */
-    suspend fun <T> finishWithFacts(block: suspend () -> T): T = mutex.withLock {
-        check(!unresolvedLoss) { "Monitoring loss has not been saved" }
-        block()
+    /** A / memory invalidation / B share the existing facts boundary; platform cleanup is outside it. */
+    suspend fun <T> closeoutWithFacts(sessionId: String, sample: ClockSample,
+        block: suspend (BackwardClockCloseoutEvidence?, () -> Unit) -> T): T = mutex.withLock {
+        var primary: Throwable? = null
+        try {
+            check(!unresolvedLoss) { "Monitoring loss has not been saved" }
+            settleMonitoring(sessionId, sample)
+            if (activeBinding?.sessionId == sessionId) validateBackwardCloseoutEvidence()
+            val evidence = backwardCloseoutEvidence?.takeIf { activeBinding?.sessionId == sessionId && it.sessionId == sessionId }
+            block(evidence) { invalidateCloseoutRuntime(sessionId) }
+        } catch (failure: Throwable) { primary = failure; throw failure }
+        finally {
+            try {
+                withContext(NonCancellable) { withContext(Dispatchers.IO) {
+                    val state = withTimeout(5_000) { factsPort.closeoutState(sessionId) }
+                    if (state == FocusCloseoutState.PENDING || state == FocusCloseoutState.COMPLETED) invalidateCloseoutRuntime(sessionId)
+                } }
+            } catch (failure: Throwable) {
+                if (primary != null) { if (failure !== primary) primary.addSuppressed(failure) } else throw failure
+            }
+        }
+    }
+
+    private fun invalidateCloseoutRuntime(sessionId: String) {
+        if (activeBinding?.sessionId != sessionId && mutableStatus.value.sessionId != sessionId &&
+            mutableIntervention.value?.sessionId != sessionId) return
+        candidate?.clear(); candidate = null; clearBehaviorRuntime()
+        backwardCloseoutEvidence = null; lastRawQueryClock = null; observedBackwardClock = null
     }
 
     suspend fun onSample(binding: MonitoringBinding?, snapshot: MonitorSnapshot, sample: ClockSample) = mutex.withLock {
@@ -104,6 +141,9 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
             activeBinding = binding
             candidate = null
             lastSuccessfulQueryElapsed = null
+            lastRawQueryClock = null
+            backwardCloseoutEvidence = null
+            observedBackwardClock = null
             lastHeartbeatElapsed = null
             lastTrustedWall = factsPort.read(binding.sessionId)?.lastHeartbeatAt
             lost = false
@@ -116,7 +156,8 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
             MonitoringSignal.WALL_CLOCK_JUMP in snapshot.signals
         val timedOut = previousQuery != null && sample.elapsedNowMillis - previousQuery >= 6_000
         if (hardFailure || timedOut) {
-            lose(binding, sample, if (timedOut) "query deadline" else snapshot.lastPlatformError ?: snapshot.signals.toString())
+            lose(binding, sample, if (timedOut) "query deadline" else snapshot.lastPlatformError ?: snapshot.signals.toString(),
+                lastRawQueryClock.takeIf { MonitoringSignal.WALL_CLOCK_JUMP in snapshot.signals })
             return@withLock
         }
         if (snapshot.lastSuccessfulQueryElapsed != sample.elapsedNowMillis) return@withLock
@@ -125,6 +166,7 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
         diagnostics = diagnostics.copy(segment = facts.activeSegment.type, coverage = facts.coverage,
             riskSnapshotCount = facts.riskPackages.size)
         lastSuccessfulQueryElapsed = sample.elapsedNowMillis
+        lastRawQueryClock = snapshot.lastSuccessfulQueryClock?.takeIf { it == sample }
         lastTrustedWall = sample.wallNowMillis.coerceAtLeast(facts.sessionStartedAt)
         if (lastHeartbeatElapsed == null) {
             // Session creation writes the first heartbeat. Align cadence to that persisted
@@ -211,6 +253,9 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
         if (binding == null) return@withLock
         if (activeBinding != binding) {
             activeBinding = binding
+            lastRawQueryClock = null
+            backwardCloseoutEvidence = null
+            observedBackwardClock = null
             lastTrustedWall = factsPort.read(binding.sessionId)?.lastHeartbeatAt
         }
         lose(binding, sample, reason)
@@ -221,11 +266,15 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
         if (activeBinding?.sessionId == sessionId) {
             activeBinding = null
             candidate = null
+            lastRawQueryClock = null
+            backwardCloseoutEvidence = null
+            observedBackwardClock = null
             diagnostics = RuntimeFactDiagnostics()
         }
     }
 
-    private suspend fun lose(binding: MonitoringBinding, sample: ClockSample, reason: String) {
+    private suspend fun lose(binding: MonitoringBinding, sample: ClockSample, reason: String,
+        possibleBackwardClock: ClockSample? = null) {
         if (lost) return
         candidate?.clear()
         clearBehaviorRuntime()
@@ -240,10 +289,32 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
         }
         unresolvedLoss = false
         lost = true
+        val pair = possibleBackwardClock?.takeIf {
+            sample.elapsedNowMillis >= it.elapsedNowMillis && sample.wallNowMillis < it.wallNowMillis &&
+                kotlin.math.abs((sample.wallNowMillis - it.wallNowMillis) - (sample.elapsedNowMillis - it.elapsedNowMillis)) > 2_000
+        }
+        if (pair != null) {
+            // Retain the observed pair even if the following durable read fails/cancels.
+            // Retry only validation, never rewrite the already committed monitoring loss.
+            observedBackwardClock = ObservedBackwardClock(binding, pair, sample, trusted)
+            validateBackwardCloseoutEvidence()
+        }
         diagnostics = diagnostics.copy(gapAt = trusted, gapReason = reason, candidatePackage = null,
             candidateToken = null, candidateFirstSeenElapsed = null,
             segment = SessionSegmentType.UNMONITORED,
             coverage = if (facts.coverage == MonitoringCoverage.FULL) MonitoringCoverage.PARTIAL else facts.coverage)
+    }
+
+    private suspend fun validateBackwardCloseoutEvidence() {
+        val observed = observedBackwardClock?.takeIf { it.binding == activeBinding } ?: return
+        if (backwardCloseoutEvidence != null) return
+        val durable = factsPort.read(observed.binding.sessionId)
+        val unknown = durable?.activeSegment
+        if (durable?.coverage == MonitoringCoverage.PARTIAL && durable.context?.monitoringLostAt == observed.lossBoundary &&
+            unknown?.type == SessionSegmentType.UNMONITORED && unknown.startedAt == observed.lossBoundary) {
+            backwardCloseoutEvidence = BackwardClockCloseoutEvidence(observed.binding.sessionId,
+                observed.trusted, observed.regression, observed.lossBoundary, unknown.id)
+        }
     }
 
     private fun clearBehaviorRuntime() {
@@ -305,7 +376,7 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
         val elapsedDelta = sample.elapsedNowMillis - query
         if (elapsedDelta >= 6_000 ||
             kotlin.math.abs((sample.wallNowMillis - trusted) - elapsedDelta) > 2_000) {
-            lose(binding, sample, "action observation deadline or clock jump")
+            lose(binding, sample, "action observation deadline or clock jump", lastRawQueryClock)
         }
     }
 

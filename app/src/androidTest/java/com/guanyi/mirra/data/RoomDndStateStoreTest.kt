@@ -35,7 +35,8 @@ class RoomDndStateStoreTest {
             assertEquals("NONE", db.focusDao().getContext(session.id)?.monitoringStatus?.name)
 
             now = 2_000L
-            workflow.finishSession(session.id, 10)
+            workflow.beginCloseout(session.id, 10, now)
+            workflow.completeCloseout(session.id)
             assertEquals(listOf(session.id), store.pendingAfterRecovery().map { it.sessionId })
             store.setLifecycle(session.id, DndLifecycle.RELEASED)
             assertTrue(store.pendingAfterRecovery().isEmpty())
@@ -51,7 +52,8 @@ class RoomDndStateStoreTest {
             val workflow = DefaultStudyWorkflowRepository(db, RuleBasedSummaryEngine(), IntentExpiryPolicy(), clock = { now })
             val session = workflow.startSession(workflow.createIntent(item.id).id, 10)
             now = 2_000L
-            workflow.finishSession(session.id, 10)
+            workflow.beginCloseout(session.id, 10, now)
+            workflow.completeCloseout(session.id)
             try { RoomDndStateStore(db).prepare(session.id, 1, null); fail("Expected rejection") }
             catch (_: IllegalStateException) { }
         } finally { db.close() }

@@ -16,6 +16,7 @@ import com.guanyi.mirra.data.repository.DefaultLearningItemRepository
 import com.guanyi.mirra.data.repository.DefaultStudyWorkflowRepository
 import com.guanyi.mirra.domain.IntentExpiryPolicy
 import com.guanyi.mirra.domain.DefaultSessionManager
+import com.guanyi.mirra.domain.SessionFinishResult
 import com.guanyi.mirra.domain.RuleBasedSummaryEngine
 import com.guanyi.mirra.data.repository.RiskConfirmation
 import com.guanyi.mirra.domain.monitoring.BoundSessionMonitoringController
@@ -154,9 +155,9 @@ class ModuleThreeBMonitoredStartRepositoryTest {
         now = 1_005_100
         val session = monitored(intent.id, 10).session
         var released: String? = null
-        val manager = DefaultSessionManager(workflow, onSessionFinished = { released = it })
+        val manager = DefaultSessionManager(workflow, cleanupClosedSession = { assertFalse(db.inTransaction()); released = it })
         now = 1_010_000
-        manager.finish(session.id, 11)
+        manager.finish(session.id, 11, ClockSample(now, 10_000))
         assertEquals(session.id, released)
         assertNull(db.sessionDao().getActive())
         assertEquals(MonitoringCoverage.FULL, db.focusDao().getContext(session.id)?.monitoringStatus)
@@ -169,12 +170,12 @@ class ModuleThreeBMonitoredStartRepositoryTest {
         val session = monitored(intent.id, 10).session
         var releaseSawCommitted = false
         val manager = DefaultSessionManager(workflow,
-            onSessionCommitted = { id ->
+            cleanupClosedSession = { id ->
                 releaseSawCommitted = db.sessionDao().get(id)?.endedAt != null &&
                     db.sessionDao().getActive() == null
             })
         now = 1_010_000
-        manager.finish(session.id, 11)
+        manager.finish(session.id, 11, ClockSample(now, 10_000))
         assertTrue(releaseSawCommitted)
         assertEquals(MonitoringCoverage.FULL, db.focusDao().getContext(session.id)?.monitoringStatus)
     }
@@ -191,8 +192,8 @@ class ModuleThreeBMonitoredStartRepositoryTest {
         assertEquals(SessionSegmentType.UNMONITORED, db.focusDao().getActiveSegment(session.id)?.type)
         controller.onServiceLost(binding, ClockSample(now + 1_000, 21_000), "destroy")
         assertEquals(1, db.focusDao().listSegments(session.id).size)
-        val ended = DefaultSessionManager(workflow, finishWithMonitoringFacts = controller::finishWithFacts)
-            .finish(session.id, 11)
+        val ended = (DefaultSessionManager(workflow, closeoutWithMonitoringFacts = { id, sample, block -> controller.closeoutWithFacts(id, sample, block) })
+            .finish(session.id, 11, ClockSample(now, 20_000)) as SessionFinishResult.Completed).session
         val segments = db.focusDao().listSegments(session.id)
         assertEquals(MonitoringCoverage.PARTIAL, db.focusDao().getContext(session.id)?.monitoringStatus)
         assertEquals(SessionSegmentType.UNMONITORED, segments.single().type)
@@ -208,9 +209,9 @@ class ModuleThreeBMonitoredStartRepositoryTest {
         val binding = MonitoringBinding(session.id, "test-generation", 5_000)
         now = 1_010_000
         val manager = DefaultSessionManager(workflow,
-            onSessionFinished = { controller.onNormalRelease(it) },
-            finishWithMonitoringFacts = controller::finishWithFacts)
-        manager.finish(session.id, 11)
+            cleanupClosedSession = { controller.onNormalRelease(it) },
+            closeoutWithMonitoringFacts = { id, sample, block -> controller.closeoutWithFacts(id, sample, block) })
+        manager.finish(session.id, 11, ClockSample(now, 10_000))
         controller.onServiceLost(binding, ClockSample(now, 10_000), "destroy after release")
         assertEquals(MonitoringCoverage.FULL, db.focusDao().getContext(session.id)?.monitoringStatus)
         assertEquals(listOf(SessionSegmentType.FOCUS), db.focusDao().listSegments(session.id).map { it.type })
@@ -226,8 +227,8 @@ class ModuleThreeBMonitoredStartRepositoryTest {
         controller.onServiceLost(binding, ClockSample(now, 20_000), "usage access unavailable")
         assertEquals(MonitoringCoverage.PARTIAL, db.focusDao().getContext(session.id)?.monitoringStatus)
         assertEquals(SessionSegmentType.UNMONITORED, db.focusDao().getActiveSegment(session.id)?.type)
-        DefaultSessionManager(workflow, finishWithMonitoringFacts = controller::finishWithFacts)
-            .finish(session.id, 11)
+        DefaultSessionManager(workflow, closeoutWithMonitoringFacts = { id, sample, block -> controller.closeoutWithFacts(id, sample, block) })
+            .finish(session.id, 11, ClockSample(now, 20_000))
         assertEquals(MonitoringCoverage.PARTIAL, db.focusDao().getContext(session.id)?.monitoringStatus)
     }
 
@@ -250,8 +251,8 @@ class ModuleThreeBMonitoredStartRepositoryTest {
         now = 1_020_000
         val stop = async { controller.onServiceLost(binding, ClockSample(now, 20_000), "user stop") }
         lossEntered.await()
-        val manager = DefaultSessionManager(workflow, finishWithMonitoringFacts = controller::finishWithFacts)
-        val finish = async { manager.finish(session.id, 11) }
+        val manager = DefaultSessionManager(workflow, closeoutWithMonitoringFacts = { id, sample, block -> controller.closeoutWithFacts(id, sample, block) })
+        val finish = async { manager.finish(session.id, 11, ClockSample(now, 20_000)) }
         try {
             assertNull("Session finish must wait for the already requested loss",
                 withTimeoutOrNull(1_500) { finish.await() })
@@ -259,7 +260,7 @@ class ModuleThreeBMonitoredStartRepositoryTest {
             allowLossCommit.complete(Unit)
         }
         stop.await()
-        val ended = finish.await()
+        val ended = (finish.await() as SessionFinishResult.Completed).session
         assertEquals(MonitoringCoverage.PARTIAL, db.focusDao().getContext(session.id)?.monitoringStatus)
         assertEquals(SessionSegmentType.UNMONITORED, db.focusDao().listSegments(session.id).last().type)
         assertEquals(ended.endedAt, db.focusDao().listSegments(session.id).last().endedAt)

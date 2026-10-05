@@ -2,6 +2,7 @@ package com.guanyi.mirra.data
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.guanyi.mirra.data.local.MirraDatabase
@@ -171,6 +172,41 @@ class ModuleThreeDPendingGuardsTest {
         hook(false)
         assertFalse(captured)
         assertEquals(0, applies)
+    }
+    @Test fun lateSuccessfulApplyIsReleasedByFacadeFreshRead() = runTest {
+        val s = start()
+        val store = RoomDndStateStore(db)
+        val system = BarrierDndSystem()
+        val dnd = DndController(store, system)
+        val applied = CompletableDeferred<Unit>(); val returnApply = CompletableDeferred<Unit>()
+        val hook = async {
+            configureActiveSessionPresentationAndDnd(s.id, { focus.runtimeFacts(it) != null }, {},
+                { dnd.apply(it, true); applied.complete(Unit); returnApply.await() }, { dnd.release(it) })
+        }
+        applied.await()
+        assertTrue(system.active)
+        assertEquals(DndLifecycle.ACTIVE, store.get(s.id)?.lifecycle)
+        workflow.beginCloseout(s.id, 20, 2_000)
+        returnApply.complete(Unit)
+        hook.await()
+        assertFalse(system.active)
+        assertEquals(DndLifecycle.RELEASED, store.get(s.id)?.lifecycle)
+        assertEquals(MonitoringCoverage.FULL, db.focusDao().getContext(s.id)?.monitoringStatus)
+        assertEquals(2_000L, workflow.getCloseoutSnapshot(s.id)?.closeoutStartedAt)
+    }
+    @Test fun pageWriteQueuedBehindCloseoutTransactionRechecksDurableEligibility() = runTest {
+        val s = start()
+        val entered = CompletableDeferred<Unit>(); val commit = CompletableDeferred<Unit>()
+        val closing = async(Dispatchers.IO) { db.withTransaction {
+            workflow.beginCloseout(s.id, 20, 2_000)
+            entered.complete(Unit); commit.await()
+        } }
+        entered.await()
+        val page = async(Dispatchers.IO) { runCatching { workflow.updateCurrentPage(s.id, 42) } }
+        commit.complete(Unit); closing.await()
+        assertTrue(page.await().exceptionOrNull() is IllegalStateException)
+        assertEquals(10, db.sessionDao().get(s.id)?.currentPage)
+        assertEquals(20, workflow.getCloseoutSnapshot(s.id)?.requestedEndPage)
     }
     private class BarrierDndSystem(private val barrier: (String) -> Unit = {}) : DndSystem {
         override val apiLevel = 37

@@ -42,7 +42,6 @@ interface StudyWorkflowRepository {
     ): MonitoredSessionStartResult
     suspend fun findActiveSessionForIntent(intentId: String): StudySessionEntity?
     suspend fun updateCurrentPage(sessionId: String, page: Int)
-    suspend fun finishSession(sessionId: String, endPage: Int): StudySessionEntity
     suspend fun beginCloseout(sessionId: String, requestedEndPage: Int, closeoutStartedAt: Long,
         backwardClockEvidence: BackwardClockCloseoutEvidence? = null): CloseoutSnapshot
     suspend fun completeCloseout(sessionId: String): StudySessionEntity
@@ -298,30 +297,6 @@ class DefaultStudyWorkflowRepository(
         }
     }
 
-    override suspend fun finishSession(sessionId: String, endPage: Int): StudySessionEntity =
-        database.withTransaction {
-            val session = checkNotNull(sessionDao.get(sessionId)) { "Session 不存在" }
-            check(session.activeSlot == ACTIVE_SLOT && session.endType == null) { "Session 已结束" }
-            val item = checkNotNull(itemDao.get(session.learningItemId)) { "Learning Item 不存在" }
-            require(endPage in 1..item.totalPages) { "结束页必须在书籍范围内" }
-            val finalPage = maxOf(session.currentPage, endPage)
-            val now = clock()
-            closeActiveSegmentForSession(session.id, now)
-            val noteCount = noteDao.countForSession(sessionId)
-            val summary = summaryEngine.create(
-                startPage = session.startPage,
-                endPage = finalPage,
-                durationMillis = now - session.startedAt,
-                noteCount = noteCount,
-            )
-            check(sessionDao.finish(sessionId, now, finalPage, SessionEndType.NORMAL, summary) == 1) {
-                "结束 Session 失败"
-            }
-            check(itemDao.advanceProgress(item.id, finalPage, now) == 1) { "保存阅读进度失败" }
-            searchIndexWriter.reindexSession(sessionId)
-            checkNotNull(sessionDao.get(sessionId))
-        }
-
     override suspend fun recoverInterruptedSession() {
         database.withTransaction {
             val now = clock()
@@ -349,15 +324,6 @@ class DefaultStudyWorkflowRepository(
             intentDao.getActive()?.takeIf { expiryPolicy.isExpired(it.createdAt, now) }?.let { expired ->
                 intentDao.markTimedOut(expired.id, now)
             }
-        }
-    }
-
-    private suspend fun closeActiveSegmentForSession(sessionId: String, endedAt: Long) {
-        val active = focusDao.getActiveSegment(sessionId) ?: return
-        if (endedAt > active.startedAt) {
-            check(focusDao.closeActiveSegment(active.id, sessionId, endedAt) == 1) { "关闭 Segment 失败" }
-        } else {
-            check(focusDao.deleteActiveSegment(active.id, sessionId) == 1) { "清理零时长 Segment 失败" }
         }
     }
 

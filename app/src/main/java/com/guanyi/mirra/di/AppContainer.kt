@@ -29,6 +29,7 @@ import com.guanyi.mirra.data.search.SearchIndexRebuilder
 import com.guanyi.mirra.data.search.SearchIndexWriter
 import com.guanyi.mirra.data.storage.DefaultImageStorageService
 import com.guanyi.mirra.domain.DefaultSessionManager
+import com.guanyi.mirra.domain.cleanupCloseoutSteps
 import com.guanyi.mirra.domain.IntentExpiryPolicy
 import com.guanyi.mirra.domain.RuleBasedSummaryEngine
 import com.guanyi.mirra.domain.SessionManager
@@ -173,9 +174,12 @@ class DefaultAppContainer(context: Context, private val monitoringRuntime: Monit
     override val completionPredictionService = CompletionPredictionService()
     override val analyticsTimeProvider = AnalyticsTimeProvider()
     override val sessionManager: SessionManager = DefaultSessionManager(studyWorkflowRepository,
-        monitoringRuntime::releaseSession, monitoringRuntime::finishWithMonitoringFacts,
         onSessionCreated = { configureSessionPresentationAndDnd(it.id) },
-        onSessionCommitted = { releaseDnd(it) })
+        closeoutWithMonitoringFacts = { id, sample, block -> monitoringRuntime.closeoutWithMonitoringFacts(id, sample, block) },
+        cleanupClosedSession = { id -> cleanupCloseoutSteps(
+            { monitoringRuntime.interventionChannels?.release(id) },
+            { monitoringRuntime.releaseSession(id) },
+            { releaseDnd(id) }) })
     override val sessionStartCoordinator: SessionStartCoordinator = SessionStartCoordinator(
         RepositoryMonitoredStartStore(studyWorkflowRepository, focusRepository), monitoringRuntime,
         onSessionCreated = { configureSessionPresentationAndDnd(it.id) },

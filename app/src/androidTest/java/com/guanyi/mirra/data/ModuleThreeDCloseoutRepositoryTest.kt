@@ -18,6 +18,19 @@ import com.guanyi.mirra.data.repository.DefaultStudyWorkflowRepository
 import com.guanyi.mirra.data.repository.SegmentTransitionCommand
 import com.guanyi.mirra.domain.IntentExpiryPolicy
 import com.guanyi.mirra.domain.RuleBasedSummaryEngine
+import com.guanyi.mirra.domain.DefaultSessionManager
+import com.guanyi.mirra.domain.SessionFinishResult
+import androidx.room.withTransaction
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import com.guanyi.mirra.domain.monitoring.RuntimeFactsPort
+import com.guanyi.mirra.data.repository.StudyWorkflowRepository
+import org.junit.Assert.assertFalse
 import com.guanyi.mirra.domain.monitoring.BoundSessionMonitoringController
 import com.guanyi.mirra.domain.monitoring.ClockSample
 import com.guanyi.mirra.domain.monitoring.MonitoringSignal
@@ -179,6 +192,222 @@ class ModuleThreeDCloseoutRepositoryTest {
         db.openHelper.writableDatabase.query(
             "SELECT searchableText FROM search_fts WHERE entityType = 'SESSION' AND entityId = ?", arrayOf(sessionId),
         ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.getString(0)) } }
+
+    @Test fun finalSettlementBackwardClockUsesOnlyDurableLossBoundary() = runTest {
+        verifyRuntimeBackwardCloseout(alreadyObserved = false)
+    }
+
+    @Test fun previouslyObservedBackwardClockStillAllowsPreciseCloseout() = runTest {
+        verifyRuntimeBackwardCloseout(alreadyObserved = true)
+    }
+
+    private suspend fun verifyRuntimeBackwardCloseout(alreadyObserved: Boolean) {
+        val s = startMonitored()
+        val controller = BoundSessionMonitoringController(RepositoryRuntimeFactsPort(focus()))
+        val binding = MonitoringBinding(s.id, "clock-fixture", 0)
+        val trusted = ClockSample(2_000, 1_000)
+        wallNow = trusted.wallNowMillis
+        controller.onSample(binding, MonitorSnapshot(running = true, queryGeneration = 2,
+            lastSuccessfulQueryElapsed = 1_000, lastSuccessfulQueryClock = trusted), trusted)
+        val final = ClockSample(100, 2_000)
+        wallNow = final.wallNowMillis
+        if (alreadyObserved) controller.onSample(binding, MonitorSnapshot(running = false,
+            queryGeneration = 2, lastSuccessfulQueryElapsed = 1_000, lastSuccessfulQueryClock = trusted,
+            signals = setOf(MonitoringSignal.WALL_CLOCK_JUMP)), final)
+        val manager = DefaultSessionManager(workflow(), closeoutWithMonitoringFacts = { id, sample, block ->
+            controller.closeoutWithFacts(id, sample, block)
+        })
+        val result = manager.finish(s.id, 20, final) as SessionFinishResult.Completed
+        assertEquals(2_000L, result.session.endedAt)
+        assertEquals(SessionEndType.NORMAL, result.session.endType)
+        assertEquals(MonitoringCoverage.PARTIAL, db.focusDao().getContext(s.id)?.monitoringStatus)
+        assertEquals(2_000L, db.focusDao().getContext(s.id)?.monitoringLostAt)
+        assertEquals(listOf(SessionSegmentType.FOCUS), db.focusDao().listSegments(s.id).map { it.type })
+        assertEquals(result, manager.retryPendingFinish(s.id))
+    }
+
+    @Test fun realSixSecondGapSettlesBeforeCloseout() = runTest {
+        val s = startMonitored()
+        val controller = BoundSessionMonitoringController(RepositoryRuntimeFactsPort(focus()))
+        wallNow = 2_000
+        controller.onSample(MonitoringBinding(s.id, "clock-fixture", 0), MonitorSnapshot(running = true,
+            queryGeneration = 2, lastSuccessfulQueryElapsed = 1_000, lastSuccessfulQueryClock = ClockSample(2_000, 1_000)), ClockSample(2_000, 1_000))
+        wallNow = 8_000
+        val manager = DefaultSessionManager(workflow(), closeoutWithMonitoringFacts = { id, sample, block -> controller.closeoutWithFacts(id, sample, block) })
+        manager.finish(s.id, 20, ClockSample(8_000, 7_000))
+        assertEquals(MonitoringCoverage.PARTIAL, db.focusDao().getContext(s.id)?.monitoringStatus)
+        val segments = db.focusDao().listSegments(s.id)
+        assertEquals(listOf(SessionSegmentType.FOCUS, SessionSegmentType.UNMONITORED), segments.map { it.type })
+        assertEquals(2_000L, segments.last().startedAt)
+        assertEquals(8_000L, segments.last().endedAt)
+    }
+
+    @Test fun olderConfirmSampleDoesNotInventMonitoringLoss() = runTest {
+        val s = startMonitored()
+        val controller = BoundSessionMonitoringController(RepositoryRuntimeFactsPort(focus()))
+        wallNow = 2_001
+        controller.onSample(MonitoringBinding(s.id, "clock-fixture", 0), MonitorSnapshot(running = true,
+            queryGeneration = 2, lastSuccessfulQueryElapsed = 1_001, lastSuccessfulQueryClock = ClockSample(2_001, 1_001)), ClockSample(2_001, 1_001))
+        val manager = DefaultSessionManager(workflow(), closeoutWithMonitoringFacts = { id, sample, block -> controller.closeoutWithFacts(id, sample, block) })
+        manager.finish(s.id, 20, ClockSample(2_000, 1_000))
+        assertEquals(2_000L, db.sessionDao().get(s.id)?.endedAt)
+        assertEquals(MonitoringCoverage.FULL, db.focusDao().getContext(s.id)?.monitoringStatus)
+        assertEquals(listOf(SessionSegmentType.FOCUS), db.focusDao().listSegments(s.id).map { it.type })
+    }
+
+    @Test fun blockedAndroidCleanupDoesNotHoldFactsMutexOrRoomTransaction() = runTest {
+        val s = startMonitored()
+        val controller = BoundSessionMonitoringController(RepositoryRuntimeFactsPort(focus()))
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        wallNow = 2_000
+        val manager = DefaultSessionManager(workflow(), closeoutWithMonitoringFacts = { id, sample, block -> controller.closeoutWithFacts(id, sample, block) },
+            cleanupClosedSession = {
+                assertFalse(db.inTransaction())
+                entered.complete(Unit)
+                release.await()
+            })
+        val finish = async(Dispatchers.IO) { manager.finish(s.id, 20, ClockSample(2_000, 1_000)) }
+        try {
+            withContext(Dispatchers.IO) { withTimeout(5_000) { entered.await() } }
+            withContext(Dispatchers.IO) { withTimeout(5_000) { controller.refresh(s.id, ClockSample(3_000, 2_000)) } }
+            assertNull(db.focusDao().getActiveSegment(s.id))
+            assertEquals(SessionEndType.NORMAL, db.sessionDao().get(s.id)?.endType)
+            assertEquals(FocusCloseoutState.COMPLETED, workflow().getCloseoutState(s.id))
+        } finally { release.complete(Unit) }
+        assertTrue(finish.await() is SessionFinishResult.Completed)
+    }
+
+    @Test fun committedLossWithFailedProofReadCanRetryWithoutRewritingLoss() = runTest {
+        val s = startMonitored()
+        val delegate = RepositoryRuntimeFactsPort(focus())
+        var failRead = true
+        val port = object : RuntimeFactsPort by delegate {
+            override suspend fun read(sessionId: String): com.guanyi.mirra.data.repository.RuntimeFocusFacts? {
+                val facts = delegate.read(sessionId)
+                if (facts?.coverage == MonitoringCoverage.PARTIAL && failRead) { failRead = false; error("proof read failed") }
+                return facts
+            }
+        }
+        val controller = BoundSessionMonitoringController(port)
+        val binding = MonitoringBinding(s.id, "clock-fixture", 0)
+        wallNow = 2_000
+        controller.onSample(binding, MonitorSnapshot(running = true, queryGeneration = 2,
+            lastSuccessfulQueryElapsed = 1_000, lastSuccessfulQueryClock = ClockSample(2_000, 1_000)), ClockSample(2_000, 1_000))
+        wallNow = 100
+        expectFailure { controller.onSample(binding, MonitorSnapshot(running = false,
+            signals = setOf(MonitoringSignal.WALL_CLOCK_JUMP)), ClockSample(100, 2_000)) }
+        assertEquals(2_000L, db.focusDao().getContext(s.id)?.monitoringLostAt)
+        val manager = DefaultSessionManager(workflow(), closeoutWithMonitoringFacts = { id, sample, block -> controller.closeoutWithFacts(id, sample, block) })
+        val completed = manager.finish(s.id, 20, ClockSample(100, 2_000)) as SessionFinishResult.Completed
+        assertEquals(2_000L, completed.session.endedAt)
+        assertEquals(MonitoringCoverage.PARTIAL, db.focusDao().getContext(s.id)?.monitoringStatus)
+    }
+
+    @Test fun actualJobCancellationAfterUnknownBeginCommitInvalidatesAndCleansPending() = runTest {
+        val s = startMonitored()
+        val base = workflow()
+        val committed = CompletableDeferred<Unit>()
+        val cleaned = CompletableDeferred<Unit>()
+        val controller = BoundSessionMonitoringController(RepositoryRuntimeFactsPort(focus()))
+        wallNow = 2_000
+        controller.refresh(s.id, ClockSample(2_000, 1_000))
+        assertEquals(s.id, controller.focusStatus.value.sessionId)
+        val hiddenReturn = object : StudyWorkflowRepository by base {
+            override suspend fun beginCloseout(sessionId: String, requestedEndPage: Int, closeoutStartedAt: Long,
+                backwardClockEvidence: BackwardClockCloseoutEvidence?): com.guanyi.mirra.data.local.model.CloseoutSnapshot {
+                base.beginCloseout(sessionId, requestedEndPage, closeoutStartedAt, backwardClockEvidence)
+                committed.complete(Unit)
+                awaitCancellation()
+            }
+        }
+        val manager = DefaultSessionManager(hiddenReturn, closeoutWithMonitoringFacts = { id, sample, block -> controller.closeoutWithFacts(id, sample, block) },
+            cleanupClosedSession = { assertNull(controller.focusStatus.value.sessionId); assertFalse(db.inTransaction()); cleaned.complete(Unit) })
+        val job = async(Dispatchers.Default) { manager.finish(s.id, 20, ClockSample(2_000, 1_000)) }
+        withContext(Dispatchers.IO) { withTimeout(5_000) { committed.await(); job.cancelAndJoin(); cleaned.await() } }
+        assertTrue(job.isCancelled)
+        assertEquals(FocusCloseoutState.PENDING, base.getCloseoutState(s.id))
+        assertEquals(2_000L, base.getCloseoutSnapshot(s.id)?.closeoutStartedAt)
+        assertTrue(manager.retryPendingFinish(s.id) is SessionFinishResult.Completed)
+    }
+
+    @Test fun closeoutRacesRiskAndBehaviorWithoutReopeningSegments() = runTest {
+        val s = startMonitored()
+        val controller = BoundSessionMonitoringController(RepositoryRuntimeFactsPort(focus()))
+        val base = workflow()
+        val committed = CompletableDeferred<Unit>(); val finishA = CompletableDeferred<Unit>()
+        val pausedA = object : StudyWorkflowRepository by base {
+            override suspend fun beginCloseout(sessionId: String, requestedEndPage: Int, closeoutStartedAt: Long,
+                backwardClockEvidence: BackwardClockCloseoutEvidence?): com.guanyi.mirra.data.local.model.CloseoutSnapshot {
+                val result = base.beginCloseout(sessionId, requestedEndPage, closeoutStartedAt, backwardClockEvidence)
+                committed.complete(Unit); finishA.await(); return result
+            }
+        }
+        wallNow = 3_000
+        val manager = DefaultSessionManager(pausedA, closeoutWithMonitoringFacts = { id, sample, block -> controller.closeoutWithFacts(id, sample, block) })
+        val segment = db.focusDao().getActiveSegment(s.id)!!
+        val closing = async(Dispatchers.IO) { manager.finish(s.id, 20, ClockSample(2_000, 1_000)) }
+        withContext(Dispatchers.IO) { withTimeout(5_000) { committed.await() } }
+        val action = async(Dispatchers.IO) { controller.startBreak(s.id, segment.id, 300_000, ClockSample(3_000, 2_000)) }
+        val risk = async(Dispatchers.IO) { controller.onSample(MonitoringBinding(s.id, "clock-fixture", 0),
+            MonitorSnapshot(running = true, lastSuccessfulQueryElapsed = 2_000, lastSuccessfulQueryClock = ClockSample(3_000, 2_000)), ClockSample(3_000, 2_000)) }
+        finishA.complete(Unit); closing.await(); risk.await()
+        assertEquals(com.guanyi.mirra.domain.monitoring.FocusActionResult.EXPIRED, action.await())
+        assertNull(db.focusDao().getActiveSegment(s.id))
+        assertEquals(listOf(SessionSegmentType.FOCUS), db.focusDao().listSegments(s.id).map { it.type })
+        assertTrue(db.focusDao().listEvents(s.id).isEmpty())
+    }
+
+    @Test fun permissionLossCannotBorrowBackwardProof() = runTest {
+        val s = startMonitored()
+        val controller = BoundSessionMonitoringController(RepositoryRuntimeFactsPort(focus()))
+        val binding = MonitoringBinding(s.id, "clock-fixture", 0)
+        wallNow = 2_000
+        controller.onSample(binding, MonitorSnapshot(running = true, queryGeneration = 2,
+            lastSuccessfulQueryElapsed = 1_000, lastSuccessfulQueryClock = ClockSample(2_000, 1_000)), ClockSample(2_000, 1_000))
+        // A real permission/service loss is not observed backward-clock evidence.
+        controller.onServiceLost(binding, ClockSample(2_000, 1_000), "permission revoked")
+        wallNow = 100
+        val manager = DefaultSessionManager(workflow(), closeoutWithMonitoringFacts = { id, sample, block -> controller.closeoutWithFacts(id, sample, block) })
+        assertIllegalBoundary { manager.finish(s.id, 20, ClockSample(100, 2_000)) }
+        assertEquals(FocusCloseoutState.ACTIVE, workflow().getCloseoutState(s.id))
+        assertEquals(MonitoringCoverage.PARTIAL, db.focusDao().getContext(s.id)?.monitoringStatus)
+    }
+
+    @Test fun newBindingGenerationCannotBorrowPreviousBackwardProof() = runTest {
+        val s = startMonitored()
+        val controller = BoundSessionMonitoringController(RepositoryRuntimeFactsPort(focus()))
+        val old = MonitoringBinding(s.id, "clock-fixture", 0)
+        wallNow = 2_000
+        controller.onSample(old, MonitorSnapshot(running = true, queryGeneration = 2,
+            lastSuccessfulQueryElapsed = 1_000, lastSuccessfulQueryClock = ClockSample(2_000, 1_000)), ClockSample(2_000, 1_000))
+        wallNow = 100
+        controller.onSample(old, MonitorSnapshot(running = false, signals = setOf(MonitoringSignal.WALL_CLOCK_JUMP)), ClockSample(100, 2_000))
+        controller.onSample(MonitoringBinding(s.id, "different-generation", 2_000), MonitorSnapshot(running = true), ClockSample(100, 2_000))
+        val manager = DefaultSessionManager(workflow(), closeoutWithMonitoringFacts = { id, sample, block -> controller.closeoutWithFacts(id, sample, block) })
+        assertIllegalBoundary { manager.finish(s.id, 20, ClockSample(100, 2_000)) }
+        assertEquals(FocusCloseoutState.ACTIVE, workflow().getCloseoutState(s.id))
+    }
+
+    @Test fun failedCompleteClearsRealPromptBeforeBlockedCleanup() = runTest {
+        focus().replaceRiskApp("risk", "Test app")
+        val s = startMonitored()
+        wallNow = 12_000
+        val segment = db.focusDao().getActiveSegment(s.id)!!
+        assertTrue(focus().confirmRisk(com.guanyi.mirra.data.repository.RiskConfirmation(s.id, segment.id, "risk", 2_000, 12_000)))
+        val controller = BoundSessionMonitoringController(RepositoryRuntimeFactsPort(focus()))
+        controller.refresh(s.id, ClockSample(12_000, 11_000))
+        assertTrue(controller.intervention.value != null)
+        db.openHelper.writableDatabase.execSQL("CREATE TEMP TRIGGER fail_complete BEFORE UPDATE OF closeoutState ON session_focus_contexts WHEN NEW.closeoutState = 'COMPLETED' BEGIN SELECT RAISE(ABORT, 'injected complete'); END")
+        val entered = CompletableDeferred<Unit>(); val release = CompletableDeferred<Unit>()
+        val manager = DefaultSessionManager(workflow(), closeoutWithMonitoringFacts = { id, sample, block -> controller.closeoutWithFacts(id, sample, block) },
+            cleanupClosedSession = { assertNull(controller.intervention.value); assertNull(controller.focusStatus.value.sessionId); entered.complete(Unit); release.await() })
+        val job = async(Dispatchers.IO) { manager.finish(s.id, 20, ClockSample(12_000, 11_000)) }
+        try { withContext(Dispatchers.IO) { withTimeout(5_000) { entered.await() } }; assertEquals(FocusCloseoutState.PENDING, workflow().getCloseoutState(s.id)) }
+        finally { release.complete(Unit) }
+        assertEquals(SessionFinishResult.PendingRetry(s.id), job.await())
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_complete")
+    }
 
     private suspend fun expectFailure(block: suspend () -> Unit) {
         var failed = false

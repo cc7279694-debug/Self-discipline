@@ -123,13 +123,13 @@ class BoundSessionMonitoringControllerTest {
         } catch (_: IllegalStateException) { }
         var finished = false
         try {
-            controller.finishWithFacts { finished = true }
+            controller.closeoutWithFacts("s", ClockSample(4_000, 3_000)) { _, _ -> finished = true }
             fail("Finish must not leave an unrecorded loss as FULL")
         } catch (_: IllegalStateException) { }
         assertFalse(finished)
         port.failLoss = false
         controller.onServiceLost(binding, ClockSample(5_000, 4_000), "retry")
-        controller.finishWithFacts { finished = true }
+        controller.closeoutWithFacts("s", ClockSample(5_000, 4_000)) { _, _ -> finished = true }
         assertTrue(finished)
         assertEquals(1, port.losses.size)
     }
@@ -142,6 +142,8 @@ class BoundSessionMonitoringControllerTest {
         observation = observation, lastEventWallMillis = eventWall)
 
     private class FakeFacts(segment: SessionSegmentEntity) : RuntimeFactsPort {
+        var closeout = com.guanyi.mirra.data.local.entity.FocusCloseoutState.ACTIVE
+        override suspend fun closeoutState(sessionId: String) = if (sessionId == "old") com.guanyi.mirra.data.local.entity.FocusCloseoutState.COMPLETED else closeout
         var current = RuntimeFocusFacts(1_000, segment, MonitoringCoverage.FULL, 1_000, setOf("risk"))
         var failLoss = false
         val heartbeats = mutableListOf<Long>()
@@ -170,5 +172,20 @@ class BoundSessionMonitoringControllerTest {
                 type = SessionSegmentType.RECOVERY, startedAt = at))
             return true
         }
+    }
+
+    @Test fun completedOldSessionReplayMustNotClearNewBindingCandidateOrStatus() = runTest {
+        val p = FakeFacts(segment)
+        val controller = BoundSessionMonitoringController(p)
+        controller.onSample(binding, snapshot(2_000, 1_000,
+            ForegroundObservation.Package("risk", 1_000, 1_500)), ClockSample(2_000, 1_000))
+        val status = controller.focusStatus.value
+        controller.closeoutWithFacts("old", ClockSample(2_000, 1_000)) { _, invalidate -> invalidate() }
+        assertEquals(status, controller.focusStatus.value)
+        for (second in 2L..11L) controller.onSample(binding,
+            snapshot(1_000 + second * 1_000, second * 1_000, ForegroundObservation.Package("risk", second * 1_000, 1_500)),
+            ClockSample(1_000 + second * 1_000, second * 1_000))
+        assertEquals(1, p.confirmations.size)
+        assertEquals(1_500L, p.confirmations.single().candidateStartedAt)
     }
 }
