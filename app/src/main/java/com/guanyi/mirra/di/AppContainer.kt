@@ -132,6 +132,7 @@ interface AppContainer {
     val crossAppInterventionActions: com.guanyi.mirra.feature.profile.CrossAppInterventionUserActions? get() = null
     val interventionNavigation: com.guanyi.mirra.domain.intervention.InterventionNavigationController? get() = null
     val readingAnalyticsService: ReadingAnalyticsService
+    val readingRecordService: com.guanyi.mirra.domain.ReadingRecordService
     val completionPredictionService: CompletionPredictionService
     val analyticsTimeProvider: AnalyticsTimeProvider
     val sessionManager: SessionManager
@@ -140,6 +141,7 @@ interface AppContainer {
 }
 
 class DefaultAppContainer(context: Context, private val monitoringRuntime: MonitoringPlatformRuntime) : AppContainer {
+    override val readingRecordService = com.guanyi.mirra.domain.ReadingRecordService()
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val database = Room.databaseBuilder(
         context,

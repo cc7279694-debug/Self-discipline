@@ -25,16 +25,12 @@ import com.guanyi.mirra.data.repository.SearchRepository
 import com.guanyi.mirra.data.repository.SearchResult
 import com.guanyi.mirra.data.search.SearchDocumentType
 import kotlinx.coroutines.launch
-import com.guanyi.mirra.data.repository.StudyWorkflowRepository
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.CancellationException
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @OptIn(FlowPreview::class)
 class SearchViewModel(private val repository: SearchRepository) : ViewModel() {
@@ -117,21 +113,6 @@ private val SearchDocumentType.label: String get() = when (this) {
     SearchDocumentType.SESSION -> "阅读总结"
 }
 
-class SessionSearchDetailViewModel(sessionId: String, workflow: StudyWorkflowRepository) : ViewModel() {
-    val session = workflow.observeSession(sessionId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-}
-
-@Composable fun SessionSearchDetailScreen(viewModel: SessionSearchDetailViewModel, onBack: () -> Unit) {
-    val session by viewModel.session.collectAsStateWithLifecycle()
-    Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("阅读记录", style = MaterialTheme.typography.headlineMedium)
-        Text(session?.generatedSummary ?: "总结不存在", style = MaterialTheme.typography.titleLarge)
-        session?.let { value ->
-            Text("第 ${value.startPage}–${value.endPage ?: value.currentPage} 页")
-            val minutes = ((value.endedAt ?: value.startedAt) - value.startedAt).coerceAtLeast(0) / 60_000
-            Text("阅读时长：$minutes 分钟")
-        }
-        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-        OutlinedButton(onBack, Modifier.fillMaxWidth()) { Text("返回") }
-    }
+@Composable fun SessionSearchDetailScreen(viewModel: com.guanyi.mirra.feature.session.ReadingRecordViewModel, onBack: () -> Unit) {
+    com.guanyi.mirra.feature.session.ReadingRecordPage(viewModel, justSaved = false, onExit = onBack)
 }

@@ -43,13 +43,12 @@ import com.guanyi.mirra.feature.knowledge.CreateTopicViewModel
 import com.guanyi.mirra.feature.knowledge.SearchScreen
 import com.guanyi.mirra.feature.knowledge.SearchViewModel
 import com.guanyi.mirra.feature.knowledge.SessionSearchDetailScreen
-import com.guanyi.mirra.feature.knowledge.SessionSearchDetailViewModel
 import com.guanyi.mirra.feature.profile.ProfileScreen
 import com.guanyi.mirra.feature.session.PreparationScreen
 import com.guanyi.mirra.feature.session.PreparationViewModel
 import com.guanyi.mirra.feature.session.SessionScreen
 import com.guanyi.mirra.feature.session.SessionSummaryScreen
-import com.guanyi.mirra.feature.session.SessionSummaryViewModel
+import com.guanyi.mirra.feature.session.ReadingRecordViewModel
 import com.guanyi.mirra.feature.session.SessionViewModel
 import com.guanyi.mirra.feature.start.StartScreen
 import com.guanyi.mirra.feature.start.StartViewModel
@@ -368,7 +367,7 @@ fun MirraApp(
                 }
                 entry<SessionSearchDetailRoute> { route ->
                     SessionSearchDetailScreen(
-                        viewModel = viewModel(key = "search-session-${route.sessionId}", factory = viewModelFactory { SessionSearchDetailViewModel(route.sessionId, container.studyWorkflowRepository) }),
+                        viewModel = viewModel(key = "search-session-${route.sessionId}", factory = viewModelFactory { ReadingRecordViewModel(route.sessionId, container.readingRecordRepository, container.readingRecordService) }),
                         onBack = ::back,
                     )
                 }
@@ -425,13 +424,14 @@ fun MirraApp(
                         viewModel = viewModel(
                             key = route.sessionId,
                             factory = viewModelFactory {
-                                SessionSummaryViewModel(
+                                ReadingRecordViewModel(
                                     route.sessionId,
-                                    container.studyWorkflowRepository,
-                                    container.noteRepository,
+                                    container.readingRecordRepository,
+                                    container.readingRecordService,
                                 )
                             },
                         ),
+                        dndActions = container.dndUserActions,
                         onDone = { select(TopLevelDestination.Start, persist = true) },
                     )
                 }

@@ -68,9 +68,8 @@ class PhaseOneLearningLoopTest {
         composeRule.onNodeWithTag("confirm-session-finish").performClick()
 
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("本次阅读已保存")).fetchSemanticsNodes().isNotEmpty() }
-        composeRule.onNodeWithText("本次阅读 10–25 页，用时不足 1 分钟，共记录 2 条笔记。").assertExists()
-        composeRule.onNodeWithText("阅读页数：15").assertExists()
-        composeRule.onNodeWithText("Note 数量：2").assertExists()
+        composeRule.onNodeWithText("10 → 25 页 · 15 页").assertExists()
+        composeRule.onNodeWithText("2 条笔记").assertExists()
         composeRule.onNodeWithText("完成").performClick()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("上次停在第 25 页")).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText("25 / 300 页").assertExists()

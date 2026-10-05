@@ -128,7 +128,7 @@ class PhaseOneCorrectionTest {
         composeRule.onNodeWithTag("confirm-session-finish").performClick()
 
         composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(hasText("Note 数量：1")).fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(hasText("1 条笔记")).fetchSemanticsNodes().isNotEmpty()
         }
     }
 
