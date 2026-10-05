@@ -11,7 +11,23 @@
 - Schema1–4 seal and saved pre-validation APK: checkpoint Task1.
 - Task2 controlled Stage A + actual cold start: prepare1 / assert1 actually passed. A durable PENDING at original boundary1791204072064/page42 recovered to COMPLETED/NORMAL at the same boundary before assert runner started; no FGS. Dedicated fixture data only; not hardware power loss.
 - Task2 isolated real Room integration: DND fake release failure/retry and final six-second monitoring gap, 2 actually executed / 2 passed. Fake Android DND failure is not real platform delivery evidence.
-- Actual full UI / offline / cover-install preservation / final APK: not yet completed. Permissions remain unchanged pending explicit authorization.
+- Task4 actual same-binary cover-install: old saved APK → opt-in persistent seed1/1 → install-r current APK → assertion1/1. Aggregate before/after/read checksum79019e05a56c729c137cb4eabed952f7e69652f1411e8d6cc8c538dcafa460fb; original preferences restored. Isolated migration/reopen additionally1/1, not the installation proof.
+- Actual offline NONE chain: page40→temporary4→42, Note35, Break/early end, continue from confirmation, lower end page rejection, final closeout, same Summary/History/Search, local JPEG and its Note. Network restored1/1. End boundary/duration/last Segment/row counts stable after >75s, noFGS. Monitored FULL/Allowance/90s Recovery and platform-granted paths still NOT RUN pending authorization.
+- Final regression / delivery not yet completed; no Phase3D freeze claim.
+
+## Actual screenshots
+
+These seven captures show actual UI on the dedicated AVD with newly controlled test data. They are **NONE / offline / cover-preservation evidence**, not FULL monitoring fixtures or OEM compatibility proof. Only the Topic-detail observation followed network restoration; it is documented separately without an offline claim.
+
+| File | Scope |
+| --- | --- |
+| [offline-finish-confirmation](offline-finish-confirmation.png) | Real pre-final confirmation, page42/Note35; still ACTIVE |
+| [offline-summary-none](offline-summary-none.png) | NORMAL / NONE result, no effective value |
+| [offline-inline-timeline](offline-inline-timeline.png) | Same result page inline timeline |
+| [offline-book-history](offline-book-history.png) | Preserved page42, last summary and history row |
+| [offline-history-record](offline-history-record.png) | History origin, expanded same three segments |
+| [offline-search-record](offline-search-record.png) | Search SESSION origin, identical facts/timeline |
+| [offline-owned-image](offline-owned-image.png) | Real decoded App-owned controlled white JPEG / Caption |
 
 ## Classification
 

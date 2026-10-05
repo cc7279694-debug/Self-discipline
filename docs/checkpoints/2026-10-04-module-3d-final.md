@@ -66,9 +66,57 @@
 
 新 androidTest 首次编译有4处夹具类型／投影字段错误，修正仅在新测试文件，随后编译通过；不是生产回归 RED，也没有修改产品来迎合测试。既有完整 baseline 的 closeout / retry / clock / stale action 覆盖与新增执行证据分别记录。真实 Usage撤权、Service stop、跨应用旧 action 等权限相关人工路径尚未执行，不冒充专项平台 PASS。
 
-## Tasks 3–5
+### Existing matrix coverage, not interchangeable with actual UI
 
-真实用户链、覆盖安装／离线、最终 Gate／交付尚未完成；执行后追加。临时 AVD 权限授权尚未收到确认，未自动授予。
+以下既有测试属于 Task1 的完整自动化；新增两项单独执行，不重复计数。内部只读覆盖审计不是用户独立验收。
+
+| Requirement | Automated evidence | Boundary |
+| --- | --- | --- |
+| 七种 Segment / NONE 精确关闭 | `ModuleThreeDCloseoutRepositoryTest.beginCloseoutFreezesExactSampleAndReleasesOnlySegmentSlot`、`sameBoundaryCloseoutDeletesZeroDurationSegmentWithoutInventedMillis` | 受控类型矩阵，不表示真实等待 Deep 或真实形成每种行为 |
+| B fault / retry / duplicate | `completeFailureRetainsPendingAndRetryUsesOriginalBoundary`、`duplicateBeginAndCompleteNeverRewriteBoundary`、`failedPendingRecoveryNeverBecomesAbnormalAndStillExpiresOldIntent` | 隔离 Room trigger 注入，不是磁盘故障 |
+| backward clock / ordinary early boundary | `backwardClockJumpLossIsDurableBeforeCloseout`、`backwardClockJumpStillAllowsCloseoutAtLastDurableBoundary`、`finalSettlementBackwardClockUsesOnlyDurableLossBoundary`、`ordinaryBoundaryBeforeActiveSegmentStillFailsWithoutClockJumpEvidence`、`permissionLossCannotBorrowBackwardProof` | fake ClockSample + 真实 Room，不修改真实系统时钟 |
+| A/B stale learning facts / receipts | `ModuleThreeDPendingGuardsTest.pendingRejectsEveryFocusWriteEntryWithOriginalReturnSemantics`、`pendingInvalidatesLateReceipts`；`InterventionNavigationTest.sessionEndingAfterSubmitRejectsConsumption` / `processRestartHasNoValidPrompt` | durable guard / 导航消费分层，不等同真实旧外部 PendingIntent 回放 |
+| monitoring loss near finish | `realSixSecondGapSettlesBeforeCloseout`，新增 `lossAtFinalConfirmationNeverProducesTrustedFocus`，Controller 的 service-stop / durable-loss retry 测试 | 自动化真实 Room gap；真实系统撤权／停止服务尚未运行 |
+| page / Note | `SessionFocusUiTest.editingCurrentPageAllowsPartialInputButNeverRollsBackRoomProgress`、`SessionCloseoutViewModelTest.partialPageInputDuringFinishKeepsDurablePageAndOldNote`、`SessionCloseoutUiTest.lowerEndPageIsExplicitlyRejectedThenNormalSummaryKeepsMonotonicProgress` | Compose / VM 自动化；本轮另走普通真实 UI |
+
+## Task 4 — Actual cover installation, initial preservation proof
+
+新增 androidTest-only `ModuleThreeDDataPreservationTest`：两项显式 `data_seed` / `data_assert` gate 默认 Assume；普通 full suite 只运行独立 UUID 数据库的 migration / reopen 用例。没有生产测试开关、清库或额外 Schema。
+
+本轮执行顺序：确认闲置专用 AVD → 实际 `install -r` 保存的 parent APK（成功）→ raw instrumentation seed1/1 → 读取 durable marker → 实际 `install -r` 当前 Debug APK（成功）→ raw assertion1/1。没有 Gradle 在 seed/assert 之间隐式安装 target，没有 uninstall / pm clear / wipe。两份 APK 同为 `68C89D...F674E8`，因此明确是**冻结前后同 binary 覆盖保留**，不是新版本号或数据库迁移。
+
+专用 UUID 图包含 Learning Item、两条 Note、生产导入的私有 JPEG 与 Caption、Topic / 两条关联、Risk App、正常 Closeout Session、旧无 Context / Segment Session、旧可信 3C-style Session、Segment、历史 risk snapshot、FTS 文档及四项逻辑 preference。只新增受控闭合旧形状记录，不改写既有历史，不冒充 READY / FULL 真实监测。包含字段值、ID、关系及文件内容校验，不只比较行数；FTS rowid 不作为业务真相。
+
+- before / after-install / after-record-search-analytics-read aggregate：均为 `79019e05a56c729c137cb4eabed952f7e69652f1411e8d6cc8c538dcafa460fb`。
+- JPEG内容 SHA-256：`df30c3e577a2ac4ef7d299ee08c4c78e0f5e6a28016e6c595c7c206920793fcc`，实际解码及尺寸 / 相对路径 / metadata 均检查。
+- 旧无段 Session 没有长出 Context / Segment / effective facts；可信旧3C形状允许派生 effective，业务与索引 / 图片在读取前后未变。
+- 测试先校验 seed preference（knowledge / night / DND on / cross-app on）保留，再恢复原 knowledge / blue / DND off / cross-app off；没有借恢复让错误 preference 通过。恢复 hash `12311ba07fc3daf6152044c4b02fc96a61901e3c0443addb4bba3da2126bda95`；恢复后除 preference 外的业务 hash `dba3c67843ff9bcf74256921ea29b9890d2e85df18cef1e4ad9a696e72b1d0ae`。最终 durable marker 为 VERIFIED_PREFERENCES_RESTORED。
+- 普通隔离 v3→v4 migration / reopen 定向实际执行1项 / 1 passed，保留 Phase2 overall 样本，五类 focus 表无补造。仅删除该新 UUID 隔离测试库，不触碰持久 mirra.db。与上述真实 APK cover install 证据分列。
+- 内部源码审计修正测试 cleanup 的异常遮蔽：保留原断言异常，清理失败附加 suppressed，保证关闭连接。没有放宽断言。修正后重新编译并执行上述用例均通过。
+
+### Actual offline use and restoration
+
+记录 AVD 原网络 Wi-Fi / mobile data 为1/1，仅对该 AVD 关闭至0/0。实际 Force Stop / MainActivity COLD 启动后，通过 Knowledge → 新建专用书 `3D4 User Flow` 的既有启动准备 → Session 完成普通阅读、页码、Note、Break、结束、Summary / History / Search / 本地图片 / Caption / 图片所属 Note 回看。完成后仅恢复本轮改变的网络至1/1，实际读回已确认；平台权限和实体手机未变。
+
+Note 页35、图片所属独立 Note 页25均显示保留；Topic 的两条 Note 关联经 Repository 校验及覆盖后实际 Topic list / detail 打开确认。Topic detail 打开时网络已恢复，不把该步骤冒充独立离线 Topic 场景。JPEG是受控白色80×120测试图片，照片入口通过夹具生产 import API，不冒充真实相机拍摄。
+
+## Task 3 — Actual NONE flow; monitored chain still outstanding
+
+本轮实际普通 UI 而非注入：
+
+- 书页40 → 临时输入4时只读数据库仍40 → 输入42后数据库42。Note正文 `3D4 offline controlled note`，页码改35，500ms自动保存；休息与确认框均保留草稿和Note。
+- 5min Break 实际开始 / 提前结束；本场 NONE，结束休息回 UNMONITORED，不伪造 RECOVERY / FOCUS。没有真实等待5分钟。
+- 第一下结束出现确认框时，仍 ACTIVE、Session未结束。点击“继续阅读”后仍ACTIVE。再次输入结束页41，明确显示“不能低于已经记录的阅读位置”，数据库仍42/ACTIVE；改42最终确认后NORMAL/COMPLETED。
+- 实际结果 `40→42 / 2页 / 4分钟 / 1条Note / 未开启手机监测`。Session `84a12737-569d-4cef-88df-8a7aa99d5e2e`，结束边界 `1791205099744`，精确duration `252852ms`；3段为 UNMONITORED → BREAK → UNMONITORED，末段同边界。NONE 不显示 effective focus / counts，未把不可用写成可信零。
+- 结果页留置超过75秒后读回，上述Session所有比较字段、末段、Segment数量3、Note数量1均不变。Intent / Session总数保持8/8、Active数量0；没有 FGS ServiceRecord，未重新开始学习。
+- Summary “查看本次记录”原地展开仍有结果标题和“完成”；完成回真实Start。书籍History行进入Reading Record，Back回书籍，再回Knowledge；搜索数字token `4` 得到该Session Summary，进入同一记录，Back回原搜索。三入口同为2页/4分钟/1Note及相同三段标签和时间；没有新Intent/Session。Route / stack断言另外由既有 `ReadingRecordNavigationTest` 自动化证明，不把普通UI截图冒充内部stack检查。
+- 截图全部是上述真实NONE离线路径和受控新增书/Note；不是FULL fixture，也不是本次真实监测 / 90秒Recovery证明。AVD本地timezone=GMT，截图时间按其真实本地时间；主机timezone不替换AVD事实。
+
+已授权真实监测 / risk App / Overlay或Notification / Allowance / 90秒Recovery / near-finish撤Usage access与Service stop：尚未运行，临时专用AVD权限授权仍待用户确认。当前为 partial user-chain evidence，不能写Task3完整监测闭环PASS。未真实等待15min Deep；已自动化规则证据单列。
+
+## Task 5 — Latest regression and handoff
+
+尚未完成最终完整Gate／交付；不会把缺授权的未执行路径标PASS。Phase3D未冻结。
 
 ## Unmeasured boundaries
 
