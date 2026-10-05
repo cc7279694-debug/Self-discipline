@@ -46,9 +46,29 @@
 | 3 | `CCB563F899DD68ECBFBE3369A7939F6D202CD1393508C26E0B33EE6A91CE1205` |
 | 4 | `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9` |
 
-## Tasks 2–5
+## Task 2 — Controlled crash and boundary integration
 
-尚未完成；跨进程故障夹具、真实用户链、覆盖安装／离线、最终 Gate／交付结果在执行后追加。没有将计划项目预先标记 PASS。
+新增 `ModuleThreeDCloseoutCrashFixtureTest`。只有明确的 `pending_prepare` / `pending_assert` 参数、专用 AVD 名称、API37 / ranchu 与真实 AVD 属性均匹配时才执行；默认明确 Assume，不在普通 full suite 留下 PENDING。使用真实持久 `mirra.db` 与 Repository，不新增生产故障入口，不清除既有数据。
+
+本轮实际执行：
+
+1. `pending_prepare` 定向 runner：1 executed / 1 passed / 0 failure / 0 skipped。创建专用书和 Note，持久页码42、Note页35；只执行 Stage A，不执行 Stage B。
+2. prepare runner 结束后目标进程已经退出。只读检查仍为 `PENDING`，确认边界 `1791204072064`，请求页42，Session endedAt / endType 为空，coverage NONE。没有把 instrumentation 的退出写成硬件断电。
+3. 显式 Force Stop，再正常启动 MainActivity：真实 `LaunchState=COLD / Status=ok`。在启动 assert instrumentation **之前**，只读检查已为 `COMPLETED / NORMAL`，endedAt仍为 `1791204072064`，请求页仍42，coverage NONE；没有监测 ServiceRecord。
+4. `pending_assert` 再检查完整数据库事实：1 executed / 1 passed / 0 failure / 0 skipped。没有 Active Session / 活动 Segment，末段精确结束于原边界，Summary / FTS 已完成。
+
+这是“受控 Stage A 故障窗口 + 实际冷启动”，不是硬件断电或真实 SQLite 磁盘失败。准备／断言通过 durable marker 跨进程交接，不依赖 JUnit 顺序，也不在 assert 中重新 seed。
+
+新增 `ModuleThreeDFinalBoundaryTest`，实际定向执行2项 / 2 passed / 0 failure / 0 skipped：
+
+- PENDING 与 COMPLETED 下 DND release 受控失败、重试：真实 Room / Workflow / DND Store / Controller，只有系统能力 fake；冻结 Session / Segment / coverage / 页码不变。Stage B 即使晚到仍使用原结束边界。
+- 最终确认时真实六秒查询缺口：真实 Controller → Manager → Room，先落 PARTIAL / UNMONITORED 再结束。对实际持久事实使用冻结 Validator，得到 MONITORING_INCOMPLETE / effective=null，不为正常结束保住 FULL。
+
+新 androidTest 首次编译有4处夹具类型／投影字段错误，修正仅在新测试文件，随后编译通过；不是生产回归 RED，也没有修改产品来迎合测试。既有完整 baseline 的 closeout / retry / clock / stale action 覆盖与新增执行证据分别记录。真实 Usage撤权、Service stop、跨应用旧 action 等权限相关人工路径尚未执行，不冒充专项平台 PASS。
+
+## Tasks 3–5
+
+真实用户链、覆盖安装／离线、最终 Gate／交付尚未完成；执行后追加。临时 AVD 权限授权尚未收到确认，未自动授予。
 
 ## Unmeasured boundaries
 

@@ -9,7 +9,9 @@
 - Initial unfiltered connected: 268 discovered, 263 passed, 5 explicit unmet-prerequisite assumptions (DND3 / Overlay1 / notification1). Gradle exit0; raw AGP/UTP XML calls these 5 `failure` nodes, reporting 5 failures / 0 errors / 0 skipped. All five are `AssumptionViolatedException`, not executed platform assertions. Preserve both raw-report and execution meanings; NOT a 268/268 clean platform PASS. Channel3 actually executed; DND0. Temporary permission authorization still pending.
 - Initial lint / build: exit0, PASS; lint0 errors / 9 existing warnings / 1 informational hint. Current production APK hash equals the saved parent build.
 - Schema1–4 seal and saved pre-validation APK: checkpoint Task1.
-- Cross-process fixture / actual UI / offline / data preservation / final APK: evidence not yet collected.
+- Task2 controlled Stage A + actual cold start: prepare1 / assert1 actually passed. A durable PENDING at original boundary1791204072064/page42 recovered to COMPLETED/NORMAL at the same boundary before assert runner started; no FGS. Dedicated fixture data only; not hardware power loss.
+- Task2 isolated real Room integration: DND fake release failure/retry and final six-second monitoring gap, 2 actually executed / 2 passed. Fake Android DND failure is not real platform delivery evidence.
+- Actual full UI / offline / cover-install preservation / final APK: not yet completed. Permissions remain unchanged pending explicit authorization.
 
 ## Classification
 
