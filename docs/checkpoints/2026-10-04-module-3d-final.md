@@ -62,11 +62,16 @@
 新增 `ModuleThreeDFinalBoundaryTest`，实际定向执行2项 / 2 passed / 0 failure / 0 skipped：
 
 - PENDING 与 COMPLETED 下 DND release 受控失败、重试：真实 Room / Workflow / DND Store / Controller，只有系统能力 fake；冻结 Session / Segment / coverage / 页码不变。Stage B 即使晚到仍使用原结束边界。
-- 最终确认时真实六秒查询缺口：真实 Controller → Manager → Room，先落 PARTIAL / UNMONITORED 再结束。对实际持久事实使用冻结 Validator，得到 MONITORING_INCOMPLETE / effective=null，不为正常结束保住 FULL。
+- 最终确认时受控 ClockSample 六秒缺口、真实 Controller → Manager → Room 接线，先落 PARTIAL / UNMONITORED 再结束。对实际持久事实使用冻结 Validator，得到 MONITORING_INCOMPLETE / effective=null，不为正常结束保住 FULL；不是实际撤权或真实等待六秒的系统场景。
 
 新 androidTest 首次编译有4处夹具类型／投影字段错误，修正仅在新测试文件，随后编译通过；不是生产回归 RED，也没有修改产品来迎合测试。既有完整 baseline 的 closeout / retry / clock / stale action 覆盖与新增执行证据分别记录。真实 Usage撤权、Service stop、跨应用旧 action 等权限相关人工路径尚未执行，不冒充专项平台 PASS。
 
 ### Existing matrix coverage, not interchangeable with actual UI
+
+补充普通真实UI场景（不依赖新增权限）：
+
+- V-CRASH-01：新 NONE Session 在首次结束确认框内尚未最终确认时 Force Stop。冷启动前 `9b12011f-8a42-4b09-8cab-50e86563c5a1` 为 ACTIVE、endedAt/endType空；正常 MainActivity COLD 后 ABNORMAL、endedAt `1791206264989`，不存在PENDING结束决定。Active Session / Segment数量0/0，无FGS；没有恢复学习。
+- V-CLOSE-04：另一个真实 NONE Session 开始5min Break，直接点击阅读结束并最终确认，没有先“提前结束休息”。`fdd57f3d-b1e7-4880-b7af-09cefbe484de` 为NORMAL/COMPLETED/NONE，42→42/0页/0Note，末段BREAK精确闭合在 `1791206348805`；没有新增Recovery/Allowance/Focus。不是完整监测的Break样本，不把NONE当可信。
 
 以下既有测试属于 Task1 的完整自动化；新增两项单独执行，不重复计数。内部只读覆盖审计不是用户独立验收。
 
@@ -112,11 +117,50 @@ Note 页35、图片所属独立 Note 页25均显示保留；Topic 的两条 Note
 - Summary “查看本次记录”原地展开仍有结果标题和“完成”；完成回真实Start。书籍History行进入Reading Record，Back回书籍，再回Knowledge；搜索数字token `4` 得到该Session Summary，进入同一记录，Back回原搜索。三入口同为2页/4分钟/1Note及相同三段标签和时间；没有新Intent/Session。Route / stack断言另外由既有 `ReadingRecordNavigationTest` 自动化证明，不把普通UI截图冒充内部stack检查。
 - 截图全部是上述真实NONE离线路径和受控新增书/Note；不是FULL fixture，也不是本次真实监测 / 90秒Recovery证明。AVD本地timezone=GMT，截图时间按其真实本地时间；主机timezone不替换AVD事实。
 
-已授权真实监测 / risk App / Overlay或Notification / Allowance / 90秒Recovery / near-finish撤Usage access与Service stop：尚未运行，临时专用AVD权限授权仍待用户确认。当前为 partial user-chain evidence，不能写Task3完整监测闭环PASS。未真实等待15min Deep；已自动化规则证据单列。
+计划要求的真实监测 / risk App / Overlay或Notification / Allowance / 90秒Recovery / near-finish撤Usage access与Service stop：尚未运行，临时专用AVD权限授权仍待用户确认。当前为 partial user-chain evidence，不能写Task3完整监测闭环PASS。未真实等待15min Deep；已自动化规则证据单列。
 
-## Task 5 — Latest regression and handoff
+## Task 5 — Latest available-environment regression and partial handoff
 
-尚未完成最终完整Gate／交付；不会把缺授权的未执行路径标PASS。Phase3D未冻结。
+2026-10-05最新一次完整未过滤执行，不用定向测试拼全量结果：
+
+- JVM `testDebugUnitTest --rerun-tasks --no-daemon`：实际45 suites / 318 total / 318 passed / 0 failure / 0 error / 0 skipped，BUILD SUCCESSFUL，5m29s；XML全部本轮21:15更新。
+- connected完整单次执行10m11s，runner/Gradle退出0。XML275 total / 266 passed / 原始9failure / 0error / 0skipped；逐项读取failure正文，9项全部为 `AssumptionViolatedException`，实际业务断言失败0。4项是本包opt-in pending_prepare / pending_assert / data_seed / data_assert默认不执行；另5项是原DND3 / Overlay1 / notification1缺权限。不可宣称275/275 clean PASS，也不改写原始报告。
+- 4项opt-in此前明确专项分别1/1实际执行通过，保留Task2/4原证据，不把它们补加到本次full-suite的266 passed。普通隔离preservation1项与新增boundary2项均在本次full suite实际通过。
+- DND平台本次0项实际执行；渠道3项实际执行（missingOverlayPermissionDoesNotAttachOrCrash、notificationDenialReturnsUnavailableNotPosted、independentChannelDoesNotBypassDndAndStartupCancelIsIdempotent），granted Overlay与notification未执行。平台授权没有改变。
+- `lintDebug / assembleDebug --no-daemon` 退出0 / BUILD SUCCESSFUL，1m57s；读取实际lint XML：0errors / 9existing warnings / 1hint。生产lint/build相同输入部分UP-TO-DATE，新androidTest分析实际执行，不把UP-TO-DATE冒称源文件重写。
+- Schema1–4本轮再次hash，与Task1表完全一致；version4、生产代码/Entity/Migration/Gradle相对parent仍无diff，没有5.json、没有生产fix commit。
+
+### Candidate Debug APK — exact installed file, not completed release
+
+最新构建复制到 `build/deliverables/Mirra-3D4-debug.apk`；本地候选个人Debug包、不入Git，不表示3D-4已全部完成或release验收。
+
+- Build source HEAD: `c39c8f98cc71b502e1cc96efc0d5863585f0625e`；后续仅文档交接。生产树仍为冻结3D-3，没有产品修补。
+- Bytes: `16488770`.
+- SHA-256: `68C89D5948E34E3EF48DE374CA2043B6B5D0EE43702E7D3B63E7A1CE3EF674E8`.
+- applicationId `com.guanyi.mirra`; versionName `0.1.0`; versionCode `1`; minSdk23 / targetSdk37。
+- 交付文件hash与parent保存APK相同，如实写同binary，不假造新版差异。对上述确切交付文件执行真实 `adb install -r`，返回Success；之前Active Session/Segment为0/0，无签名冲突，不卸载、不清数据。
+- 显式Force Stop后正常MainActivity启动：`Status=ok / LaunchState=COLD / TotalTime=2856ms`，真实Knowledge页可见。UI自动化首次snapshot的null-root重试后取得新XML；历史工具SQL引号/误用派生duration字段错误只发生在只读查询，修正后读回成功，没有业务写入或产品失败。
+- 安装后实际History进入旧NONE记录、Search数字token4进入同一记录并展开：2页 / 4分钟 / 1Note，仍为UNMONITORED→BREAK→UNMONITORED。再次读回endedAt `1791205099744` / duration `252852ms` / current=endPage42 / NORMAL / NONE / COMPLETED / Segment数3及末段原boundary；没有Active Session/Segment或FGS。
+- 专用preservation书仍40页，两个Note仍25/35页，ImageAsset仍1条，Topic关联2条；legacy无context/segment仍0/0，旧可信3C形态Segment仍2条。Task4全面字段/checksum及图片校验保留，以上是候选安装后的额外只读抽查，不把抽查冒充重新执行完整checksum断言。
+- AVD网络读回1/1；Usage与Overlay仍default、DND/通知仍未授权。没有实体手机操作。
+
+### Remaining requirements and stopping point
+
+本包目前是部分验证交接，不是最终完成；没有确认的生产回归，也不因此改核心。仅等待用户确认临时专用AVD平台权限，收到许可后沿原计划继续，不另开产品设计。
+
+- 真实Start主线→Preparation→FULL Session→risk App→Overlay / Notification→Allowance→连续90秒Recovery→阅读→最终结束的完整链：NOT RUN pending authorization。NONE普通UI链已执行，不能替代FULL。
+- 真实Usage Access near-finish撤权、controlled monitor stop near-finish、旧Overlay/Notification/PendingIntent在A/B后实际回放：本包手工NOT RUN；自动化gap/guard/stale tests已执行，证据不混用。
+- 手工Stage B失败/PENDING retry UI可达性未执行；既有真实Room fault injection及Compose `recreatedPendingBackCannotResumeAndRetryUsesFrozenDecision` 属于本次full suite自动化，不冒充额外手工故障场景。
+- V-VISUAL-01本轮FULL/PARTIAL实际截图、320/360/411dp与fontScale2专项：NOT RUN；3D-3的既有尺寸/大字证据是历史，不写本包新PASS。真实15分钟Deep仍NOT RUN，自动化规则证据单列。
+- 授权后补专项及已授权平台run，再决定最终Gate与完成报告；本次不会输出3D-4完成或自行Freeze。独立用户验收尚未开始；内部源码/覆盖审计不冒充用户验收。
+
+### Task commits
+
+- Task1：`38dd9efae82ac0c7926738338eff791d12c38986` — `test(focus): record phase 3d automated regression`。
+- Task2：`f39277b6703e4191a3dca7043fbb711ce68164f5` — `test(focus): verify pending closeout crash windows`。
+- Task4及真实NONE路径：`c39c8f98cc71b502e1cc96efc0d5863585f0625e` — `test(records): verify offline upgrade data preservation`。
+- Task3真实监测链未完成，不创建误称完整闭环的commit；本次纯文档partial handoff提交另报SHA，不替代冻结实现SHA。
+- 用户已授权本功能分支commit / push，不squash、不合并main、不发布。提交前diff/secret/schema核对及推送后local/remote/clean核对在实际Git执行后报告；不把预期状态写成既成事实。
 
 ## Unmeasured boundaries
 
