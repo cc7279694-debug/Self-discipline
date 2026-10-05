@@ -4,7 +4,7 @@
 
 - Exact parent: `80ece95cf24918627e57a57bb6a6d94c253528b0`.
 - Environment: explicitly selected `Mirra_API_37`, Android 17 / API37 AOSP AVD. No physical-device operations.
-- Scope: frozen production semantics, tests / controlled fixtures / validation only. 3D-4 partial handoff; required granted-monitoring chain remains outstanding before final independent acceptance.
+- Scope: frozen production semantics, tests / controlled fixtures / validation only. 3D-4 incomplete: authorized platform assertions passed, Recovery-after-external-entry anomaly requires review. No Phase3D freeze.
 - Initial JVM: 318 total / 318 executed / 318 passed / 0 failure / 0 error / 0 skipped.
 - Initial unfiltered connected: 268 discovered, 263 passed, 5 explicit unmet-prerequisite assumptions (DND3 / Overlay1 / notification1). Gradle exit0; raw AGP/UTP XML calls these 5 `failure` nodes, reporting 5 failures / 0 errors / 0 skipped. All five are `AssumptionViolatedException`, not executed platform assertions. Preserve both raw-report and execution meanings; NOT a 268/268 clean platform PASS. Channel3 actually executed; DND0. Temporary permission authorization still pending.
 - Initial lint / build: exit0, PASS; lint0 errors / 9 existing warnings / 1 informational hint. Current production APK hash equals the saved parent build.
@@ -35,3 +35,21 @@ These seven captures show actual UI on the dedicated AVD with newly controlled t
 ## Classification
 
 Ordinary UI execution、controlled fault + actual cold start、isolated Room/fake-clock automation分别记录。预置 FULL fixture 不表示真实监测；Notification POSTED 不表示 SHOWN；未实际等待15分钟不表示真实 Deep Focus。发布级 API/OEM/TalkBack/release 未测项保持 NOT RUN。
+
+## Authorized supplement and current blocker
+
+以上授权等待/full-suite assumptions为授权前历史，保留不删除。最新实际执行与恢复见 [permission and Recovery handoff](authorized-permissions-and-recovery-review.md)：平台8/8实际断言PASS，原五项permission cases真正执行；第一场FULL/in-app Recovery91.566sec成功，第二场跨应用Overlay后的Recovery在独立无UI抓取窗口>120sec仍未完成。停止相关链路、不修改生产或测试、不宣布3D-4完成。
+
+原四权限、DND/cross-app偏好、风险选择、Knowledge目的地及网络均恢复读回；无活动Session/Segment、FGS、Overlay、干预通知和意外active Mirra rule。根因待审，FULL+心跳不证明positive page evidence。最终granted full suite、重复opt-in、near-finish专项和Task5最终Gate未执行，不用平台8项替代。
+
+| Actual capture | Evidence |
+| --- | --- |
+| [Closeout UI](authorized-closeout-disabled.png) | First Session end operation: page43 and disabled controls; this is not a confirmation-dialog capture |
+| [FULL Summary](authorized-full-summary.png) | First Session NORMAL/FULL/effectiveFocus2min |
+| [FULL timeline](authorized-full-timeline.png) | Same first Session inline record, no new route |
+| [Overlay](authorized-overlay.png) | Second Session actual bounded Overlay over Chrome |
+| [Recovery anomaly](recovery-after-overlay-not-completed.png) | Second Session stillRecovery after independent>120sec window; notPASS |
+
+All captures are dedicated-AVD actual UI with controlled test data, not seeded FULL fixture, generated concept art or physical-device proof. Full raw logs and permission snapshots remain local only. Session Notification fallback remainsNOT RUN; platform notification assertions provePOSTED, notSHOWN.
+
+Additional Break / in-app / extension / pre-success Recovery snapshots stay in the local ignored ledger; only five essential new captures are submitted.

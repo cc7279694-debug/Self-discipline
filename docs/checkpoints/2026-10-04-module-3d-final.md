@@ -1,6 +1,6 @@
 # Phase 3D-4 — Final validation and personal-use delivery
 
-日期：2026-10-05。状态：执行中，尚未最终独立验收；不表示 Phase 3D 已冻结。
+日期：2026-10-05。状态：权限专项已执行并恢复；外部入口后的Recovery异常待审查，3D-4尚未完成；不表示 Phase 3D 已冻结。
 
 ## Contract and exact parent
 
@@ -165,3 +165,16 @@ Note 页35、图片所属独立 Note 页25均显示保留；Topic 的两条 Note
 ## Unmeasured boundaries
 
 API23–36 full matrix、完整 OEM matrix、完整实体设备 compatibility、TalkBack、release / Play、真实硬件断电、人工真实系统时钟修改：NOT RUN。本包 API37 结果不外推；一加13T没有本包新反馈，不记录 compatibility PASS。
+
+## Authorized permission supplement — Recovery review required
+
+用户在基线 `f8fa4ace60e3224354244a98114158e698ec950f` 明确授权仅专用API37 AVD四项权限。上文“待授权”与266passed/9assumptions是授权前历史，不作为本轮当前状态；完整新步骤、时间线、测试计数、异常与恢复见 [authorized supplement](../evidence/phase3d-final/authorized-permissions-and-recovery-review.md)。
+
+- 四项原状态先可靠读回并仅存本地ledger；授权后实际重新读回。raw平台8项均实际执行，8passed / 0failure/error/skipped；原五项缺权限测试本次真正进入主体。DND rule ownership/reuse/activation/release/globalPolicy、Overlay和Notification断言通过，POSTED不冒称SHOWN。
+- 第一场真实FULL Session完成in-app分心→Allowance/一次延长→91.566sec Recovery→FOCUS→正常精确Closeout / DND RELEASED。Note保留，结果可派生120191ms有效Focus。跨应用开关此场实际OFF，证据不混为外部渠道。
+- 第二场跨应用ON，真实ChromeOverlay及receipt成功；Allowance提前结束后Recovery未在预期窗口完成。独立HOME/返回、无uiautomator窗口118.786秒和124.830秒再次观察仍FULL/RECOVERY，健康heartbeat、无RECOVERY_SUCCEEDED。可见Activity已RESUMED/focused/Awake，但页面owner/多reporter/证据循环尚未证明；根因待审查，不宣称已确认算法Bug或环境问题。
+- 根据停止规则中止相关链，未修改生产或测试。通过正式UI结束该RECOVERY场，NORMAL/COMPLETED/FULL、末段如实RECOVERY、DND RELEASED，然后恢复原DND/cross-app OFF、原风险选择、四权限及Knowledge目的地。恢复读回成功；网络仍1/1，Active Session/Segment0/0、FGS/Overlay/intervention notification均无残留，Mirra rule在撤权前STATE_FALSE。
+- 未继续Session-level Notification fallback、near-finish撤权/stop、最终granted full connected、重复四opt-in与Task5最终Gate；这些均NOT RUN，不用8项平台或第一次Recovery通过代替。旧完整JVM318及connected275/266/9assumptions不冒称新完整granted结果。Schema1–4本轮再次hash不变；Room4 / production / Migration / Gradle仍无diff。
+- 新截图为专用AVD实际UI，不是fixture或概念图。关键异常截图为 `recovery-after-overlay-not-completed.png`。内部只读审查提供候选原因，不冒称用户独立验收。
+
+**当前停止点：SOL_REVIEW_REQUIRED。3D-4未完成，未Freeze Phase3D，未进入下一Phase。** 本轮Git只提交验证文档和上述脱敏截图，实际commit / localremote / clean在提交后报告。
