@@ -3,6 +3,15 @@ package com.guanyi.mirra.domain.monitoring
 /** Wall time is for UsageEvent queries; elapsed time is for durations within one boot. */
 data class ClockSample(val wallNowMillis: Long, val elapsedNowMillis: Long)
 
+/** Ephemeral proof from the same bound controller; Room independently revalidates durable loss. */
+data class BackwardClockCloseoutEvidence(
+    val sessionId: String,
+    val lastTrustedSample: ClockSample,
+    val regressionSample: ClockSample,
+    val durableLossBoundary: Long,
+    val unmonitoredSegmentId: String,
+)
+
 enum class UsageEventKind { ACTIVITY_RESUMED, ACTIVITY_PAUSED, ACTIVITY_STOPPED, SCREEN_OFF, DEVICE_LOCKED }
 
 data class UsageEventFact(

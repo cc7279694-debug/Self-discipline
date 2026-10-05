@@ -18,6 +18,15 @@ data class PackageConfirmationCount(val packageName: String, val confirmations: 
 
 @Dao
 interface FocusDao {
+    @Query("""UPDATE session_focus_contexts SET closeoutState = 'PENDING',
+        requestedEndPage = :requestedEndPage, closeoutStartedAt = :at, updatedAt = :at
+        WHERE sessionId = :sessionId AND closeoutState = 'ACTIVE'""")
+    suspend fun markCloseoutPending(sessionId: String, requestedEndPage: Int, at: Long): Int
+
+    @Query("""UPDATE session_focus_contexts SET closeoutState = 'COMPLETED', updatedAt = :at
+        WHERE sessionId = :sessionId AND closeoutState = 'PENDING'""")
+    suspend fun markCloseoutCompleted(sessionId: String, at: Long): Int
+
     @Query("""UPDATE session_segments SET plannedEndAt = plannedEndAt + :extensionMillis,
         extensionCount = extensionCount + 1 WHERE id = :id AND sessionId = :sessionId
         AND activeSlot = 1 AND type = 'TEMPORARY_ALLOWANCE' AND extensionCount = 0

@@ -6,6 +6,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.guanyi.mirra.data.local.MirraDatabase
 import com.guanyi.mirra.data.local.entity.MonitoringCoverage
+import com.guanyi.mirra.data.local.entity.FocusCloseoutState
+import com.guanyi.mirra.domain.monitoring.BackwardClockCloseoutEvidence
 import com.guanyi.mirra.data.local.entity.SessionEndType
 import com.guanyi.mirra.data.local.entity.SessionSegmentEntity
 import com.guanyi.mirra.data.local.entity.SessionSegmentType
@@ -44,6 +46,145 @@ class ModuleThreeDCloseoutRepositoryTest {
     }
 
     @After fun tearDown() = db.close()
+
+    @Test fun beginCloseoutFreezesExactSampleAndReleasesOnlySegmentSlot() = runTest {
+        for (type in SessionSegmentType.entries) {
+            wallNow = 1_000
+            val s = startUnmonitored()
+            val active = db.focusDao().getActiveSegment(s.id)!!
+            db.focusDao().changeActiveSegmentType(active.id, s.id, type)
+            wallNow = 99_000 // Repository must not use this later clock as the end boundary.
+            val snapshot = workflow().beginCloseout(s.id, 20, 2_000)
+            assertEquals(2_000L, snapshot.closeoutStartedAt)
+            assertEquals(20, snapshot.requestedEndPage)
+            assertEquals(FocusCloseoutState.PENDING, workflow().getCloseoutState(s.id))
+            assertEquals(1, db.sessionDao().get(s.id)?.activeSlot)
+            assertNull(db.focusDao().getActiveSegment(s.id))
+            assertEquals(2_000L, db.focusDao().listSegments(s.id).single().endedAt)
+            val ended = workflow().completeCloseout(s.id)
+            assertEquals(2_000L, ended.endedAt)
+            assertEquals(SessionEndType.NORMAL, ended.endType)
+            assertEquals(FocusCloseoutState.COMPLETED, workflow().getCloseoutState(s.id))
+        }
+    }
+
+    @Test fun sameBoundaryCloseoutDeletesZeroDurationSegmentWithoutInventedMillis() = runTest {
+        val s = startMonitored()
+        wallNow = 2_000
+        focus().transition(SegmentTransitionCommand(s.id, SessionSegmentType.BREAK, wallNow, plannedEndAt = 302_000))
+        val closed = db.focusDao().listSegments(s.id).first()
+        workflow().beginCloseout(s.id, 10, 2_000)
+        assertEquals(listOf(closed), db.focusDao().listSegments(s.id))
+        assertEquals(2_000L, workflow().completeCloseout(s.id).endedAt)
+    }
+
+    @Test fun backwardClockJumpStillAllowsCloseoutAtLastDurableBoundary() = runTest {
+        val s = startMonitored()
+        wallNow = 100
+        focus().markMonitoringLost(s.id, 2_000, 2_000)
+        val unknown = db.focusDao().getActiveSegment(s.id)!!
+        val proof = BackwardClockCloseoutEvidence(s.id, ClockSample(2_000, 1_000), ClockSample(100, 2_000), 2_000, unknown.id)
+        val snap = workflow().beginCloseout(s.id, 20, 100, proof)
+        assertEquals(2_000L, snap.closeoutStartedAt)
+        wallNow = 500_000
+        val ended = workflow().completeCloseout(s.id)
+        assertEquals(2_000L, ended.endedAt)
+        assertEquals(SessionEndType.NORMAL, ended.endType)
+        assertEquals(MonitoringCoverage.PARTIAL, db.focusDao().getContext(s.id)?.monitoringStatus)
+        assertEquals(2_000L, db.focusDao().getContext(s.id)?.monitoringLostAt)
+        assertEquals(listOf(SessionSegmentType.FOCUS), db.focusDao().listSegments(s.id).map { it.type })
+    }
+
+    @Test fun ordinaryBoundaryBeforeActiveSegmentStillFailsWithoutClockJumpEvidence() = runTest {
+        val s = startMonitored()
+        wallNow = 3_000
+        focus().markMonitoringLost(s.id, 2_000, 3_000)
+        val context = db.focusDao().getContext(s.id)
+        val segments = db.focusDao().listSegments(s.id)
+        val active = db.focusDao().getActiveSegment(s.id)!!
+        val invalidProofs = listOf(
+            null,
+            BackwardClockCloseoutEvidence("other", ClockSample(2_000, 1_000), ClockSample(100, 2_000), 2_000, active.id),
+            BackwardClockCloseoutEvidence(s.id, ClockSample(2_000, 2_000), ClockSample(100, 1_000), 2_000, active.id),
+            BackwardClockCloseoutEvidence(s.id, ClockSample(2_000, 1_000), ClockSample(100, 2_000), 1_999, active.id),
+            BackwardClockCloseoutEvidence(s.id, ClockSample(2_000, 1_000), ClockSample(100, 2_000), 2_000, "stale"),
+        )
+        for (proof in invalidProofs) assertIllegalBoundary { workflow().beginCloseout(s.id, 20, 100, proof) }
+        assertEquals(context, db.focusDao().getContext(s.id))
+        assertEquals(segments, db.focusDao().listSegments(s.id))
+        assertEquals(s, db.sessionDao().get(s.id))
+    }
+
+    @Test fun endPageBelowPersistedProgressIsRejected() = runTest {
+        val s = startUnmonitored()
+        workflow().updateCurrentPage(s.id, 42)
+        for (page in listOf(40, 101, 0)) assertIllegalBoundary { workflow().beginCloseout(s.id, page, 2_000) }
+        assertEquals(FocusCloseoutState.ACTIVE, db.focusDao().getContext(s.id)?.closeoutState)
+        assertEquals(42, db.sessionDao().get(s.id)?.currentPage)
+    }
+
+    @Test fun beginFailureRollsBackDecisionButRetainsPreviouslyCommittedMonitoringLoss() = runTest {
+        val s = startMonitored()
+        wallNow = 3_000
+        focus().markMonitoringLost(s.id, 2_000, wallNow)
+        val context = db.focusDao().getContext(s.id)
+        val segments = db.focusDao().listSegments(s.id)
+        db.openHelper.writableDatabase.execSQL("CREATE TEMP TRIGGER fail_begin BEFORE UPDATE OF closeoutState ON session_focus_contexts BEGIN SELECT RAISE(ABORT, 'injected begin'); END")
+        expectFailure { workflow().beginCloseout(s.id, 20, 3_000) }
+        assertEquals(context, db.focusDao().getContext(s.id))
+        assertEquals(segments, db.focusDao().listSegments(s.id))
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_begin")
+    }
+
+    @Test fun completeFailureRetainsPendingAndRetryUsesOriginalBoundary() = runTest {
+        val s = startUnmonitored()
+        val snap = workflow().beginCloseout(s.id, 20, 2_000)
+        val itemBefore = db.learningItemDao().get(s.learningItemId)
+        val indexBefore = sessionIndex(s.id)
+        db.openHelper.writableDatabase.execSQL("CREATE TEMP TRIGGER fail_complete BEFORE UPDATE OF closeoutState ON session_focus_contexts WHEN NEW.closeoutState = 'COMPLETED' BEGIN SELECT RAISE(ABORT, 'injected complete'); END")
+        expectFailure { workflow().completeCloseout(s.id) }
+        assertEquals(s, db.sessionDao().get(s.id))
+        assertEquals(itemBefore, db.learningItemDao().get(s.learningItemId))
+        assertEquals(indexBefore, sessionIndex(s.id))
+        assertEquals(snap, workflow().getCloseoutSnapshot(s.id))
+        assertEquals(FocusCloseoutState.PENDING, workflow().getCloseoutState(s.id))
+        assertEquals(10, db.learningItemDao().get(s.learningItemId)?.currentPage)
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_complete")
+        wallNow = 999_000
+        val result = workflow().completeCloseout(s.id)
+        assertEquals(2_000L, result.endedAt)
+        assertEquals(20, result.endPage)
+        assertEquals(20, db.learningItemDao().get(s.learningItemId)?.currentPage)
+        assertTrue(result.generatedSummary!!.contains("20"))
+        val indexAfter = sessionIndex(s.id)
+        assertEquals(1, indexAfter.size)
+        assertTrue(indexAfter.single().contains(result.generatedSummary))
+        assertEquals(FocusCloseoutState.COMPLETED, workflow().getCloseoutState(s.id))
+        assertEquals(result, workflow().completeCloseout(s.id))
+        assertEquals(indexAfter, sessionIndex(s.id))
+    }
+
+    @Test fun duplicateBeginAndCompleteNeverRewriteBoundary() = runTest {
+        val s = startUnmonitored()
+        val snap = workflow().beginCloseout(s.id, 20, 2_000)
+        assertEquals(snap, workflow().beginCloseout(s.id, 90, 99_000))
+        val result = workflow().completeCloseout(s.id)
+        val index = sessionIndex(s.id)
+        assertEquals(snap, workflow().beginCloseout(s.id, 90, 999_000))
+        assertEquals(result, workflow().completeCloseout(s.id))
+        assertEquals(index, sessionIndex(s.id))
+    }
+
+    private fun sessionIndex(sessionId: String): List<String> =
+        db.openHelper.writableDatabase.query(
+            "SELECT searchableText FROM search_fts WHERE entityType = 'SESSION' AND entityId = ?", arrayOf(sessionId),
+        ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.getString(0)) } }
+
+    private suspend fun expectFailure(block: suspend () -> Unit) {
+        var failed = false
+        try { block() } catch (_: Exception) { failed = true }
+        assertTrue("Expected injected database failure", failed)
+    }
 
     @Test fun backwardClockJumpLossIsDurableBeforeCloseout() = runTest {
         val items = DefaultLearningItemRepository(db, clock = { wallNow })

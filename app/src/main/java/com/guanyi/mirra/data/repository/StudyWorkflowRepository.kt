@@ -20,6 +20,10 @@ import com.guanyi.mirra.domain.DefaultSearchEngine
 import com.guanyi.mirra.platform.focus.MonitoringReadyLease
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import com.guanyi.mirra.data.local.entity.FocusCloseoutState
+import com.guanyi.mirra.data.local.model.CloseoutSnapshot
+import com.guanyi.mirra.domain.monitoring.BackwardClockCloseoutEvidence
 
 data class MonitoredSessionStartResult(val session: StudySessionEntity, val created: Boolean)
 
@@ -39,6 +43,12 @@ interface StudyWorkflowRepository {
     suspend fun findActiveSessionForIntent(intentId: String): StudySessionEntity?
     suspend fun updateCurrentPage(sessionId: String, page: Int)
     suspend fun finishSession(sessionId: String, endPage: Int): StudySessionEntity
+    suspend fun beginCloseout(sessionId: String, requestedEndPage: Int, closeoutStartedAt: Long,
+        backwardClockEvidence: BackwardClockCloseoutEvidence? = null): CloseoutSnapshot
+    suspend fun completeCloseout(sessionId: String): StudySessionEntity
+    suspend fun getCloseoutState(sessionId: String): FocusCloseoutState?
+    fun observeCloseoutState(sessionId: String): Flow<FocusCloseoutState?>
+    suspend fun getCloseoutSnapshot(sessionId: String): CloseoutSnapshot?
     suspend fun recoverInterruptedSession()
 }
 
@@ -55,6 +65,82 @@ class DefaultStudyWorkflowRepository(
     private val itemDao = database.learningItemDao()
     private val noteDao = database.noteDao()
     private val focusDao = database.focusDao()
+
+    override suspend fun beginCloseout(sessionId: String, requestedEndPage: Int, closeoutStartedAt: Long,
+        backwardClockEvidence: BackwardClockCloseoutEvidence?): CloseoutSnapshot = database.withTransaction {
+        val session = checkNotNull(sessionDao.get(sessionId)) { "Session 不存在" }
+        val context = checkNotNull(focusDao.getContext(sessionId)) { "Focus Context 不存在" }
+        if (context.closeoutState in setOf(FocusCloseoutState.PENDING, FocusCloseoutState.COMPLETED)) {
+            return@withTransaction checkNotNull(snapshot(context))
+        }
+        check(context.closeoutState == FocusCloseoutState.ACTIVE && session.activeSlot == ACTIVE_SLOT &&
+            session.endedAt == null && session.endType == null) { "Session 已结束" }
+        val item = checkNotNull(itemDao.get(session.learningItemId)) { "Learning Item 不存在" }
+        validateEndPage(requestedEndPage, session.currentPage, item.totalPages)
+        val active = checkNotNull(focusDao.getActiveSegment(sessionId)) { "Active Segment 不存在" }
+        val closedBoundary = focusDao.listSegments(sessionId).filter { it.activeSlot == null }
+            .map { checkNotNull(it.endedAt) { "已闭合 Segment 缺少结束时间" } }.maxOrNull()
+        check(closedBoundary == null || closedBoundary <= active.startedAt) { "Segment 时间线重叠" }
+        val latestBoundary = maxOf(session.startedAt, active.startedAt, closedBoundary ?: session.startedAt)
+        val boundary = if (closeoutStartedAt >= latestBoundary) closeoutStartedAt else {
+            val proof = backwardClockEvidence
+            require(proof != null && proof.sessionId == sessionId &&
+                proof.regressionSample.elapsedNowMillis >= proof.lastTrustedSample.elapsedNowMillis &&
+                proof.regressionSample.wallNowMillis < proof.lastTrustedSample.wallNowMillis &&
+                context.monitoringStatus == MonitoringCoverage.PARTIAL &&
+                context.monitoringLostAt == active.startedAt && active.startedAt == proof.durableLossBoundary &&
+                active.type == SessionSegmentType.UNMONITORED && active.id == proof.unmonitoredSegmentId &&
+                proof.durableLossBoundary > closeoutStartedAt) { "结束时间早于已保存的时间线" }
+            maxOf(closeoutStartedAt, latestBoundary)
+        }
+        when {
+            boundary > active.startedAt -> check(focusDao.closeActiveSegment(active.id, sessionId, boundary) == 1)
+            boundary == active.startedAt -> check(focusDao.deleteActiveSegment(active.id, sessionId) == 1)
+            else -> error("结束边界非法")
+        }
+        check(focusDao.markCloseoutPending(sessionId, requestedEndPage, boundary) == 1) { "保存结束决定失败" }
+        CloseoutSnapshot(sessionId, boundary, requestedEndPage)
+    }
+
+    override suspend fun completeCloseout(sessionId: String): StudySessionEntity = database.withTransaction {
+        val session = checkNotNull(sessionDao.get(sessionId)) { "Session 不存在" }
+        val context = checkNotNull(focusDao.getContext(sessionId)) { "Focus Context 不存在" }
+        if (context.closeoutState == FocusCloseoutState.COMPLETED) {
+            check(session.endType == SessionEndType.NORMAL && session.endedAt != null && session.activeSlot == null)
+            return@withTransaction session
+        }
+        check(context.closeoutState == FocusCloseoutState.PENDING && session.activeSlot == ACTIVE_SLOT &&
+            session.endedAt == null && session.endType == null) { "没有待完成的结束决定" }
+        val frozen = checkNotNull(snapshot(context))
+        val item = checkNotNull(itemDao.get(session.learningItemId)) { "Learning Item 不存在" }
+        validateEndPage(frozen.requestedEndPage, session.currentPage, item.totalPages)
+        check(frozen.closeoutStartedAt >= session.startedAt && focusDao.getActiveSegment(sessionId) == null)
+        val summary = summaryEngine.create(session.startPage, frozen.requestedEndPage,
+            frozen.closeoutStartedAt - session.startedAt, noteDao.countForSession(sessionId))
+        check(sessionDao.finish(sessionId, frozen.closeoutStartedAt, frozen.requestedEndPage, SessionEndType.NORMAL, summary) == 1)
+        check(itemDao.advanceProgress(item.id, frozen.requestedEndPage, frozen.closeoutStartedAt) == 1)
+        searchIndexWriter.reindexSession(sessionId)
+        check(focusDao.markCloseoutCompleted(sessionId, frozen.closeoutStartedAt) == 1)
+        checkNotNull(sessionDao.get(sessionId))
+    }
+
+    override suspend fun getCloseoutState(sessionId: String) = focusDao.getContext(sessionId)?.closeoutState
+    override fun observeCloseoutState(sessionId: String) = focusDao.observeContext(sessionId).map { it?.closeoutState }
+    override suspend fun getCloseoutSnapshot(sessionId: String) = database.withTransaction {
+        focusDao.getContext(sessionId)?.let(::snapshot)
+    }
+
+    private fun snapshot(context: SessionFocusContextEntity): CloseoutSnapshot? {
+        if (context.closeoutState !in setOf(FocusCloseoutState.PENDING, FocusCloseoutState.COMPLETED)) return null
+        return CloseoutSnapshot(context.sessionId,
+            checkNotNull(context.closeoutStartedAt) { "结束记录缺少时间" },
+            checkNotNull(context.requestedEndPage) { "结束记录缺少页码" })
+    }
+
+    private fun validateEndPage(page: Int, currentPage: Int, totalPages: Int) {
+        require(page in 1..totalPages) { "结束页必须在书籍范围内" }
+        require(page >= currentPage) { "不能低于已经记录的阅读位置" }
+    }
 
     override fun observeActiveIntent() = intentDao.observeActive()
     override fun observeActiveSession() = sessionDao.observeActive()
