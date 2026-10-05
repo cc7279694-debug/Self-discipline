@@ -46,6 +46,9 @@ interface NoteDao {
     @Query("SELECT COUNT(*) FROM notes WHERE sessionId = :sessionId AND content != ''")
     suspend fun countForSession(sessionId: String): Int
 
+    @Query("SELECT COUNT(*) FROM notes WHERE sessionId = :sessionId AND TRIM(content) != ''")
+    fun observeNonBlankCountForSession(sessionId: String): Flow<Int>
+
     @Query("""
         SELECT COUNT(*) FROM notes
         WHERE createdAt >= :fromInclusive AND createdAt < :toExclusive

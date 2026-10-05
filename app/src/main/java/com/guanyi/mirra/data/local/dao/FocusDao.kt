@@ -84,6 +84,9 @@ interface FocusDao {
     @Query("SELECT * FROM session_focus_contexts WHERE sessionId = :sessionId")
     fun observeContext(sessionId: String): Flow<SessionFocusContextEntity?>
 
+    @Query("SELECT * FROM session_risk_app_snapshots WHERE sessionId = :sessionId ORDER BY packageName")
+    fun observeRiskSnapshots(sessionId: String): Flow<List<SessionRiskAppSnapshotEntity>>
+
     @Query("SELECT * FROM session_segments WHERE sessionId = :sessionId AND activeSlot = 1 LIMIT 1")
     suspend fun getActiveSegment(sessionId: String): SessionSegmentEntity?
 

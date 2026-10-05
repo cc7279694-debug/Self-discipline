@@ -125,6 +125,7 @@ interface AppContainer {
     val topicRepository: TopicRepository
     val searchRepository: SearchRepository
     val readingAnalyticsRepository: ReadingAnalyticsRepository
+    val readingRecordRepository: com.guanyi.mirra.data.repository.ReadingRecordRepository
     val focusRepository: FocusRepository
     val focusSessionActions: com.guanyi.mirra.domain.monitoring.FocusSessionActions
     val dndUserActions: DndUserActions
@@ -161,6 +162,7 @@ class DefaultAppContainer(context: Context, private val monitoringRuntime: Monit
     override val topicRepository: TopicRepository = DefaultTopicRepository(database, searchIndexWriter)
     override val searchRepository: SearchRepository = DefaultSearchRepository(database, searchEngine, searchIndexRebuilder)
     override val readingAnalyticsRepository: ReadingAnalyticsRepository = DefaultReadingAnalyticsRepository(database)
+    override val readingRecordRepository = com.guanyi.mirra.data.repository.DefaultReadingRecordRepository(database)
     override val focusRepository: FocusRepository = DefaultFocusRepository(database)
     private val dndStateStore = RoomDndStateStore(database)
     private val androidDndGateway = AndroidDndGateway(context)
