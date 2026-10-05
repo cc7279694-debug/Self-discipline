@@ -853,3 +853,25 @@ paired ClockSample 必须忠实表达采样时刻，不能由 UI 伪造新的监
 IN_APP composition 与 OVERLAY attach 仅记录各自真实的最小展示事实，不能代表已读。NOTIFICATION_POSTED 只留运行态，不写 INTERVENTION_SHOWN；所有外部渠道不可用时每 episode 记录一次 INTERVENTION_UNAVAILABLE。确定性事件 ID、事务内活动校验和防重使用已有 focus_events。Foreground、token 失效、dismiss、Session release、失监和 Service 销毁触发清理，startup 在既有 ABNORMAL recovery 后 cancel 固定通知 ID，不续监。3C-4 / Closeout / effective metrics 未授权。
 
 展示 lifetime 与前台 package 新鲜度分开：成功健康查询、未锁屏且现有 Prompt 仍有效时，SystemUI / Launcher / 风险 App exit 不能由新渠道自行作废同 episode（否则通知栏展开即取消）。Prompt 失效仍由冻结行为内核决定。同 episode 从 DISTRACTION 转为 RECOVERY 后，Overlay 关闭与 attach 回执按 session/token/event/package 重新解析当前 Segment，再执行 binding 与 Room 校验；不回填 Segment、不认可旧 token，也不伪造 Recovery。两项边界均由 RED 回归和真实 AVD 场景验证。
+
+## 2026-10-05 — 3D-1 不可逆结束事实与保存边界
+
+### Decision
+
+复用 Room v4 已有 Closeout 字段，采用连续执行、其间不调用 Android API 的 A/B 两事务：A 将最终确认的结束时间和请求页码冻结为 PENDING，并关闭最后一段；B 只使用该快照，原子完成 NORMAL Session、阅读进度、既有 Summary、FTS 与 COMPLETED。第一次点击仅等待 Note/page 实际保存后显示确认；最终确认前可继续阅读，A 成功后永久不能恢复，失败只能重试原 B，不重新采时。
+
+### Context
+
+3C 已冻结，Clock Rollback Correction `2d43e8875ed8dc4b93c0411661262909ca5dc56c` 已独立验收。单次直接 finish 无法区分“用户已 durable 确认结束”和“普通进程异常”，也不能排除最后保存、晚到监测及 cleanup 延迟污染边界。
+
+### Alternatives
+
+把 cleanup 时间当结束时间；PENDING 取消后重新开 Focus；静默夹高低结束页；增加 Schema v5；从任意 PARTIAL 或 monitoring gap 字符串推断时钟回退。
+
+### Reason
+
+事务内 ACTIVE 资格保护所有新增学习事实，PENDING 仍占用槽位但不再具备阅读/绑定资格。结束页低于最新持久进度明确拒绝，旧页 Note 不改变进度。唯一 backward-clock 例外需要同一 binding 的真实 ClockSample 对与 matching durable PARTIAL/lostAt/UNMONITORED，在 A 中再次复核；没有证据时不放宽时间约束，不伪造 1ms 段。
+
+### Consequences
+
+Controller 使用既有串行边界 settle → A → 纯内存失效 → B，之后在 Room/事实锁外分别有限尝试渠道、监测与 DND release。取消必须有限回查 durable state 并传播取消；旧 callback 不借用新 Session 的 runtime。冷启动优先完成 PENDING，B 失败保留原快照和只读重试，不改写 ABNORMAL、不重启 FGS；普通遗留 ACTIVE 继续异常恢复。UI 重建显示冻结时间，外部结束请求按 ID 一次消费。DND ownership、READY、Coverage、3C 阈值、Phase 2 analytics、Room v4 与 schemas 1–4 不变；3D-2/3/4 仍需单独授权。
