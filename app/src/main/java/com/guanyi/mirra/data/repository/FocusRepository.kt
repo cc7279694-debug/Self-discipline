@@ -101,6 +101,7 @@ class DefaultFocusRepository(
     override suspend fun runtimeFacts(sessionId: String): RuntimeFocusFacts? = database.withTransaction {
         val session = sessions.get(sessionId)?.takeIf { it.activeSlot == 1 && it.endedAt == null } ?: return@withTransaction null
         val context = dao.getContext(sessionId) ?: return@withTransaction null
+        if (!isLearningFactWritable(session, context)) return@withTransaction null
         val active = dao.getActiveSegment(sessionId) ?: return@withTransaction null
         val risks = dao.listSessionRiskPackages(sessionId).toSet()
         val latest = dao.latestRiskConfirmation(sessionId)
@@ -120,6 +121,7 @@ class DefaultFocusRepository(
         val session = sessions.get(candidate.sessionId)?.takeIf { it.activeSlot == 1 && it.endedAt == null }
             ?: return@withTransaction false
         val context = dao.getContext(candidate.sessionId) ?: return@withTransaction false
+        if (!isLearningFactWritable(session, context)) return@withTransaction false
         val active = dao.getActiveSegment(candidate.sessionId) ?: return@withTransaction false
         if (context.monitoringStatus == MonitoringCoverage.NONE || active.id != candidate.sourceSegmentId ||
             active.type !in setOf(SessionSegmentType.FOCUS, SessionSegmentType.DEEP_FOCUS,
@@ -154,6 +156,7 @@ class DefaultFocusRepository(
         database.withTransaction {
             val session = sessions.get(sessionId)?.takeIf { it.activeSlot == 1 && it.endedAt == null }
                 ?: return@withTransaction false
+            if (!isLearningFactWritable(session, dao.getContext(sessionId))) return@withTransaction false
             if (exitedAt !in session.startedAt..clock() ||
                 packageName !in dao.listSessionRiskPackages(sessionId) ||
                 dao.countMatchingEvent(sessionId, FocusEventType.RISK_APP_BRIEF_VISIT, packageName, exitedAt) > 0
@@ -166,6 +169,7 @@ class DefaultFocusRepository(
     override suspend fun exitRisk(sessionId: String, packageName: String, at: Long): Boolean = database.withTransaction {
         val session = sessions.get(sessionId)?.takeIf { it.activeSlot == 1 && it.endedAt == null }
             ?: return@withTransaction false
+        if (!isLearningFactWritable(session, dao.getContext(sessionId))) return@withTransaction false
         val active = dao.getActiveSegment(sessionId) ?: return@withTransaction false
         if (active.type != SessionSegmentType.DISTRACTION || active.packageName != packageName ||
             at <= active.startedAt || at > clock() || at < session.startedAt) return@withTransaction false
@@ -202,6 +206,7 @@ class DefaultFocusRepository(
     override suspend fun recordEvent(event: FocusEventInput) {
         database.withTransaction {
             val session = checkNotNull(sessions.get(event.sessionId)) { "Session 不存在" }
+            check(isLearningFactWritable(session, dao.getContext(event.sessionId))) { "Session 已结束" }
             val upperBound = session.endedAt ?: clock()
             require(event.occurredAt in session.startedAt..upperBound) { "Focus Event 越过 Session 边界" }
             dao.insertEvent(
@@ -217,7 +222,7 @@ class DefaultFocusRepository(
     override suspend fun updateHeartbeat(sessionId: String, at: Long) {
         database.withTransaction {
             val session = checkNotNull(sessions.get(sessionId)) { "Session 不存在" }
-            check(session.activeSlot == 1 && session.endedAt == null) { "Session 已结束" }
+            check(isLearningFactWritable(session, dao.getContext(sessionId))) { "Session 已结束" }
             require(at in session.startedAt..clock()) { "Heartbeat 越过 Session 边界" }
             check(dao.updateHeartbeat(sessionId, at) == 1) { "Heartbeat 倒序或 Context 不存在" }
         }
@@ -226,7 +231,7 @@ class DefaultFocusRepository(
     override suspend fun markMonitoringLost(sessionId: String, lastTrustedAt: Long, detectedAt: Long) {
         database.withTransaction {
             val session = checkNotNull(sessions.get(sessionId)) { "Session 不存在" }
-            check(session.activeSlot == 1 && session.endedAt == null) { "Session 已结束" }
+            check(isLearningFactWritable(session, dao.getContext(sessionId))) { "Session 已结束" }
             val current = checkNotNull(dao.getActiveSegment(sessionId))
             val context = checkNotNull(dao.getContext(sessionId))
             val targetCoverage = if (context.monitoringStatus == MonitoringCoverage.FULL) {
@@ -304,6 +309,7 @@ class DefaultFocusRepository(
             ?: return@withTransaction null
         val current = dao.getActiveSegment(command.sessionId) ?: return@withTransaction null
         val context = dao.getContext(command.sessionId) ?: return@withTransaction null
+        if (!isLearningFactWritable(session, context)) return@withTransaction null
         if (current.id != command.expectedSegmentId || command.actionToken.isBlank() ||
             command.at < session.startedAt || command.at > clock()) return@withTransaction null
         // Token consumption is runtime-local; expected segment + conditional SQL protect durable facts.
@@ -359,6 +365,7 @@ class DefaultFocusRepository(
         val session = checkNotNull(sessions.get(sessionId)) { "Session 不存在" }
         check(session.activeSlot == 1 && session.endedAt == null) { "Session 已结束" }
         val context = checkNotNull(dao.getContext(sessionId)) { "Focus Context 不存在" }
+        check(isLearningFactWritable(session, context)) { "Session 已结束" }
         val active = checkNotNull(dao.getActiveSegment(sessionId)) { "Active Segment 不存在" }
         return SegmentMachineState(
             sessionStartedAt = session.startedAt,

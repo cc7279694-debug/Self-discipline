@@ -46,6 +46,7 @@ class InterventionReceiptRepository(private val database: MirraDatabase,
         if (session.activeSlot != 1 || session.endedAt != null) return false
         val dao = database.focusDao()
         val context = dao.getContext(session.id) ?: return false
+        if (!isLearningFactWritable(session, context)) return false
         if (context.monitoringStatus == MonitoringCoverage.NONE || context.monitoringLostAt != null) return false
         val segment = dao.getActiveSegment(session.id) ?: return false
         if (segment.id != prompt.segmentId) return false

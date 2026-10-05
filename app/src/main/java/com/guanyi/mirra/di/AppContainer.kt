@@ -56,6 +56,21 @@ import kotlinx.coroutines.withContext
 
 private val Context.mirraPreferences by preferencesDataStore(name = "mirra_preferences")
 
+/** Thin post-start fence; underlying Room/DND/channel owners still enforce their own races. */
+internal suspend fun configureActiveSessionPresentationAndDnd(
+    sessionId: String, isLearning: suspend (String) -> Boolean,
+    configure: suspend (String) -> Unit, apply: suspend (String) -> Unit,
+    cleanup: suspend (String) -> Unit,
+) {
+    if (!isLearning(sessionId)) { cleanup(sessionId); return }
+    try {
+        configure(sessionId)
+        if (isLearning(sessionId)) apply(sessionId)
+    } finally {
+        if (!isLearning(sessionId)) cleanup(sessionId)
+    }
+}
+
 interface AppContainer {
     val appPreferencesRepository: AppPreferencesRepository
     val learningItemRepository: LearningItemRepository
@@ -123,9 +138,13 @@ class DefaultAppContainer(context: Context, private val monitoringRuntime: Monit
         }
     }
     private suspend fun configureSessionPresentationAndDnd(sessionId: String) {
-        val enabled = runCatching { appPreferencesRepository.crossAppInterventionEnabled.first() }.getOrDefault(false)
-        monitoringRuntime.interventionChannels?.configure(sessionId, enabled)
-        applyDndIfEnabled(sessionId)
+        configureActiveSessionPresentationAndDnd(sessionId,
+            isLearning = { focusRepository.runtimeFacts(it) != null },
+            configure = {
+                val enabled = runCatching { appPreferencesRepository.crossAppInterventionEnabled.first() }.getOrDefault(false)
+                monitoringRuntime.interventionChannels?.configure(it, enabled)
+            }, apply = ::applyDndIfEnabled,
+            cleanup = { runCatching { monitoringRuntime.interventionChannels?.release(it) }; releaseDnd(it) })
     }
     private suspend fun releaseDnd(sessionId: String) {
         withContext(Dispatchers.IO) { runCatching { dndController.release(sessionId) } }

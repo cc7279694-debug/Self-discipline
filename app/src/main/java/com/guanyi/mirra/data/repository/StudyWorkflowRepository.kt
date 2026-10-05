@@ -291,6 +291,7 @@ class DefaultStudyWorkflowRepository(
     override suspend fun updateCurrentPage(sessionId: String, page: Int) {
         database.withTransaction {
             val session = checkNotNull(sessionDao.get(sessionId)) { "Session 不存在" }
+            check(isLearningFactWritable(session, focusDao.getContext(sessionId))) { "Session 已结束" }
             val item = checkNotNull(itemDao.get(session.learningItemId)) { "Learning Item 不存在" }
             require(page in 1..item.totalPages) { "页码必须在书籍范围内" }
             check(sessionDao.advanceCurrentPage(sessionId, page) == 1) { "Session 已结束" }

@@ -53,7 +53,7 @@ interface FocusDao {
     suspend fun setDndLifecycle(sessionId: String, lifecycle: DndLifecycle, at: Long): Int
 
     @Query("""SELECT c.* FROM session_focus_contexts c JOIN study_sessions s ON s.id = c.sessionId
-        WHERE s.activeSlot IS NULL AND (c.dndRuleId IS NOT NULL OR c.priorDndInterruptionFilter IS NOT NULL)
+        WHERE (s.activeSlot IS NULL OR c.closeoutState = 'PENDING') AND (c.dndRuleId IS NOT NULL OR c.priorDndInterruptionFilter IS NOT NULL)
           AND c.dndLifecycle != 'RELEASED'""")
     suspend fun listDndRecoveryContexts(): List<SessionFocusContextEntity>
     @Insert suspend fun insertContext(context: SessionFocusContextEntity)
