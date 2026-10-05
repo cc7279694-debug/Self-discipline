@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.guanyi.mirra.domain.PredictionConfidence
 import com.guanyi.mirra.feature.knowledge.LearningItemAnalyticsUi
+import com.guanyi.mirra.feature.knowledge.LearningItemAnalyticsSummary
 import com.guanyi.mirra.feature.knowledge.LearningItemReadingSection
 import com.guanyi.mirra.feature.knowledge.SessionHistoryUi
 import com.guanyi.mirra.feature.profile.ProfileSummaryContent
@@ -18,6 +19,25 @@ import org.junit.Test
 class ModuleTwoDFlowTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun effectivePaceStaysFlatAndDoesNotShowOverallSpeedAlongsideIt() {
+        composeRule.setContent { MirraTheme {
+            LearningItemAnalyticsSummary(LearningItemAnalyticsUi(
+                speedText = "有效阅读速度约 30 页/小时",
+                speedBasisText = "根据最近 7 天 3 次完整阅读",
+                remainingTimeText = "预计还需约 9 小时 有效阅读",
+                completionDateText = "预计 10月20日–10月25日自然读完",
+                confidence = PredictionConfidence.MEDIUM,
+            ))
+        } }
+        composeRule.onNodeWithText("有效阅读速度约 30 页/小时").assertIsDisplayed()
+        composeRule.onNodeWithText("根据最近 7 天 3 次完整阅读").assertIsDisplayed()
+        composeRule.onNodeWithText("预计还需约 9 小时 有效阅读").assertIsDisplayed()
+        composeRule.onNodeWithText("预计 10月20日–10月25日自然读完").assertIsDisplayed()
+        composeRule.onNodeWithText("最近约 20 页/小时").assertDoesNotExist()
+        composeRule.onNodeWithText("自律评分").assertDoesNotExist()
+    }
 
     @Test
     fun learningItemSectionShowsPacePredictionAndAbnormalHistoryWithoutDashboardCards() {

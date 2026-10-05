@@ -89,6 +89,7 @@ class TestAppContainer(
     override val dndUserActions: DndUserActions = NoopDndUserActions()
     override val readingAnalyticsService = ReadingAnalyticsService()
     override val readingRecordService = com.guanyi.mirra.domain.ReadingRecordService()
+    override val effectiveReadingService = com.guanyi.mirra.domain.EffectiveReadingService()
     override val completionPredictionService = CompletionPredictionService()
     override val analyticsTimeProvider = AnalyticsTimeProvider()
     override val sessionManager: SessionManager = DefaultSessionManager(studyWorkflowRepository)

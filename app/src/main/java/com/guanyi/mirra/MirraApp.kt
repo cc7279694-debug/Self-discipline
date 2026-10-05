@@ -242,6 +242,7 @@ fun MirraApp(
                                     container.readingAnalyticsService,
                                     container.completionPredictionService,
                                     container.analyticsTimeProvider,
+                                    container.effectiveReadingService,
                                 )
                             },
                         ),

@@ -39,6 +39,7 @@ import com.guanyi.mirra.data.local.entity.LearningItemEntity
 import com.guanyi.mirra.data.local.entity.LearningItemStatus
 import com.guanyi.mirra.data.local.entity.SessionEndType
 import com.guanyi.mirra.data.local.model.ReadingSessionProjection
+import com.guanyi.mirra.data.local.model.EffectiveReadingSource
 import com.guanyi.mirra.data.repository.LearningItemRepository
 import com.guanyi.mirra.data.repository.ReadingAnalyticsRepository
 import com.guanyi.mirra.data.repository.StudyWorkflowRepository
@@ -47,6 +48,9 @@ import com.guanyi.mirra.domain.AnalyticsTimeProvider
 import com.guanyi.mirra.domain.CompletionPrediction
 import com.guanyi.mirra.domain.CompletionPredictionService
 import com.guanyi.mirra.domain.FirstActionResolver
+import com.guanyi.mirra.domain.EffectiveReadingService
+import com.guanyi.mirra.domain.EffectiveReadingEstimate
+import com.guanyi.mirra.domain.EffectiveEstimateUnavailableReason
 import com.guanyi.mirra.domain.PredictionConfidence
 import com.guanyi.mirra.domain.PredictionUnavailableReason
 import com.guanyi.mirra.domain.ReadingAnalyticsService
@@ -62,6 +66,11 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -135,6 +144,20 @@ fun CreateLearningItemScreen(
     }
 }
 
+private data class ReadingTimeGeneration(val generation: Long, val time: AnalyticsTimeContext)
+private data class TimedReadingSources(
+    val time: AnalyticsTimeContext,
+    val recent: Result<List<ReadingSessionProjection>>,
+    val history: Result<List<ReadingSessionProjection>>,
+    val effective: Result<EffectiveReadingSource>,
+)
+
+private fun <T> readingResult(read: () -> Flow<T>): Flow<Result<T>> = flow { emitAll(read()) }
+    .map { Result.success(it) }.catch {
+        if (it is CancellationException) throw it
+        emit(Result.failure(it))
+    }
+
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class LearningItemDetailViewModel(
     itemId: String,
@@ -144,42 +167,50 @@ class LearningItemDetailViewModel(
     private val analyticsService: ReadingAnalyticsService,
     private val predictionService: CompletionPredictionService,
     private val timeProvider: AnalyticsTimeProvider,
+    private val effectiveService: EffectiveReadingService,
 ) : ViewModel() {
     var error by mutableStateOf<String?>(null)
         private set
     var isSubmitting by mutableStateOf(false)
         private set
-    private val timeContext = MutableStateFlow(timeProvider.snapshot())
-    private val analyticsError = MutableStateFlow<String?>(null)
-    private val recentSessions = timeContext.flatMapLatest { time ->
+    private val timeContext = MutableStateFlow(ReadingTimeGeneration(0, timeProvider.snapshot()))
+    private val sources = timeContext.flatMapLatest { generation ->
+        val time = generation.time
         val today = time.now.atZone(time.zoneId).toLocalDate()
         val from = today.minusDays(29).atStartOfDay(time.zoneId).toInstant().toEpochMilli()
-        readingAnalytics.observeRecentForItem(itemId, from, time.now.toEpochMilli())
-    }.catch {
-        analyticsError.value = "暂时无法计算阅读节奏"
-        emit(emptyList())
-    }
-    private val history = readingAnalytics.observeHistory(itemId).catch {
-        analyticsError.value = "暂时无法读取阅读历史"
-        emit(emptyList())
+        // One captured clock/zone per generation; do not mix an old query with a new window.
+        combine(
+            readingResult { readingAnalytics.observeRecentForItem(itemId, from, time.now.toEpochMilli()) },
+            readingResult { readingAnalytics.observeHistory(itemId) },
+            readingResult { readingAnalytics.observeEffectiveRecentForItem(itemId, from, time.now.toEpochMilli()) },
+        ) { recent, history, effective -> TimedReadingSources(time, recent, history, effective) }
     }
 
     val uiState = combine(
         learningItems.observe(itemId),
         workflow.observeLatestSummaryForItem(itemId),
-        recentSessions,
-        history,
-        timeContext,
-    ) { item, session, recent, allHistory, time ->
-        val window = analyticsService.selectAnalyticsWindow(recent, time)
+        sources,
+    ) { item, session, source ->
+        val time = source.time
+        val allHistory = source.history.getOrDefault(emptyList())
+        val window = source.recent.getOrNull()?.let { analyticsService.selectAnalyticsWindow(it, time) }
         val prediction = item?.let { predictionService.predict(it, window, time) }
+        val effective = item?.let { book -> source.effective.getOrNull()?.let { effectiveService.estimate(book, it, time) } }
+        val sourceError = when {
+            source.effective.isFailure -> "暂时无法读取有效阅读节奏"
+            source.recent.isFailure -> "暂时无法计算阅读节奏"
+            source.history.isFailure -> "暂时无法读取阅读历史"
+            effective?.window == null && effective?.unavailableReason == EffectiveEstimateUnavailableReason.ARITHMETIC_OUT_OF_RANGE ->
+                "暂时无法计算有效阅读节奏"
+            else -> null
+        }
         LearningItemDetailUiState(
             item = item,
             lastSummary = session?.generatedSummary,
-            analytics = buildAnalyticsUi(allHistory, window, prediction, time),
+            analytics = if (sourceError == null) buildAnalyticsUi(allHistory, window, prediction, time, effective) else null,
             history = buildHistoryUi(allHistory, time),
             isAnalyticsLoading = false,
-            analyticsError = analyticsError.value,
+            analyticsError = sourceError,
         )
     }.stateIn(
         viewModelScope,
@@ -188,8 +219,7 @@ class LearningItemDetailViewModel(
     )
 
     fun refreshTimeContext() {
-        analyticsError.value = null
-        timeContext.value = timeProvider.snapshot()
+        timeContext.value = ReadingTimeGeneration(timeContext.value.generation + 1, timeProvider.snapshot())
     }
 
     fun setMainline() = perform { learningItems.setMainline(it.id) }
@@ -228,18 +258,22 @@ class LearningItemDetailViewModel(
         window: com.guanyi.mirra.domain.SelectedAnalyticsWindow?,
         prediction: CompletionPrediction?,
         time: AnalyticsTimeContext,
+        effective: EffectiveReadingEstimate?,
     ): LearningItemAnalyticsUi {
         val latest = analyticsService.qualify(history, time).firstOrNull()
         val speed = prediction?.overallPagesPerHour
+        val effectiveWindow = effective?.window
         return LearningItemAnalyticsUi(
             recentReadingText = latest?.let {
                 "${relativeDate(it.endedDate, time)} · ${formatDuration(it.duration)} · ${it.pagesRead} 页"
             },
-            speedText = speed?.let { "最近约 ${it.roundToInt()} 页/小时" },
-            speedBasisText = speed?.let { "根据最近 ${window?.days} 天 ${window?.sessions?.size} 次正常阅读" },
-            remainingTimeText = prediction?.estimatedRemainingReadingTime?.let {
-                "预计剩余阅读时间约 ${formatDuration(it)}"
-            },
+            speedText = if (effectiveWindow != null) "有效阅读速度约 ${effectiveWindow.effectivePagesPerHour.roundToInt()} 页/小时"
+                else speed?.let { "最近约 ${it.roundToInt()} 页/小时" },
+            speedBasisText = if (effectiveWindow != null) "根据最近 ${effectiveWindow.days} 天 ${effectiveWindow.sessions.size} 次完整阅读"
+                else speed?.let { "根据最近 ${window?.days} 天 ${window?.sessions?.size} 次正常阅读" },
+            remainingTimeText = if (effectiveWindow != null) effective.remainingEffectiveReadingTime?.let {
+                "预计还需约 ${formatDuration(it)} 有效阅读"
+            } else prediction?.estimatedRemainingReadingTime?.let { "预计剩余阅读时间约 ${formatDuration(it)}" },
             completionDateText = prediction?.naturalCompletionRange?.let {
                 "预计 ${dateText(it.earliest)}–${dateText(it.latest)}自然读完"
             },
