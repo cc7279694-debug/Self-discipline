@@ -99,6 +99,18 @@ interface SessionDao {
         toInclusive: Long,
     ): Flow<List<ReadingSessionProjection>>
 
+    @Query("""
+        SELECT s.* FROM study_sessions s
+        WHERE s.learningItemId = :learningItemId
+            AND s.endedAt >= :fromInclusive AND s.endedAt <= :toInclusive
+        ORDER BY s.endedAt DESC, s.id DESC
+    """)
+    fun observeEndedEntitiesForItemBetween(
+        learningItemId: String,
+        fromInclusive: Long,
+        toInclusive: Long,
+    ): Flow<List<StudySessionEntity>>
+
     @Query("UPDATE study_sessions SET currentPage = MAX(currentPage, :page) WHERE id = :id AND activeSlot = 1")
     suspend fun advanceCurrentPage(id: String, page: Int): Int
 

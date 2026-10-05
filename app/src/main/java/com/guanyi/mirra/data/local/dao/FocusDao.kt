@@ -96,6 +96,12 @@ interface FocusDao {
     @Query("SELECT * FROM session_segments WHERE sessionId = :sessionId ORDER BY startedAt, id")
     fun observeSegments(sessionId: String): Flow<List<SessionSegmentEntity>>
 
+    @Query("SELECT * FROM session_focus_contexts WHERE sessionId IN (:sessionIds)")
+    fun observeContextsForSessions(sessionIds: List<String>): Flow<List<SessionFocusContextEntity>>
+
+    @Query("SELECT * FROM session_segments WHERE sessionId IN (:sessionIds) ORDER BY sessionId, startedAt, id")
+    fun observeSegmentsForSessions(sessionIds: List<String>): Flow<List<SessionSegmentEntity>>
+
     @Query("SELECT * FROM focus_events WHERE sessionId = :sessionId ORDER BY occurredAt, id")
     suspend fun listEvents(sessionId: String): List<FocusEventEntity>
 
