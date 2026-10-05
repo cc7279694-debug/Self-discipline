@@ -4,17 +4,18 @@
 
 ## Current Stage
 
-Phase 2、Module 3A、Mirra Blue / Visual Parity 与整个 Module 3C 保持原正式冻结状态。Module 3B 是个人试用开发基线，不等于发布级设备能力验收完成。已独立验收的 Clock Rollback Correction `2d43e8875ed8dc4b93c0411661262909ca5dc56c` 保留为独立前置提交；按用户续作授权完成 Phase 3D-1 Tasks 1–6：安全、精确、不可逆地结束学习。全量 gate 与约定 AVD 闭环通过，当前等待用户独立验收，不自行宣布冻结。Room v4 / schemas 1–4 不变。3D-2 有效指标、3D-3 ReadingRecord 与 3D-4 尚未开始。API 23–36、OEM、实体设备完整矩阵、TalkBack 与发行环境继续 `NOT RUN`，API 37 AVD 结果不外推；一加 13T 反馈仍仅为个人试用。
+Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c07fbabf050d6d5ac3aeae0677d5e5abf14f4465`，包括已验收的 Clock Rollback Correction、Tasks 1–6 与 Acceptance Patch。Phase 2、Module 3A、Mirra Blue / Visual Parity 与整个 Module 3C 保持原冻结语义。Module 3B 是个人试用开发基线，不等于发布级设备能力验收完成。Room v4 / schemas 1–4 不变。下一阶段为 Phase 3D-2｜可信时间线与有效指标，尚未开始，仍等待单独明确授权；3D-3 ReadingRecord 与 3D-4 也未开始。API 23–36 full matrix、OEM / 实体设备完整矩阵、TalkBack、release / Play、真实硬件断电与真实系统时钟人工修改继续 `NOT RUN`，API 37 AVD 结果不外推；一加 13T 反馈仍仅为个人试用。
 
-## Current Phase 3D-1 Closeout
+## Frozen Phase 3D-1 Closeout
 
-- 规划基线为 `758b3bc163ccc7a187f85594d1c04fbda5ecf7d4`，当前分支 `codex/phase-3d-closeout`。Tasks 1–5 已独立小步提交，Task 6 只做 gate/checkpoint；完整规则、文件清单、失败历史与提交表见 `docs/checkpoints/2026-10-04-module-3d-1.md`。
+- 规划基线为 `758b3bc163ccc7a187f85594d1c04fbda5ecf7d4`，当前分支 `codex/phase-3d-closeout`。Tasks 1–6 与 Acceptance Patch 已完成独立验收，Accepted implementation HEAD 为 `c07fbabf050d6d5ac3aeae0677d5e5abf14f4465`；完整规则、文件清单、失败历史、执行证据与正式冻结结论见 `docs/checkpoints/2026-10-04-module-3d-1.md`。
 - A 事务固定最终确认的时间/页码、关闭活动 Segment、保留 occupied slot 并写 PENDING；B 使用原快照原子完成 NORMAL、书籍进度、既有 Summary、FTS 与 COMPLETED。低结束页明确拒绝。PENDING 永久不可恢复，retry 不重新采时。零时长末段删除，不伪造 1ms。
 - ACTIVE 资格在相关事务内复核；PENDING 拒绝晚到页码、监测、行为、里程碑、receipt 与 DND apply，release 元数据仍可写。结束经既有 Controller mutex settle → A → 纯内存失效 → B，再锁外独立有限清理渠道/监测/DND；旧 callback 不借用新 Session。取消回查 durable 状态并传播。
 - 冷启动先完成原 PENDING，B 失败保留快照、只读重试、无 FGS 重启，不改写为 ABNORMAL。普通遗留 ACTIVE 仍异常恢复。UI 先 await Note/page 实际保存再确认；最终确认仅采一次 ClockSample，重建显示冻结时间，外部请求按 ID 一次消费。
+- Acceptance Patch 已冻结：Stage A 同一事务复核 event / heartbeat / Stable Start 等 durable learning fact boundary，旧确认不得早于已落库学习事实；不将 DND/cleanup 的 updatedAt 当学习边界，更新健康查询本身不制造失监。Backward proof 不得越过 durable loss 后的新事实。页码保存失败可不改数字直接重试，失败仍阻止确认；Saving 显示“正在保存本次阅读…”，不在 A durable 前声称阅读已结束。
 - 前置 rollback 的原始 RED 与 225 JVM / 63 定向 Room 历史证据保留在 `docs/checkpoints/2026-10-04-clock-rollback-correction.md`，不冒充本轮全量结果。3D-1 唯一 backward 例外需同一 binding 的真实 sample 对和匹配 durable loss，在 A 中重核；generic PARTIAL 不作证据。DND ownership / READY / FGS Usage 架构、Coverage、StateMachine、3C 阈值、Phase 2 analytics 与 Schema 未变化。
-- 本轮实际完整未过滤 JVM 264/264、API37 单次完整 connected 228/228，均 0 failure/error/skipped；DND 3 项、渠道 5 项实际执行。lintDebug 0 errors / 9 existing warnings / 1 hint，assembleDebug 通过。首次 connected 的外部请求重复消费失败与 5 个平台前提缺失已诚实保留，修复消费边界并补前提后取得上述完整 PASS。
-- AVD 正常确认/继续阅读/低结束页拒绝、旧页 Note、覆盖安装保留数据、断网冷启动与普通 ACTIVE 强停→ABNORMAL 已实际执行。PENDING 使用真实 Room 文件关闭/重开及失败重试测试，不冒充断电。最终 APK `build/deliverables/Mirra-3D1-debug.apk`，16179372 bytes，SHA-256 `24D3FC56C833A432923F91DC5104B33BC02C1F8AE7EA1EA37835042690EB338B`，仅个人 Debug 试用，不入 Git。
+- 已验收最终执行证据：Acceptance Patch 完整未过滤 JVM 270/270、API37 单次完整 connected 238/238，均 0 failure/error/skipped；DND 3 项、渠道 5 项实际执行。lintDebug 0 errors / 9 existing warnings / 1 hint，assembleDebug PASS。原始 264/228 gate、所有 RED、首次 connected 外部请求重复消费失败与平台前提缺失历史保留于 checkpoint。独立 review 及本次纯文档冻结没有重新运行 Gradle / AVD，不将已提交执行证据冒称本轮测试。
+- 原 3D-1 gate 的 AVD 正常确认/继续阅读/低结束页拒绝、旧页 Note、覆盖安装保留数据、断网冷启动与普通 ACTIVE 强停→ABNORMAL 已实际执行。PENDING 使用真实 Room 文件关闭/重开及失败重试测试，不冒充断电。该 gate 交付 APK `build/deliverables/Mirra-3D1-debug.apk`，16179372 bytes，SHA-256 `24D3FC56C833A432923F91DC5104B33BC02C1F8AE7EA1EA37835042690EB338B`，是 Acceptance Patch 前的个人 Debug 试用包，不冒称最终冻结 HEAD 的新交付包，不入 Git。
 - 专用测试框架此前默认清理安装导致不能宣称旧测试数据保留；最终 connected 使用命令行 leaveApksInstalledAfterRun=true，之后创建测试书/Note并单独覆盖安装比较确认保留。不曾手工 uninstall/pm clear/wipe。专用 AVD 的临时平台授权和网络设置已恢复，无实体机操作。
 
 ## Verified Completed
@@ -142,7 +143,7 @@ Phase 2、Module 3A、Mirra Blue / Visual Parity 与整个 Module 3C 保持原�
 - 显式 immutable Activity PendingIntent 用 session/token/action URI；submit / consume 与 Room Active Session 双重复核，旧 token / 结束 / 新进程动作拒绝。generation + 单 owner 清理 foreground、dismiss、release、loss / service destruction 与迟到回执。
 - 既有 focus_events 只记录真实 IN_APP composition / OVERLAY attach 和每 episode 一次 UNAVAILABLE；不改变 Segment / Coverage / DND。Room v4、schemas 1–4 与 Migration 不变。
 - 已提交执行证据为最终 JVM 222/222、完整未过滤 connected 177/177（0 failure/error/skipped，DND 3 / channels 5 实际执行）、lintDebug / assembleDebug 通过，以及 API37 真实 A–H、Overlay 导航、最终覆盖安装、离线冷启动、强停 ABNORMAL、旧动作回放和数据保留。本次独立验收与纯文档同步没有重新运行 Gradle / AVD，不将上述结果冒充本次重新执行。环境故障及修补 RED 历史继续保存在 `docs/checkpoints/2026-10-04-module-3c-3.md`。
-- API 23–36、OEM、实体设备、TalkBack 与发行环境未测项继续 `NOT RUN`；API 37 专用 AOSP AVD 结果不外推为其他平台 PASS。3C-3 冻结核心保持不变；当前仅按单独授权实施 3D-1。
+- API 23–36、OEM、实体设备、TalkBack 与发行环境未测项继续 `NOT RUN`；API 37 专用 AOSP AVD 结果不外推为其他平台 PASS。3C-3 冻结核心保持不变；3D-1 已正式冻结，后续阶段仍需单独授权。
 
 ## Frozen Module 3C-4 Baseline / Module 3C Closure
 
@@ -169,7 +170,7 @@ Phase 2、Module 3A、Mirra Blue / Visual Parity 与整个 Module 3C 保持原�
 
 ## Pending
 
-- Phase 3D-1 已完成实现与最终 gate，等待独立验收；交付后停止，不自动进入 3D-2/3/4。Module 3C 冻结不重新打开，一加13T个人试用反馈不升级为兼容性 PASS。
+- Phase 3D-2｜可信时间线与有效指标尚未开始，等待单独明确授权；3D-1 已独立验收并正式冻结，不自动进入 3D-2/3/4。Phase 2 与 Module 3C 冻结语义不重新打开，一加13T个人试用反馈不升级为兼容性 PASS。
 - Phase 3｜Module 3B Task 6 仍待最终独立验收。Task Manager Stop、reboot、完整 risk/lock/revocation 矩阵、API 23/29/33/34/35 与实体/OEM 设备继续为 `NOT RUN`，不用 API 37 AVD 结果代替。
 
 ## Known Risks / Unknowns
@@ -192,6 +193,7 @@ Phase 2、Module 3A、Mirra Blue / Visual Parity 与整个 Module 3C 保持原�
 ## Git
 
 - Current branch: `codex/phase-3d-closeout`
+- Frozen Phase 3D-1 accepted implementation HEAD: `c07fbabf050d6d5ac3aeae0677d5e5abf14f4465`（`fix(focus): reject closeout before durable learning facts`），已独立验收并正式冻结。冻结文档提交另行报告，不替代该实现 SHA。
 - Current planning freeze base: `758b3bc163ccc7a187f85594d1c04fbda5ecf7d4`；accepted prerequisite `2d43e8875ed8dc4b93c0411661262909ca5dc56c`。Task 5 实现 `087f6dce67767d4c7e6941d75f11aec0f9455b74`；Tasks 1–4 与额外 ownership fence 的完整 SHA 见 3D-1 checkpoint。未合并 main。
 - Frozen 3C-4 implementation commit: `da461423dbbe17f0a875373d7a4c38f2a1830788`（`feat(focus): finalize module 3c experience`），已由用户核对远程并正式验收；Module 3C 整体正式冻结，未合并 main。
 - Frozen 3C-3 implementation commit: `b9843eb5c3879899e148792a6a1f252e4b6d573d`（`feat(focus): add safe cross-app intervention`），已由用户核对远程并正式验收；未合并 main。
@@ -202,4 +204,4 @@ Phase 2、Module 3A、Mirra Blue / Visual Parity 与整个 Module 3C 保持原�
 
 ## Next Recommended Task
 
-完成 3D-1 gate、文档和 Push 后停止，等待用户独立读取提交复验；不开始 3D-2 有效指标、3D-3 ReadingRecord 或 3D-4。继续继承 Module 3C 冻结核心与 Room v4。保留一加13T个人试用及 API 23–36、OEM、实体设备完整矩阵、TalkBack、发行环境的 `NOT RUN` 边界。
+Phase 3D-2｜可信时间线与有效指标：尚未开始，等待用户单独明确授权。继续继承已冻结的 3D-1、Phase 2 与 Module 3C 语义及 Room v4 / schemas 1–4，不自动开始 3D-2/3/4。保留一加13T个人试用及 API 23–36 full matrix、OEM / 实体设备完整矩阵、TalkBack、release / Play、真实硬件断电、真实系统时钟人工修改的 `NOT RUN` 边界；API 37 AVD 不外推这些结果。
