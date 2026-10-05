@@ -314,6 +314,7 @@ fun LearningItemDetailScreen(
     viewModel: LearningItemDetailViewModel,
     onStart: (String) -> Unit,
     onOpenNotes: (String) -> Unit,
+    onOpenSession: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -399,7 +400,7 @@ fun LearningItemDetailScreen(
                 )
             }
             items(state.history, key = { it.id }) { session ->
-                SessionHistoryRow(session)
+                SessionHistoryRow(session, onClick = { onOpenSession(session.id) })
                 HorizontalDivider(color = MirraTheme.colors.divider)
             }
         }

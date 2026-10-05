@@ -247,6 +247,7 @@ fun MirraApp(
                         ),
                         onStart = { open(PreparationRoute(it)) },
                         onOpenNotes = { open(NoteListRoute(it)) },
+                        onOpenSession = { open(SessionSearchDetailRoute(it)) },
                         onBack = ::back,
                     )
                 }

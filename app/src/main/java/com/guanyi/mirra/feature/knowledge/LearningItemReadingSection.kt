@@ -1,14 +1,17 @@
 package com.guanyi.mirra.feature.knowledge
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.guanyi.mirra.domain.PredictionConfidence
@@ -42,6 +45,7 @@ data class SessionHistoryUi(
 fun LearningItemReadingSection(
     analytics: LearningItemAnalyticsUi?,
     history: List<SessionHistoryUi>,
+    onOpenSession: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -54,7 +58,7 @@ fun LearningItemReadingSection(
                 modifier = Modifier.padding(top = 12.dp),
             )
             history.forEach { item ->
-                SessionHistoryRow(item)
+                SessionHistoryRow(item, onClick = { onOpenSession(item.id) })
                 HorizontalDivider(color = MirraTheme.colors.divider)
             }
         }
@@ -82,8 +86,9 @@ fun LearningItemAnalyticsSummary(
 }
 
 @Composable
-fun SessionHistoryRow(item: SessionHistoryUi, modifier: Modifier = Modifier) {
-    Column(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+fun SessionHistoryRow(item: SessionHistoryUi, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.fillMaxWidth().heightIn(min = 48.dp)
+        .clickable(role = Role.Button, onClick = onClick).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("${item.date.monthValue}月${item.date.dayOfMonth}日", color = MirraTheme.colors.textPrimary)
             Text(formatDuration(item.duration), color = MirraTheme.colors.textSecondary)

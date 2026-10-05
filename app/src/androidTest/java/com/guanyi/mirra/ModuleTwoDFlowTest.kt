@@ -55,6 +55,7 @@ class ModuleTwoDFlowTest {
                             abnormal = true,
                         ),
                     ),
+                    onOpenSession = {},
                 )
             }
         }
