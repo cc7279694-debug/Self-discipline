@@ -193,6 +193,43 @@ class ModuleThreeDCloseoutRepositoryTest {
             "SELECT searchableText FROM search_fts WHERE entityType = 'SESSION' AND entityId = ?", arrayOf(sessionId),
         ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.getString(0)) } }
 
+    @Test fun startupCompletesPendingBeforeAbnormalRecovery() = runTest {
+        val s = startUnmonitored()
+        workflow().beginCloseout(s.id, 20, 2_000)
+        val segments = db.focusDao().listSegments(s.id)
+        wallNow = 99_000
+        assertEquals(com.guanyi.mirra.domain.SessionRecoveryResult.Ready, workflow().recoverInterruptedSession())
+        val ended = db.sessionDao().get(s.id)!!
+        assertEquals(SessionEndType.NORMAL, ended.endType)
+        assertEquals(2_000L, ended.endedAt)
+        assertEquals(20, ended.endPage)
+        assertEquals(FocusCloseoutState.COMPLETED, workflow().getCloseoutState(s.id))
+        assertEquals(segments, db.focusDao().listSegments(s.id))
+        assertEquals(1, sessionIndex(s.id).size)
+        workflow().recoverInterruptedSession()
+        assertEquals(ended, db.sessionDao().get(s.id))
+    }
+
+    @Test fun failedPendingRecoveryNeverBecomesAbnormalAndStillExpiresOldIntent() = runTest {
+        val s = startUnmonitored()
+        val snap = workflow().beginCloseout(s.id, 20, 2_000)
+        // Isolated fixture for independent leftover Intent recovery, not user data.
+        db.intentDao().insert(com.guanyi.mirra.data.local.entity.StudyIntentEntity("leftover-intent", s.learningItemId, 1_000, null, null, null, null, 1))
+        db.openHelper.writableDatabase.execSQL("CREATE TEMP TRIGGER fail_complete BEFORE UPDATE OF closeoutState ON session_focus_contexts WHEN NEW.closeoutState = 'COMPLETED' BEGIN SELECT RAISE(ABORT, 'injected complete'); END")
+        wallNow = 3_000_000
+        val result = workflow().recoverInterruptedSession()
+        assertTrue(result is com.guanyi.mirra.domain.SessionRecoveryResult.PendingRetry)
+        assertEquals(s, db.sessionDao().get(s.id))
+        assertEquals(snap, workflow().getCloseoutSnapshot(s.id))
+        assertEquals(FocusCloseoutState.PENDING, workflow().getCloseoutState(s.id))
+        assertNull(db.focusDao().getActiveSegment(s.id))
+        assertEquals(com.guanyi.mirra.data.local.entity.IntentOutcome.TIMEOUT, db.intentDao().get("leftover-intent")?.outcome)
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_complete")
+        assertEquals(com.guanyi.mirra.domain.SessionRecoveryResult.Ready, workflow().recoverInterruptedSession())
+        assertEquals(2_000L, db.sessionDao().get(s.id)?.endedAt)
+        assertEquals(SessionEndType.NORMAL, db.sessionDao().get(s.id)?.endType)
+    }
+
     @Test fun finalSettlementBackwardClockUsesOnlyDurableLossBoundary() = runTest {
         verifyRuntimeBackwardCloseout(alreadyObserved = false)
     }

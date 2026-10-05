@@ -17,7 +17,7 @@ interface SessionManager {
     suspend fun updatePage(sessionId: String, page: Int)
     suspend fun finish(sessionId: String, endPage: Int, sample: ClockSample): SessionFinishResult
     suspend fun retryPendingFinish(sessionId: String): SessionFinishResult
-    suspend fun recoverInterruptedSession()
+    suspend fun recoverInterruptedSession(): SessionRecoveryResult
 }
 
 class DefaultSessionManager(

@@ -54,8 +54,52 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 private val Context.mirraPreferences by preferencesDataStore(name = "mirra_preferences")
+
+internal suspend fun runCloseoutStartup(
+    recover: suspend () -> com.guanyi.mirra.domain.SessionRecoveryResult,
+    channels: suspend () -> Unit, dnd: suspend () -> Unit,
+    images: suspend () -> Unit, search: suspend () -> Unit,
+    onIssue: (Throwable) -> Unit,
+) {
+    var primary: Throwable? = null
+    try {
+        val result = recover()
+        if (result is com.guanyi.mirra.domain.SessionRecoveryResult.PendingRetry) onIssue(result.cause)
+    } catch (failure: Throwable) {
+        primary = failure
+        if (failure !is CancellationException) onIssue(failure)
+    }
+    // Owned resources must be reconciled even when recovery failed or its caller was cancelled.
+    withContext(NonCancellable) { withContext(Dispatchers.IO) {
+        for (step in listOf(channels, dnd)) {
+            try { withTimeout(5_000) { step() } }
+            catch (failure: Exception) {
+                onIssue(failure)
+                primary?.takeUnless { it === failure }?.addSuppressed(failure)
+                if (failure is CancellationException && failure !is TimeoutCancellationException && primary == null) {
+                    primary = failure
+                }
+            }
+        }
+    } }
+    primary?.takeIf { it is CancellationException }?.let { throw it }
+    currentCoroutineContext().ensureActive()
+    for (step in listOf(images, search)) {
+        try { withContext(Dispatchers.IO) { step() } }
+        catch (timeout: TimeoutCancellationException) { onIssue(timeout) }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (failure: Exception) { onIssue(failure) }
+    }
+    primary?.let { throw it }
+}
 
 /** Thin post-start fence; underlying Room/DND/channel owners still enforce their own races. */
 internal suspend fun configureActiveSessionPresentationAndDnd(
@@ -185,10 +229,11 @@ class DefaultAppContainer(context: Context, private val monitoringRuntime: Monit
         onSessionCreated = { configureSessionPresentationAndDnd(it.id) },
     )
     override val startup: Deferred<Unit> = applicationScope.async {
-        sessionManager.recoverInterruptedSession()
-        monitoringRuntime.interventionChannels?.startupCleanup()
-        runCatching { dndController.reconcileAfterRecovery() }
-        runCatching { imageRepository.reconcileStorage() }
-        runCatching { searchIndexRebuilder.ensureConsistent() }
+        runCloseoutStartup(sessionManager::recoverInterruptedSession,
+            { monitoringRuntime.interventionChannels?.startupCleanup() },
+            { dndController.reconcileAfterRecovery() },
+            { imageRepository.reconcileStorage() },
+            { searchIndexRebuilder.ensureConsistent() },
+            { android.util.Log.w("MirraStartup", "Bootstrap step requires retry: ${it.javaClass.simpleName}") })
     }
 }

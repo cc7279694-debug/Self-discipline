@@ -15,12 +15,14 @@ import com.guanyi.mirra.data.local.entity.SessionSegmentType
 import com.guanyi.mirra.data.local.model.RecentReadingSnapshot
 import com.guanyi.mirra.domain.IntentExpiryPolicy
 import com.guanyi.mirra.domain.SummaryEngine
+import com.guanyi.mirra.domain.SessionRecoveryResult
 import com.guanyi.mirra.data.search.SearchIndexWriter
 import com.guanyi.mirra.domain.DefaultSearchEngine
 import com.guanyi.mirra.platform.focus.MonitoringReadyLease
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.CancellationException
 import com.guanyi.mirra.data.local.entity.FocusCloseoutState
 import com.guanyi.mirra.data.local.model.CloseoutSnapshot
 import com.guanyi.mirra.domain.monitoring.BackwardClockCloseoutEvidence
@@ -48,7 +50,7 @@ interface StudyWorkflowRepository {
     suspend fun getCloseoutState(sessionId: String): FocusCloseoutState?
     fun observeCloseoutState(sessionId: String): Flow<FocusCloseoutState?>
     suspend fun getCloseoutSnapshot(sessionId: String): CloseoutSnapshot?
-    suspend fun recoverInterruptedSession()
+    suspend fun recoverInterruptedSession(): SessionRecoveryResult
 }
 
 class DefaultStudyWorkflowRepository(
@@ -297,12 +299,15 @@ class DefaultStudyWorkflowRepository(
         }
     }
 
-    override suspend fun recoverInterruptedSession() {
-        database.withTransaction {
+    override suspend fun recoverInterruptedSession(): SessionRecoveryResult {
+        var primary: Throwable? = null
+        try {
+        val pendingId = database.withTransaction {
             val now = clock()
             sessionDao.getActive()?.let { active ->
                 val segment = focusDao.getActiveSegment(active.id)
                 val context = focusDao.getContext(active.id)
+                if (context?.closeoutState == FocusCloseoutState.PENDING) return@withTransaction active.id
                 // A regressed wall clock cannot truncate facts already durable in Room.
                 val recoveryBoundary = maxOf(
                     now,
@@ -321,8 +326,28 @@ class DefaultStudyWorkflowRepository(
                 )
                 searchIndexWriter.reindexSession(active.id)
             }
-            intentDao.getActive()?.takeIf { expiryPolicy.isExpired(it.createdAt, now) }?.let { expired ->
-                intentDao.markTimedOut(expired.id, now)
+            null
+        }
+        if (pendingId == null) return SessionRecoveryResult.Ready
+        return try {
+            completeCloseout(pendingId)
+            SessionRecoveryResult.Ready
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (failure: Exception) { SessionRecoveryResult.PendingRetry(pendingId, failure) }
+        } catch (failure: Throwable) {
+            primary = failure
+            throw failure
+        } finally {
+            // Expiry is independent of a failed B transaction; never convert PENDING to ABNORMAL.
+            try {
+                database.withTransaction {
+                    val now = clock()
+                    intentDao.getActive()?.takeIf { expiryPolicy.isExpired(it.createdAt, now) }?.let {
+                        intentDao.markTimedOut(it.id, now)
+                    }
+                }
+            } catch (failure: Throwable) {
+                if (primary != null) { if (failure !== primary) primary.addSuppressed(failure) } else throw failure
             }
         }
     }
