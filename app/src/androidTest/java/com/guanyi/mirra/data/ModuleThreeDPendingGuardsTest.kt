@@ -86,6 +86,18 @@ class ModuleThreeDPendingGuardsTest {
         assertEquals(10, db.sessionDao().get(s.id)?.currentPage)
         assertEquals(20, workflow.getCloseoutSnapshot(s.id)?.requestedEndPage)
     }
+    @Test fun pendingOccupiedSlotCannotBeReturnedByIntentStartFastPath() = runTest {
+        val s = start()
+        assertEquals(s.id, workflow.findActiveSessionForIntent(s.intentId)?.id)
+        workflow.beginCloseout(s.id, 20, 2_000)
+        assertNull(workflow.findActiveSessionForIntent(s.intentId))
+        rejected { workflow.startMonitoredSession(s.intentId, 10,
+            MonitoringReadyLease("another", 2_000, 1_000, 2, 2_000, 1_000, 1_000, false, false), "other-session") }
+        assertEquals(s.id, db.sessionDao().getActive()?.id)
+        assertEquals(FocusCloseoutState.PENDING, workflow.getCloseoutState(s.id))
+        workflow.completeCloseout(s.id)
+        assertNull(workflow.findActiveSessionForIntent(s.intentId))
+    }
     @Test fun pendingInvalidatesLateReceipts() = runTest {
         val s = start()
         now = 11_000

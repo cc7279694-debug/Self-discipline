@@ -27,13 +27,20 @@ class SessionFocusViewModelTest {
     private var tick = 0L
     private inline fun <reified T> proxy(noinline block: (String, List<Any?>) -> Any?): T =
         Proxy.newProxyInstance(T::class.java.classLoader, arrayOf(T::class.java)) { _, method, args -> block(method.name, args?.toList().orEmpty()) } as T
-    private fun vm(currentSession: StudySessionEntity? = null): SessionViewModel {
+    private fun vm(currentSession: StudySessionEntity = StudySessionEntity("s", "book", "intent", 1_000,
+        null, null, 40, 40, null, null, null, 1)): SessionViewModel {
         val actions = proxy<FocusSessionActions> { name, args -> when (name) {
             "getFocusStatus" -> status
             "getIntervention" -> prompt
             else -> { calls += name to args; if (name == "refresh") Unit else result }
         } }
-        return SessionViewModel("s", proxy<StudyWorkflowRepository> { _, _ -> flowOf(currentSession) },
+        return SessionViewModel("s", proxy<StudyWorkflowRepository> { name, _ -> when (name) {
+            "observeSession" -> flowOf(currentSession)
+            "observeCloseoutState" -> flowOf(FocusCloseoutState.ACTIVE)
+            "getCloseoutState" -> FocusCloseoutState.ACTIVE
+            "getCloseoutSnapshot" -> null
+            else -> error("Unexpected $name")
+        } },
             proxy<NoteRepository> { _, _ -> flowOf(emptyList<NoteEntity>()) },
             proxy<SessionManager> { name, args -> calls += name to args; Unit }, focusActions = actions,
             clockSample = { tick++; ClockSample(10_000 + tick, tick) })
@@ -68,7 +75,7 @@ class SessionFocusViewModelTest {
     }
 
     @Test fun pairedSampleIsSharedByRefreshAndEvidenceAndUsesRealVisibility() = runTest(dispatcher) {
-        val vm = vm()
+        val vm = vm(); runCurrent()
         vm.observeFocusEvidence(false, true)
         val refresh = calls.first { it.first == "refresh" }
         val evidence = calls.first { it.first == "observeEvidence" }
@@ -80,7 +87,7 @@ class SessionFocusViewModelTest {
         vm.viewModelScope.cancel()
     }
     @Test fun breakAndAllowanceCommandsUseCurrentIdentityAndNullDuration() = runTest(dispatcher) {
-        val vm = vm()
+        val vm = vm(); runCurrent()
         vm.startBreak(5); runCurrent()
         assertEquals(300_000L, calls.first { it.first == "startBreak" }.second[2])
         vm.startBreak(10); vm.finishBreak(); vm.grantAllowance(); vm.extendAllowance(); vm.finishAllowance(); runCurrent()
@@ -93,7 +100,7 @@ class SessionFocusViewModelTest {
         vm.viewModelScope.cancel()
     }
     @Test fun panelVisibilityAndReturnOnlyDelegateWithoutClearingNoteDraft() = runTest(dispatcher) {
-        val vm = vm()
+        val vm = vm(); runCurrent()
         vm.changeContent("still writing"); vm.changePage("42")
         vm.selectAllowanceReason(AllowanceReason.RESEARCH)
         vm.setPromptVisible(false); vm.dismissPrompt(); vm.returnToStudy(); runCurrent()
@@ -104,7 +111,7 @@ class SessionFocusViewModelTest {
         vm.viewModelScope.cancel()
     }
     @Test fun errorsRefreshExpiredAndConflictButNeverFabricateSuccess() = runTest(dispatcher) {
-        val vm = vm()
+        val vm = vm(); runCurrent()
         for ((value, message) in listOf(FocusActionResult.EXPIRED to "当前状态已变化", FocusActionResult.CONFLICT to "操作暂未生效，请稍后重试", FocusActionResult.SAVE_FAILED to "保存失败，请重试")) {
             calls.clear(); result = value; vm.finishBreak(); runCurrent()
             assertEquals(message, vm.focusError)
@@ -114,7 +121,7 @@ class SessionFocusViewModelTest {
         vm.viewModelScope.cancel()
     }
     @Test fun failedExtensionRefreshesWithoutChangingDisplayedDeadline() = runTest(dispatcher) {
-        val vm = vm()
+        val vm = vm(); runCurrent()
         try {
             status.value = status.value.copy(type = SessionSegmentType.TEMPORARY_ALLOWANCE, remainingMillis = 123_000, canExtend = true)
             result = FocusActionResult.SAVE_FAILED

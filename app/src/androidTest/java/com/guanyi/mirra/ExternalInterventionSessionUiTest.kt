@@ -46,8 +46,10 @@ class ExternalInterventionSessionUiTest {
         rule.onNodeWithText("回复消息 · 3 分钟").assertExists()
         rule.onNodeWithText("开始临时使用").assertIsNotEnabled()
     }
-    @Test fun finishOnlyReachesNormalFinishButton() = scenario(InterventionNavigationAction.OPEN_FINISH) { _, _ ->
-        rule.onNodeWithText("结束本次阅读").assertIsDisplayed()
+    @Test fun finishOpensSameConfirmationWithoutEndingOrGranting() = scenario(InterventionNavigationAction.OPEN_FINISH) { _, _ ->
+        rule.onNodeWithText("结束本次阅读？").assertIsDisplayed()
+        rule.onNodeWithText("继续阅读").performClick()
+        rule.onNodeWithText("结束本次阅读？").assertDoesNotExist()
     }
     @Test fun staleRequestDoesNotOpenReasons() = scenario(InterventionNavigationAction.OPEN_ALLOWANCE, true) { _, _ ->
         rule.onNodeWithText("回复消息 · 3 分钟").assertDoesNotExist()

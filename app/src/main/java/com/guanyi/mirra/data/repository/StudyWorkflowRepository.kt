@@ -148,7 +148,9 @@ class DefaultStudyWorkflowRepository(
     override fun observeSession(id: String) = sessionDao.observe(id)
     override fun observeLatestSummaryForItem(learningItemId: String) = sessionDao.observeLatestSummaryForItem(learningItemId)
     override fun observeLatestNormalReading(learningItemId: String) = sessionDao.observeLatestNormalReading(learningItemId)
-    override suspend fun findActiveSessionForIntent(intentId: String) = sessionDao.getActiveForIntent(intentId)
+    override suspend fun findActiveSessionForIntent(intentId: String) = database.withTransaction {
+        sessionDao.getActiveForIntent(intentId)?.takeIf { isLearningFactWritable(it, focusDao.getContext(it.id)) }
+    }
 
     override suspend fun createIntent(
         learningItemId: String,
@@ -213,6 +215,7 @@ class DefaultStudyWorkflowRepository(
     ): MonitoredSessionStartResult {
         val result = database.withTransaction<MonitoredSessionStartResult?> {
             if (readyLease != null) sessionDao.getActiveForIntent(intentId)?.let {
+                check(isLearningFactWritable(it, focusDao.getContext(it.id))) { "阅读已结束，正在保存" }
                 return@withTransaction MonitoredSessionStartResult(it, created = false)
             }
             val intent = checkNotNull(intentDao.get(intentId)) { "Intent 不存在" }

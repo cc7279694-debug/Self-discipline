@@ -4,6 +4,8 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -62,6 +64,8 @@ class PhaseOneLearningLoopTest {
         composeRule.onNodeWithText("保存并记下一条").performClick()
         composeRule.onNode(hasText("当前页码") and hasSetTextAction()).performTextReplacement("25")
         composeRule.onNodeWithText("结束本次阅读").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasTestTag("confirm-session-finish")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithTag("confirm-session-finish").performClick()
 
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("本次阅读已保存")).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText("本次阅读 10–25 页，用时不足 1 分钟，共记录 2 条笔记。").assertExists()

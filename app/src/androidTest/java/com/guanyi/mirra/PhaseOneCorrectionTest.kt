@@ -6,6 +6,8 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -122,6 +124,8 @@ class PhaseOneCorrectionTest {
         launchAtSession(currentPage = 10)
         composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performTextInput("最后一笔")
         composeRule.onNodeWithText("结束本次阅读").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasTestTag("confirm-session-finish")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithTag("confirm-session-finish").performClick()
 
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodes(hasText("Note 数量：1")).fetchSemanticsNodes().isNotEmpty()

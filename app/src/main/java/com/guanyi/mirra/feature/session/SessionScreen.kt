@@ -25,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -35,6 +36,7 @@ import com.guanyi.mirra.ui.components.MirraTextAction
 import com.guanyi.mirra.ui.components.MirraSecondaryButton
 import com.guanyi.mirra.ui.theme.MirraTheme
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.Lifecycle
@@ -49,6 +51,15 @@ import com.guanyi.mirra.data.repository.NoteRepository
 import com.guanyi.mirra.data.repository.StudyWorkflowRepository
 import com.guanyi.mirra.domain.RuleBasedNoteTypeSuggester
 import com.guanyi.mirra.domain.SessionManager
+import com.guanyi.mirra.domain.SessionFinishResult
+import com.guanyi.mirra.data.local.entity.FocusCloseoutState
+import com.guanyi.mirra.data.local.model.CloseoutSnapshot
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collect
 import com.guanyi.mirra.domain.monitoring.*
 import com.guanyi.mirra.data.repository.LearningItemRepository
 import kotlinx.coroutines.flow.flatMapLatest
@@ -63,13 +74,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import com.guanyi.mirra.ui.components.MirraPrimaryButton
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 class SessionViewModel(
     private val sessionId: String,
-    workflow: StudyWorkflowRepository,
+    private val workflow: StudyWorkflowRepository,
     private val notesRepository: NoteRepository,
     private val sessionManager: SessionManager,
     private val noteTypeSuggester: RuleBasedNoteTypeSuggester = RuleBasedNoteTypeSuggester(),
@@ -77,9 +90,179 @@ class SessionViewModel(
     learningItems: LearningItemRepository? = null,
     private val clockSample: () -> ClockSample = { ClockSample(System.currentTimeMillis(), SystemClock.elapsedRealtime()) },
 ) : ViewModel() {
+    private val mutableFinishUi = MutableStateFlow<SessionFinishUiState>(SessionFinishUiState.PreparingConfirmation)
+    val finishUi: StateFlow<SessionFinishUiState> = mutableFinishUi
+    var closeoutSnapshot by mutableStateOf<CloseoutSnapshot?>(null)
+        private set
+    private var durableCloseout by mutableStateOf<FocusCloseoutState?>(null)
+    private var finishOperationRunning = false
+    private var completionDelivered = false
+    private var completionCallback: ((String) -> Unit)? = null
+    private var rotatingDraft by mutableStateOf(false)
+    val isReadingQualified: Boolean get() = durableCloseout == FocusCloseoutState.ACTIVE
+    val canEditLearning: Boolean get() = durableCloseout == FocusCloseoutState.ACTIVE &&
+        mutableFinishUi.value == SessionFinishUiState.Idle && !rotatingDraft &&
+        session.value?.let { it.activeSlot == 1 && it.endedAt == null } == true
+    private val canObserveLearning: Boolean get() = durableCloseout == FocusCloseoutState.ACTIVE &&
+        mutableFinishUi.value !is SessionFinishUiState.Saving && mutableFinishUi.value !is SessionFinishUiState.SaveFailed &&
+        mutableFinishUi.value !is SessionFinishUiState.Completed
+
+    fun requestFinishConfirmation() {
+        if (!canEditLearning && !rotatingDraft) return
+        if (mutableFinishUi.value != SessionFinishUiState.Idle) return
+        mutableFinishUi.value = SessionFinishUiState.PreparingConfirmation
+        error = null
+        viewModelScope.launch {
+            try {
+                flushPendingEdits()
+                check(workflow.getCloseoutState(sessionId) == FocusCloseoutState.ACTIVE) { "当前阅读状态已变化" }
+                val latest = checkNotNull(workflow.observeSession(sessionId).first()) { "Session 不存在" }
+                mutableFinishUi.value = SessionFinishUiState.Confirming(latest.currentPage.toString())
+            } catch (cancelled: CancellationException) {
+                currentCoroutineContext().ensureActive()
+                error = "保存被中断，请重试"
+                if (durableCloseout == FocusCloseoutState.ACTIVE) mutableFinishUi.value = SessionFinishUiState.Idle
+            }
+            catch (failure: Exception) {
+                error = failure.message ?: "笔记保存失败，请重试"
+                if (durableCloseout == FocusCloseoutState.ACTIVE) mutableFinishUi.value = SessionFinishUiState.Idle
+            }
+        }
+    }
+    fun changeEndPage(text: String) {
+        if (mutableFinishUi.value !is SessionFinishUiState.Confirming) return
+        mutableFinishUi.value = SessionFinishUiState.Confirming(text.filter(Char::isDigit))
+        error = null
+    }
+    fun cancelFinishConfirmation() {
+        if (mutableFinishUi.value is SessionFinishUiState.Confirming && durableCloseout == FocusCloseoutState.ACTIVE) {
+            mutableFinishUi.value = SessionFinishUiState.Idle
+            error = null
+        }
+    }
+    fun confirmFinish(onCompleted: (String) -> Unit) {
+        val confirming = mutableFinishUi.value as? SessionFinishUiState.Confirming ?: return
+        if (finishOperationRunning || durableCloseout != FocusCloseoutState.ACTIVE) return
+        val page = confirming.endPageText.toIntOrNull()
+        if (page == null || page < 1) { error = "请输入有效结束页码"; return }
+        val current = session.value ?: return
+        if (page < current.currentPage) { error = "不能低于已经记录的阅读位置"; return }
+        finishOperationRunning = true
+        completionCallback = onCompleted
+        mutableFinishUi.value = SessionFinishUiState.Saving
+        // This is the final user confirmation: capture exactly once, before any suspension.
+        val sample = clockSample()
+        viewModelScope.launch {
+            try { acceptFinishResult(sessionManager.finish(sessionId, page, sample)) }
+            catch (cancelled: CancellationException) {
+                currentCoroutineContext().ensureActive()
+                restoreAfterFinishFailure(cancelled, confirming)
+            }
+            catch (failure: Exception) { restoreAfterFinishFailure(failure, confirming) }
+            finally { finishOperationRunning = false }
+        }
+    }
+    fun retryFinish(onCompleted: (String) -> Unit) {
+        if (finishOperationRunning || mutableFinishUi.value !is SessionFinishUiState.SaveFailed) return
+        finishOperationRunning = true
+        completionCallback = onCompleted
+        mutableFinishUi.value = SessionFinishUiState.Saving
+        viewModelScope.launch {
+            try {
+                if (workflow.getCloseoutState(sessionId) == FocusCloseoutState.ACTIVE) {
+                    restoreCloseout(FocusCloseoutState.ACTIVE)
+                    mutableFinishUi.value = SessionFinishUiState.Idle
+                } else acceptFinishResult(sessionManager.retryPendingFinish(sessionId))
+            } catch (cancelled: CancellationException) {
+                currentCoroutineContext().ensureActive()
+                restoreAfterFinishFailure(cancelled, null)
+            }
+            catch (failure: Exception) { restoreAfterFinishFailure(failure, null) }
+            finally { finishOperationRunning = false }
+        }
+    }
+    fun dispatchCompletion(onCompleted: (String) -> Unit) {
+        completionCallback = onCompleted
+        dispatchCurrentCompletion()
+    }
+    fun releaseCompletionCallback(onCompleted: (String) -> Unit) {
+        if (completionCallback === onCompleted) completionCallback = null
+    }
+    private fun dispatchCurrentCompletion() {
+        val completed = mutableFinishUi.value as? SessionFinishUiState.Completed ?: return
+        val handler = completionCallback ?: return
+        if (!completionDelivered) { completionDelivered = true; handler(completed.sessionId) }
+    }
+    private suspend fun acceptFinishResult(result: SessionFinishResult) {
+        when (result) {
+            is SessionFinishResult.Completed -> {
+                durableCloseout = FocusCloseoutState.COMPLETED
+                mutableFinishUi.value = SessionFinishUiState.Completed(result.session.id)
+                dispatchCurrentCompletion()
+            }
+            is SessionFinishResult.PendingRetry -> {
+                restoreCloseout(FocusCloseoutState.PENDING)
+                mutableFinishUi.value = SessionFinishUiState.SaveFailed(true, "阅读已结束，保存失败，请重试")
+            }
+        }
+    }
+    private suspend fun restoreAfterFinishFailure(failure: Exception, confirming: SessionFinishUiState.Confirming?) {
+        error = failure.message ?: "保存失败，请重试"
+        try {
+            when (val state = workflow.getCloseoutState(sessionId)) {
+                FocusCloseoutState.ACTIVE -> {
+                    durableCloseout = state
+                    mutableFinishUi.value = confirming ?: SessionFinishUiState.SaveFailed(false, error!!)
+                }
+                FocusCloseoutState.PENDING -> {
+                    restoreCloseout(state)
+                    mutableFinishUi.value = SessionFinishUiState.SaveFailed(true, error!!)
+                }
+                FocusCloseoutState.COMPLETED -> {
+                    restoreCloseout(state)
+                    mutableFinishUi.value = SessionFinishUiState.Completed(sessionId)
+                    dispatchCurrentCompletion()
+                }
+                else -> preserveClosedStateOnReadFailure("无法确认保存状态，请重试")
+            }
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) {
+            preserveClosedStateOnReadFailure("无法确认保存状态，请重试")
+        }
+    }
+    private fun preserveClosedStateOnReadFailure(message: String) {
+        val closed = durableCloseout in setOf(FocusCloseoutState.PENDING, FocusCloseoutState.COMPLETED) || closeoutSnapshot != null
+        if (!closed) durableCloseout = null
+        mutableFinishUi.value = SessionFinishUiState.SaveFailed(closed, message)
+    }
+    private suspend fun restoreCloseout(state: FocusCloseoutState?) {
+        if (state == null || state == FocusCloseoutState.ABORTED) {
+            preserveClosedStateOnReadFailure("无法确认阅读状态，请重试")
+            return
+        }
+        val previous = durableCloseout
+        durableCloseout = state
+        when (state) {
+            // A heartbeat can emit ACTIVE again while a save is pending. It must not unlock editing.
+            FocusCloseoutState.ACTIVE -> if (previous != FocusCloseoutState.ACTIVE && !finishOperationRunning &&
+                mutableFinishUi.value == SessionFinishUiState.PreparingConfirmation) mutableFinishUi.value = SessionFinishUiState.Idle
+            FocusCloseoutState.PENDING -> {
+                try { closeoutSnapshot = checkNotNull(workflow.getCloseoutSnapshot(sessionId)) { "结束记录不完整" } }
+                catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) {
+                    closeoutSnapshot = null
+                    if (!finishOperationRunning) mutableFinishUi.value = SessionFinishUiState.SaveFailed(true, "结束记录读取失败，请重试")
+                    return
+                }
+                if (!finishOperationRunning) mutableFinishUi.value = SessionFinishUiState.SaveFailed(true, "阅读已结束，保存失败，请重试")
+            }
+            FocusCloseoutState.COMPLETED -> if (!finishOperationRunning) mutableFinishUi.value = SessionFinishUiState.Completed(sessionId)
+            FocusCloseoutState.ABORTED -> Unit // Rejected by the safe read-state gate above.
+        }
+    }
     val session: StateFlow<StudySessionEntity?> = workflow.observeSession(sessionId).stateIn(
         viewModelScope,
-        SharingStarted.WhileSubscribed(5_000),
+        SharingStarted.Eagerly,
         null,
     )
     val notes: StateFlow<List<NoteEntity>> = notesRepository.observeForSession(sessionId).stateIn(
@@ -102,7 +285,10 @@ class SessionViewModel(
     var error by mutableStateOf<String?>(null)
         private set
     private var draftId = UUID.randomUUID().toString()
-    private var saveJob: Job? = null
+    private var debounceJob: Job? = null
+    private val pendingSaves = mutableListOf<Deferred<Result<Unit>>>()
+    private val pendingPageWrites = mutableListOf<Deferred<Result<Unit>>>()
+    private var pageWriteError: Throwable? = null
     private var draftTypeManuallySelected = false
     private var draftPageManuallyEdited = false
     private val saveMutex = Mutex()
@@ -117,20 +303,26 @@ class SessionViewModel(
     var focusError by mutableStateOf<String?>(null)
         private set
 
-    suspend fun refreshFocusState(sample: ClockSample = clockSample()) = focusActions.refresh(sessionId, sample)
+    suspend fun refreshFocusState(sample: ClockSample? = null) {
+        if (canObserveLearning) focusActions.refresh(sessionId, sample ?: clockSample())
+    }
 
     suspend fun observeFocusEvidence(screenNonInteractive: Boolean, pageVisibleAndFocused: Boolean) = evidenceMutex.withLock {
+        if (!canObserveLearning) return@withLock
         val sample = clockSample()
         refreshFocusState(sample)
-        focusActions.observeEvidence(sessionId, sample, screenNonInteractive, pageVisibleAndFocused)
+        if (canObserveLearning) focusActions.observeEvidence(sessionId, sample, screenNonInteractive, pageVisibleAndFocused)
     }
 
     fun reportEvidence(screenNonInteractive: Boolean, pageVisibleAndFocused: Boolean) {
+        if (!canObserveLearning) return
         viewModelScope.launch { observeFocusEvidence(screenNonInteractive, pageVisibleAndFocused) }
     }
 
     private fun focusAction(refreshOnFailure: Boolean = false, block: suspend (ClockSample) -> FocusActionResult) {
+        if (!canEditLearning) return
         viewModelScope.launch {
+            if (!canEditLearning) return@launch
             val result = block(clockSample())
             focusError = when (result) {
                 FocusActionResult.SUCCESS -> null
@@ -184,6 +376,16 @@ class SessionViewModel(
 
     init {
         viewModelScope.launch {
+            try { workflow.observeCloseoutState(sessionId).collect { restoreCloseout(it) } }
+            catch (cancelled: CancellationException) {
+                currentCoroutineContext().ensureActive()
+                preserveClosedStateOnReadFailure("无法读取保存状态，请重试")
+            }
+            catch (_: Exception) {
+                preserveClosedStateOnReadFailure("无法读取保存状态，请重试")
+            }
+        }
+        viewModelScope.launch {
             while (isActive) {
                 now = System.currentTimeMillis()
                 delay(1_000)
@@ -192,6 +394,7 @@ class SessionViewModel(
     }
 
     fun changeContent(value: String) {
+        if (!canEditLearning) return
         draftContent = value
         if (!draftTypeManuallySelected) {
             draftType = noteTypeSuggester.suggest(value)
@@ -202,18 +405,21 @@ class SessionViewModel(
     }
 
     fun changePage(value: String) {
+        if (!canEditLearning) return
         draftPage = value.filter(Char::isDigit)
         draftPageManuallyEdited = true
         scheduleAutoSave()
     }
 
     fun changeType(value: NoteSemanticType) {
+        if (!canEditLearning) return
         draftType = value
         draftTypeManuallySelected = true
         scheduleAutoSave()
     }
 
     fun syncCurrentPage(page: Int) {
+        if (!canEditLearning) return
         currentPageText = page.toString()
         if (draftContent.isBlank() && !draftPageManuallyEdited) {
             draftPage = page.toString()
@@ -221,17 +427,16 @@ class SessionViewModel(
     }
 
     fun saveAndContinue() {
-        saveJob?.cancel()
-        viewModelScope.launch {
-            runCatching { saveDraft() }
-                .onSuccess {
-                    resetDraft()
-                }
-                .onFailure { error = it.message ?: "笔记保存失败" }
+        if (!canEditLearning) return
+        debounceJob?.cancel()
+        rotatingDraft = true
+        startNoteSave {
+            try { saveDraft(); resetDraft() } finally { rotatingDraft = false }
         }
     }
 
     fun updatePage(value: String) {
+        if (!canEditLearning) return
         val filtered = value.filter(Char::isDigit)
         currentPageText = filtered
         val page = filtered.toIntOrNull() ?: return
@@ -243,61 +448,82 @@ class SessionViewModel(
         if (draftContent.isBlank() && !draftPageManuallyEdited) {
             draftPage = page.toString()
         }
-        viewModelScope.launch {
-            runCatching { sessionManager.updatePage(sessionId, page) }
-                .onFailure { error = it.message ?: "页码保存失败" }
-        }
-    }
-
-    fun finish(endPage: Int, onFinished: (String) -> Unit) {
-        viewModelScope.launch {
-            saveJob?.cancel()
-            runCatching {
-                saveDraft()
-                sessionManager.finish(sessionId, endPage, clockSample())
-            }.onSuccess {
-                draftContent = ""
-                when (it) {
-                    is com.guanyi.mirra.domain.SessionFinishResult.Completed -> onFinished(it.session.id)
-                    is com.guanyi.mirra.domain.SessionFinishResult.PendingRetry -> error = "阅读已结束，保存失败，请重试"
-                }
+        pendingPageWrites += viewModelScope.async {
+            editResult { sessionManager.updatePage(sessionId, page) }.also {
+                pageWriteError = it.exceptionOrNull()
+                it.onFailure { failure -> error = failure.message ?: "页码保存失败" }
             }
-                .onFailure { error = it.message ?: "Session 结束失败" }
         }
     }
 
     fun flushDraft() {
-        saveJob?.cancel()
-        viewModelScope.launch {
-            runCatching { saveDraft() }
-                .onFailure { error = it.message ?: "笔记保存失败" }
-        }
+        if (!canEditLearning) return
+        debounceJob?.cancel()
+        startNoteSave { if (canEditLearning) saveDraft() }
     }
 
     fun leave(onLeft: () -> Unit) {
-        saveJob?.cancel()
+        if (!canEditLearning) return
+        mutableFinishUi.value = SessionFinishUiState.PreparingConfirmation
         viewModelScope.launch {
-            runCatching { saveDraft() }
-                .onSuccess {
-                    draftContent = ""
-                    onLeft()
-                }
-                .onFailure { error = it.message ?: "笔记保存失败" }
+            try {
+                flushPendingEdits()
+                check(workflow.getCloseoutState(sessionId) == FocusCloseoutState.ACTIVE) { "阅读已结束" }
+                draftContent = ""; mutableFinishUi.value = SessionFinishUiState.Idle; onLeft()
+            }
+            catch (cancelled: CancellationException) {
+                currentCoroutineContext().ensureActive()
+                error = "保存被中断，请重试"
+                if (durableCloseout == FocusCloseoutState.ACTIVE) mutableFinishUi.value = SessionFinishUiState.Idle
+            }
+            catch (failure: Exception) {
+                error = failure.message ?: "笔记保存失败"
+                if (durableCloseout == FocusCloseoutState.ACTIVE) mutableFinishUi.value = SessionFinishUiState.Idle
+            }
         }
     }
 
     private fun scheduleAutoSave() {
-        saveJob?.cancel()
+        debounceJob?.cancel()
         if (draftContent.isBlank()) return
-        saveJob = viewModelScope.launch {
+        debounceJob = viewModelScope.launch {
             delay(500)
-            runCatching { saveDraft() }
-                .onFailure { error = it.message ?: "笔记保存失败" }
+            if (canEditLearning) startNoteSave { saveDraft() }
         }
     }
 
+    private suspend fun editResult(block: suspend () -> Unit): Result<Unit> = try {
+        block(); Result.success(Unit)
+    } catch (cancelled: CancellationException) { throw cancelled }
+    catch (failure: Exception) { Result.failure(failure) }
+
+    private fun startNoteSave(block: suspend () -> Unit) {
+        pendingSaves += viewModelScope.async {
+            editResult(block).also { it.onFailure { failure -> error = failure.message ?: "笔记保存失败" } }
+        }
+    }
+
+    internal suspend fun flushPendingEdits() {
+        debounceJob?.cancel()
+        val saves = pendingSaves.toList()
+        val pages = pendingPageWrites.toList()
+        // Await actual outcomes, not just Job completion: saves/page writes may have failed.
+        val outcomes = (saves + pages).map { deferred ->
+            try { deferred.await() } catch (cancelled: CancellationException) {
+                currentCoroutineContext().ensureActive()
+                Result.failure<Unit>(cancelled)
+            }
+        }
+        pendingSaves.removeAll(saves.toSet()); pendingPageWrites.removeAll(pages.toSet())
+        outcomes.forEach { it.getOrThrow() }
+        pageWriteError?.let { throw it }
+        saveDraft() // Flush newer input that arrived while an earlier autosave was in flight.
+    }
+
     private suspend fun saveDraft() = saveMutex.withLock {
-        val currentSession = session.value ?: return@withLock
+        check(workflow.getCloseoutState(sessionId) == FocusCloseoutState.ACTIVE) { "阅读已结束" }
+        val currentSession = checkNotNull(workflow.observeSession(sessionId).first()) { "Session 不存在" }
+        check(currentSession.activeSlot == 1 && currentSession.endedAt == null) { "阅读已结束" }
         val content = draftContent
         if (content.isBlank()) return@withLock
         notesRepository.save(
@@ -335,30 +561,41 @@ fun SessionScreen(
     val notes by viewModel.notes.collectAsStateWithLifecycle()
     val currentSession = session
     val status by viewModel.focusStatus.collectAsStateWithLifecycle()
+    val finishUi by viewModel.finishUi.collectAsStateWithLifecycle()
     val intervention by viewModel.intervention.collectAsStateWithLifecycle()
     val bookName by viewModel.bookName.collectAsStateWithLifecycle()
     val prompt = intervention?.takeIf { !it.dismissed && it.sessionId == currentSession?.id }
     var breakChoice by remember { mutableStateOf(false) }
     var reasonsVisible by remember(prompt?.promptToken) { mutableStateOf(false) }
+    var handledExternalRequestId by rememberSaveable { mutableStateOf<String?>(null) }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    LaunchedEffect(externalRequest?.id, currentSession?.id, prompt?.promptToken) {
+    val canEdit = viewModel.canEditLearning
+    DisposableEffect(viewModel, onFinished) {
+        viewModel.dispatchCompletion(onFinished)
+        onDispose { viewModel.releaseCompletionCallback(onFinished) }
+    }
+    LaunchedEffect(finishUi) {
+        if (finishUi is SessionFinishUiState.Completed) viewModel.dispatchCompletion(onFinished)
+    }
+    LaunchedEffect(externalRequest?.id, currentSession?.id, prompt?.promptToken, canEdit) {
         val request = externalRequest ?: return@LaunchedEffect
-        if (currentSession == null) return@LaunchedEffect
+        if (handledExternalRequestId == request.id) return@LaunchedEffect
+        if (currentSession == null || !canEdit) return@LaunchedEffect
+        handledExternalRequestId = request.id
         if (currentSession.activeSlot == 1 && request.sessionId == currentSession.id &&
             request.promptToken == prompt?.promptToken) {
             when (request.action) {
                 com.guanyi.mirra.domain.intervention.InterventionNavigationAction.OPEN_ALLOWANCE -> reasonsVisible = true
                 com.guanyi.mirra.domain.intervention.InterventionNavigationAction.OPEN_FINISH ->
-                    listState.animateScrollToItem(4 + notes.size)
+                    viewModel.requestFinishConfirmation()
                 else -> Unit
             }
         }
         onExternalRequestHandled()
     }
     fun hideReasons() { viewModel.setPromptVisible(false); reasonsVisible = false }
-    fun finishReading() { currentSession?.let { viewModel.finish(viewModel.currentPageText.toIntOrNull() ?: it.currentPage, onFinished) } }
-    SessionEvidenceReporter(viewModel)
-    LaunchedEffect(currentSession?.currentPage) {
+    fun finishReading() { hideReasons(); breakChoice = false; viewModel.requestFinishConfirmation() }
+    LaunchedEffect(currentSession?.currentPage, canEdit) {
         if (currentSession != null) {
             viewModel.syncCurrentPage(currentSession.currentPage)
         }
@@ -376,12 +613,39 @@ fun SessionScreen(
     }
     BackHandler {
         when {
+            finishUi is SessionFinishUiState.Confirming -> viewModel.cancelFinishConfirmation()
+            finishUi != SessionFinishUiState.Idle -> Unit
             reasonsVisible -> hideReasons()
             breakChoice -> breakChoice = false
             prompt != null -> viewModel.dismissPrompt()
             else -> viewModel.leave(onBack)
         }
     }
+    if (finishUi == SessionFinishUiState.PreparingConfirmation && !viewModel.isReadingQualified) {
+        Column(Modifier.fillMaxSize().padding(20.dp)) { Text("正在读取保存状态…") }
+        return
+    }
+    if (finishUi is SessionFinishUiState.Saving || finishUi is SessionFinishUiState.SaveFailed ||
+        finishUi is SessionFinishUiState.Completed) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            val failed = finishUi as? SessionFinishUiState.SaveFailed
+            Text(if (failed == null || failed.logicallyClosed) "阅读已结束" else "正在确认保存状态",
+                style = MaterialTheme.typography.headlineMedium)
+            viewModel.closeoutSnapshot?.let { frozen ->
+                Text("这次读到：第 ${frozen.requestedEndPage} 页")
+                currentSession?.let { Text("Session 阅读时长：${((frozen.closeoutStartedAt - it.startedAt).coerceAtLeast(0) / 60_000)} 分钟") }
+            }
+            if (failed != null) {
+                Text(failed.message, color = MirraTheme.colors.danger)
+                MirraPrimaryButton(onClick = { viewModel.retryFinish(onFinished) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("重试保存")
+                }
+            } else Text("正在保存…")
+        }
+        return
+    }
+    SessionEvidenceReporter(viewModel)
     val elapsedMinutes = currentSession?.let { ((viewModel.now - it.startedAt).coerceAtLeast(0) / 60_000) } ?: 0
 
     LazyColumn(
@@ -392,11 +656,12 @@ fun SessionScreen(
         item {
             Text("正在阅读", style = MaterialTheme.typography.headlineMedium)
             Text("Session 阅读时长：${elapsedMinutes} 分钟", color = MaterialTheme.colorScheme.primary)
-            SessionFocusContent(status, { breakChoice = true }, viewModel::finishBreak,
+            if (canEdit) SessionFocusContent(status, { breakChoice = true }, viewModel::finishBreak,
                 viewModel::finishAllowance, viewModel::extendAllowance)
+            if (finishUi == SessionFinishUiState.PreparingConfirmation) Text("正在保存笔记…")
             viewModel.focusError?.let { Text(it, color = MirraTheme.colors.danger) }
         }
-        if (prompt != null) item {
+        if (prompt != null && canEdit) item {
             LaunchedEffect(prompt.eventId, prompt.segmentId) { onPromptComposed(prompt) }
             InterventionContent(bookName, prompt, false, { reasonsVisible = true }, viewModel::selectAllowanceReason,
                 viewModel::returnToStudy, viewModel::grantAllowance, ::finishReading, viewModel::dismissPrompt)
@@ -406,6 +671,7 @@ fun SessionScreen(
                 viewModel.currentPageText,
                 viewModel::updatePage,
                 label = { Text("当前页码") },
+                enabled = canEdit,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -415,6 +681,7 @@ fun SessionScreen(
                 NoteSemanticType.entries.forEach { type ->
                     FilterChip(
                         selected = viewModel.draftType == type,
+                        enabled = canEdit,
                         onClick = { viewModel.changeType(type) },
                         label = { Text(type.label) },
                     )
@@ -424,6 +691,7 @@ fun SessionScreen(
                 viewModel.draftContent,
                 viewModel::changeContent,
                 label = { Text("写下摘录或想法") },
+                enabled = canEdit,
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 3,
             )
@@ -431,18 +699,21 @@ fun SessionScreen(
                 viewModel.draftPage,
                 viewModel::changePage,
                 label = { Text("笔记页码（可选）") },
+                enabled = canEdit,
                 modifier = Modifier.fillMaxWidth(),
             )
             if (viewModel.savedMessage.isNotEmpty()) Text(viewModel.savedMessage, color = MaterialTheme.colorScheme.primary)
-            viewModel.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            if (finishUi !is SessionFinishUiState.Confirming) {
+                viewModel.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
             OutlinedButton(
                 onClick = viewModel::saveAndContinue,
-                enabled = viewModel.draftContent.isNotBlank(),
+                enabled = canEdit && viewModel.draftContent.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("保存并记下一条") }
         }
         items(notes, key = NoteEntity::id) { note ->
-            Column(Modifier.fillMaxWidth().clickable { onOpenNote(note.id) }) {
+            Column(Modifier.fillMaxWidth().clickable(enabled = canEdit) { onOpenNote(note.id) }) {
                 Text(note.semanticType.label, style = MaterialTheme.typography.labelLarge)
                 Text(note.content)
                 note.pageNumber?.let { Text("第 $it 页", color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -451,22 +722,39 @@ fun SessionScreen(
         item {
             Spacer(Modifier.height(8.dp))
             if (prompt == null) {
-                MirraPrimaryButton(onClick = ::finishReading, enabled = currentSession != null,
+                MirraPrimaryButton(onClick = ::finishReading, enabled = canEdit,
                     modifier = Modifier.fillMaxWidth().height(54.dp)) { Text("结束本次阅读") }
             } else {
-                MirraSecondaryButton(onClick = ::finishReading, enabled = currentSession != null,
+                MirraSecondaryButton(onClick = ::finishReading, enabled = canEdit,
                     modifier = Modifier.fillMaxWidth()) { Text("结束本次阅读") }
             }
         }
     }
-    if (breakChoice) AlertDialog(onDismissRequest = { breakChoice = false }, title = { Text("休息") },
+    val confirming = finishUi as? SessionFinishUiState.Confirming
+    if (confirming != null) AlertDialog(onDismissRequest = viewModel::cancelFinishConfirmation,
+        title = { Text("结束本次阅读？") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("这次读到：第 ${confirming.endPageText} 页")
+                OutlinedTextField(confirming.endPageText, viewModel::changeEndPage,
+                    label = { Text("结束页码") }, modifier = Modifier.fillMaxWidth())
+                viewModel.error?.let { Text(it, color = MirraTheme.colors.danger) }
+            }
+        },
+        dismissButton = { MirraTextAction(viewModel::cancelFinishConfirmation) { Text("继续阅读") } },
+        confirmButton = {
+            MirraPrimaryButton(onClick = { viewModel.confirmFinish(onFinished) }, modifier = Modifier.testTag("confirm-session-finish")) {
+                Text("结束本次阅读")
+            }
+        })
+    if (breakChoice && canEdit) AlertDialog(onDismissRequest = { breakChoice = false }, title = { Text("休息") },
         text = {
             Column {
                 MirraTextAction({ breakChoice = false; viewModel.startBreak(5) }, Modifier.fillMaxWidth()) { Text("休息 5 分钟") }
                 MirraTextAction({ breakChoice = false; viewModel.startBreak(10) }, Modifier.fillMaxWidth()) { Text("休息 10 分钟") }
             }
         }, confirmButton = { MirraTextAction({ breakChoice = false }) { Text("取消") } })
-    if (reasonsVisible && prompt != null) Dialog(onDismissRequest = ::hideReasons) {
+    if (reasonsVisible && prompt != null && canEdit) Dialog(onDismissRequest = ::hideReasons) {
         AllowancePanelVisibility(viewModel, prompt.reason != null)
         Surface(shape = MirraTheme.shapes.large, color = MirraTheme.colors.surface) {
             Column(Modifier.fillMaxWidth().heightIn(max = 620.dp).verticalScroll(rememberScrollState()).padding(20.dp)) {

@@ -46,6 +46,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class ModuleThreeDCloseoutRepositoryTest {
@@ -59,6 +60,34 @@ class ModuleThreeDCloseoutRepositoryTest {
     }
 
     @After fun tearDown() = db.close()
+
+    @Test fun pendingRecoveryReopensDurableDatabaseAndRetainsOriginalDecision() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "closeout-reopen-test-${UUID.randomUUID()}.db"
+        db.close()
+        db = Room.databaseBuilder(context, MirraDatabase::class.java, name).build()
+        try {
+            val s = startUnmonitored()
+            wallNow = 2_000
+            val frozen = workflow().beginCloseout(s.id, 20, wallNow)
+            db.close()
+            db = Room.databaseBuilder(context, MirraDatabase::class.java, name).build()
+            wallNow = 99_000
+            assertEquals(frozen, workflow().getCloseoutSnapshot(s.id))
+            assertEquals(FocusCloseoutState.PENDING, workflow().getCloseoutState(s.id))
+            assertEquals(com.guanyi.mirra.domain.SessionRecoveryResult.Ready, workflow().recoverInterruptedSession())
+            val ended = db.sessionDao().get(s.id)!!
+            assertEquals(SessionEndType.NORMAL, ended.endType)
+            assertEquals(2_000L, ended.endedAt); assertEquals(20, ended.endPage)
+            assertEquals(FocusCloseoutState.COMPLETED, workflow().getCloseoutState(s.id))
+            assertNull(db.sessionDao().getActive()); assertNull(db.focusDao().getActiveSegment(s.id))
+            assertEquals(frozen, workflow().getCloseoutSnapshot(s.id))
+        } finally {
+            db.close()
+            // Only this isolated, UUID-named test database; never the installed mirra.db.
+            context.deleteDatabase(name)
+        }
+    }
 
     @Test fun beginCloseoutFreezesExactSampleAndReleasesOnlySegmentSlot() = runTest {
         for (type in SessionSegmentType.entries) {

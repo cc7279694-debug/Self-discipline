@@ -10,6 +10,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.guanyi.mirra.data.local.entity.FocusCloseoutState
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
@@ -78,6 +83,7 @@ import android.os.SystemClock
 import com.guanyi.mirra.platform.focus.isMirraDebuggable
 
 @Composable
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 fun MirraApp(
     container: AppContainer,
     restoredDestination: TopLevelDestination,
@@ -89,6 +95,14 @@ fun MirraApp(
     val backStack = rememberNavBackStack(TopLevelDestination.Start)
     var selectedDestination by remember { mutableStateOf(TopLevelDestination.Start) }
     var externalRequest by remember { mutableStateOf<InterventionNavigationRequest?>(null) }
+    val pendingCloseoutId by remember(container) {
+        container.studyWorkflowRepository.observeActiveSession().flatMapLatest { occupied ->
+            if (occupied == null) flowOf(null)
+            else container.studyWorkflowRepository.observeCloseoutState(occupied.id).map { state ->
+                occupied.id.takeIf { state == FocusCloseoutState.PENDING }
+            }
+        }
+    }.collectAsStateWithLifecycle(initialValue = null)
 
     fun open(route: NavKey) {
         backStack.add(route)
@@ -106,13 +120,23 @@ fun MirraApp(
     }
 
     LaunchedEffect(restoredDestination) {
-        select(restoredDestination, persist = false)
+        if (pendingCloseoutId == null) select(restoredDestination, persist = false)
+    }
+    LaunchedEffect(pendingCloseoutId) {
+        pendingCloseoutId?.let { id ->
+            if (backStack.lastOrNull() != SessionRoute(id)) {
+                backStack.clear(); backStack.add(SessionRoute(id))
+            }
+        }
     }
     LaunchedEffect(container.interventionNavigation) {
         container.interventionNavigation?.let { navigation ->
             navigation.requests.collect { pending ->
                 val request = pending?.let { navigation.consume(it.id) } ?: return@collect
+                val closeout = container.studyWorkflowRepository.getCloseoutState(request.sessionId)
+                if (closeout !in setOf(FocusCloseoutState.ACTIVE, FocusCloseoutState.PENDING)) return@collect
                 if (request.action == InterventionNavigationAction.RETURN_TO_STUDY) {
+                    if (closeout != FocusCloseoutState.ACTIVE) return@collect
                     container.focusSessionActions.returnToStudy(request.sessionId, request.promptToken,
                         ClockSample(System.currentTimeMillis(), SystemClock.elapsedRealtime()))
                 }

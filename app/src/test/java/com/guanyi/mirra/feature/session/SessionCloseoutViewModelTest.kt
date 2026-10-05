@@ -1,0 +1,287 @@
+package com.guanyi.mirra.feature.session
+
+import androidx.lifecycle.viewModelScope
+import com.guanyi.mirra.data.local.entity.*
+import com.guanyi.mirra.data.local.model.CloseoutSnapshot
+import com.guanyi.mirra.data.repository.*
+import com.guanyi.mirra.domain.*
+import com.guanyi.mirra.domain.monitoring.*
+import java.lang.reflect.Proxy
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.test.*
+import org.junit.After
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Test
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class SessionCloseoutViewModelTest {
+    private val dispatcher = StandardTestDispatcher()
+    private val models = mutableListOf<SessionViewModel>()
+    @Before fun before() { Dispatchers.setMain(dispatcher) }
+    @After fun after() { models.forEach { it.viewModelScope.cancel() }; Dispatchers.resetMain() }
+    private fun closeoutTest(block: suspend TestScope.() -> Unit) = runTest(dispatcher) {
+        try { block() } finally { models.forEach { it.viewModelScope.cancel() } }
+    }
+    private inline fun <reified T> unsupported(): T = Proxy.newProxyInstance(T::class.java.classLoader,
+        arrayOf(T::class.java)) { _, method, _ -> error("Unexpected ${method.name}") } as T
+
+    private inner class Fixture(initial: FocusCloseoutState = FocusCloseoutState.ACTIVE) {
+        val state = MutableStateFlow<FocusCloseoutState?>(initial)
+        var closeoutFlow: Flow<FocusCloseoutState?> = state
+        val current = MutableStateFlow<StudySessionEntity?>(StudySessionEntity("s", "book", "intent", 1_000,
+            null, null, 40, 40, null, null, null, 1))
+        var snapshot: CloseoutSnapshot? = if (initial == FocusCloseoutState.PENDING) CloseoutSnapshot("s", 2_000, 42) else null
+        var snapshotFailure = false
+        var noteBarrier: CompletableDeferred<Unit>? = null
+        var pageBarrier: CompletableDeferred<Unit>? = null
+        var finishBarrier: CompletableDeferred<Unit>? = null
+        var refreshBarrier: CompletableDeferred<Unit>? = null
+        var failNote = false; var failPage = false; var failBegin = false; var failComplete = false
+        var cancelNote = false
+        var clockCalls = 0; var finishes = 0; var retries = 0; var evidenceCalls = 0; var actions = 0
+        val saved = mutableListOf<NoteEntity>()
+        val boundaries = mutableListOf<ClockSample>()
+        val workflow = object : StudyWorkflowRepository by unsupported() {
+            override fun observeSession(id: String) = current
+            override fun observeCloseoutState(sessionId: String) = closeoutFlow
+            override suspend fun getCloseoutState(sessionId: String) = state.value
+            override suspend fun getCloseoutSnapshot(sessionId: String): CloseoutSnapshot? {
+                if (snapshotFailure) error("snapshot corrupt")
+                return snapshot
+            }
+        }
+        val notes = object : NoteRepository by unsupported() {
+            override fun observeForSession(sessionId: String) = flowOf(emptyList<NoteEntity>())
+            override suspend fun save(learningItemId: String, sessionId: String?, content: String,
+                pageNumber: Int?, semanticType: NoteSemanticType, id: String?): NoteEntity {
+                noteBarrier?.await()
+                if (cancelNote) throw CancellationException("save interrupted")
+                if (failNote) error("note failed")
+                return NoteEntity(id!!, learningItemId, sessionId, semanticType, content, pageNumber, 1_000, 1_000)
+                    .also { saved += it }
+            }
+        }
+        val manager = object : SessionManager by unsupported() {
+            override suspend fun updatePage(sessionId: String, page: Int) {
+                pageBarrier?.await()
+                if (failPage) error("page failed")
+                current.value = current.value!!.copy(currentPage = maxOf(page, current.value!!.currentPage))
+            }
+            override suspend fun finish(sessionId: String, endPage: Int, sample: ClockSample): SessionFinishResult {
+                finishes++; boundaries += sample
+                if (failBegin) error("A failed")
+                snapshot = CloseoutSnapshot(sessionId, sample.wallNowMillis, endPage)
+                state.value = FocusCloseoutState.PENDING
+                finishBarrier?.await()
+                return complete()
+            }
+            override suspend fun retryPendingFinish(sessionId: String): SessionFinishResult { retries++; return complete() }
+            private fun complete(): SessionFinishResult {
+                if (failComplete) return SessionFinishResult.PendingRetry("s")
+                val ended = current.value!!.copy(endedAt = snapshot!!.closeoutStartedAt,
+                    endPage = snapshot!!.requestedEndPage, endType = SessionEndType.NORMAL, activeSlot = null)
+                current.value = ended; state.value = FocusCloseoutState.COMPLETED
+                return SessionFinishResult.Completed(ended)
+            }
+        }
+        private val baseFocus: FocusSessionActions = Proxy.newProxyInstance(FocusSessionActions::class.java.classLoader,
+            arrayOf(FocusSessionActions::class.java)) { _, method, _ -> when (method.name) {
+                "getFocusStatus" -> MutableStateFlow(FocusStatusUiModel("s", "seg", SessionSegmentType.FOCUS, MonitoringCoverage.FULL))
+                "getIntervention" -> MutableStateFlow<InterventionUiModel?>(null)
+                "refresh" -> { evidenceCalls++; Unit }
+                "observeEvidence" -> { evidenceCalls++; FocusActionResult.SUCCESS }
+                else -> { actions++; FocusActionResult.SUCCESS }
+            } } as FocusSessionActions
+        val focus = object : FocusSessionActions by baseFocus {
+            override suspend fun refresh(sessionId: String, sample: ClockSample) {
+                evidenceCalls++; refreshBarrier?.await()
+            }
+        }
+        fun vm() = SessionViewModel("s", workflow, notes, manager, focusActions = focus,
+            clockSample = { clockCalls++; ClockSample(2_000, 777) }).also { models += it }
+    }
+
+    @Test fun confirmationWaitsForInFlightDraftAndPageWrites() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
+        f.noteBarrier = CompletableDeferred(); f.pageBarrier = CompletableDeferred()
+        vm.changeContent("latest note"); advanceTimeBy(501); runCurrent()
+        vm.updatePage("42"); runCurrent(); vm.requestFinishConfirmation(); runCurrent()
+        assertEquals(SessionFinishUiState.PreparingConfirmation, vm.finishUi.value)
+        f.noteBarrier!!.complete(Unit); runCurrent()
+        assertEquals(SessionFinishUiState.PreparingConfirmation, vm.finishUi.value)
+        f.pageBarrier!!.complete(Unit); runCurrent()
+        assertEquals(SessionFinishUiState.Confirming("42"), vm.finishUi.value)
+        assertEquals(0, f.clockCalls); assertEquals(0, f.finishes)
+    }
+    @Test fun latestTextFlushesUnderSameDraftIdWithoutCancellingStartedAutosave() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent()
+        f.noteBarrier = CompletableDeferred(); vm.changeContent("old"); advanceTimeBy(501); runCurrent()
+        vm.changeContent("latest"); vm.requestFinishConfirmation(); runCurrent()
+        f.noteBarrier!!.complete(Unit); runCurrent()
+        assertEquals("latest", f.saved.last().content)
+        assertEquals(1, f.saved.map { it.id }.distinct().size)
+        assertTrue(f.saved.any { it.content == "old" })
+        assertTrue(vm.finishUi.value is SessionFinishUiState.Confirming)
+    }
+    @Test fun draftFlushFailureKeepsSessionActive() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent(); f.failNote = true
+        vm.changeContent("unsaved"); vm.requestFinishConfirmation(); runCurrent()
+        assertEquals(SessionFinishUiState.Idle, vm.finishUi.value)
+        assertNotNull(vm.error); assertEquals(FocusCloseoutState.ACTIVE, f.state.value)
+        assertEquals(0, f.clockCalls); assertEquals(0, f.finishes)
+    }
+    @Test fun failedPageWriteCannotBeMistakenForSuccessfulJobCompletion() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40); f.failPage = true
+        vm.updatePage("42"); runCurrent(); vm.requestFinishConfirmation(); runCurrent()
+        assertEquals(SessionFinishUiState.Idle, vm.finishUi.value)
+        assertNotNull(vm.error); assertEquals(0, f.clockCalls)
+    }
+    @Test fun continueReadingDoesNotCaptureEndSampleOrFinishAndReopensEditing() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
+        vm.requestFinishConfirmation(); runCurrent(); vm.changeContent("blocked")
+        assertEquals("", vm.draftContent)
+        vm.cancelFinishConfirmation(); vm.changeContent("allowed")
+        assertEquals("allowed", vm.draftContent); assertEquals(0, f.clockCalls); assertEquals(0, f.finishes)
+    }
+    @Test fun finalConfirmationCapturesExactlyOneClockSampleAndRejectsDoubleTap() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
+        vm.requestFinishConfirmation(); runCurrent(); vm.changeEndPage("42")
+        vm.confirmFinish {}; vm.confirmFinish {}; runCurrent()
+        assertEquals(1, f.clockCalls); assertEquals(1, f.finishes)
+        assertEquals(ClockSample(2_000, 777), f.boundaries.single())
+        assertEquals(SessionFinishUiState.Completed("s"), vm.finishUi.value)
+    }
+    @Test fun lowerEndPageShowsExplicitErrorWithoutCallingFinish() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
+        vm.requestFinishConfirmation(); runCurrent(); vm.changeEndPage("35"); vm.confirmFinish {}; runCurrent()
+        assertEquals(SessionFinishUiState.Confirming("35"), vm.finishUi.value)
+        assertEquals("不能低于已经记录的阅读位置", vm.error)
+        assertEquals(0, f.finishes); assertEquals(0, f.clockCalls)
+    }
+    @Test fun pendingDuringCompleteRemainsSavingAndDoesNotAllowParallelRetry() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
+        f.finishBarrier = CompletableDeferred(); vm.requestFinishConfirmation(); runCurrent()
+        vm.confirmFinish {}; runCurrent()
+        assertEquals(SessionFinishUiState.Saving, vm.finishUi.value)
+        vm.retryFinish {}; runCurrent(); assertEquals(0, f.retries)
+        f.finishBarrier!!.complete(Unit); runCurrent()
+        assertEquals(SessionFinishUiState.Completed("s"), vm.finishUi.value)
+    }
+    @Test fun recreatedPendingOnlyOffersRetryAndUsesFrozenBoundaryAndPage() = closeoutTest {
+        val f = Fixture(FocusCloseoutState.PENDING); val vm = f.vm(); runCurrent()
+        assertTrue((vm.finishUi.value as SessionFinishUiState.SaveFailed).logicallyClosed)
+        assertEquals(CloseoutSnapshot("s", 2_000, 42), vm.closeoutSnapshot)
+        advanceTimeBy(10_000); runCurrent(); assertEquals(2_000L, vm.closeoutSnapshot!!.closeoutStartedAt)
+        var navigated = false
+        vm.changeContent("no"); vm.updatePage("70"); vm.flushDraft(); vm.leave { navigated = true }
+        vm.startBreak(5); vm.reportEvidence(false, true); vm.requestFinishConfirmation(); runCurrent()
+        assertFalse(navigated); assertEquals("", vm.draftContent)
+        assertTrue(f.saved.isEmpty()); assertEquals(0, f.actions); assertEquals(0, f.evidenceCalls)
+        vm.retryFinish {}; runCurrent()
+        assertEquals(1, f.retries); assertEquals(0, f.clockCalls); assertEquals(0, f.finishes)
+        assertEquals(2_000L, f.current.value!!.endedAt)
+    }
+    @Test fun corruptPendingSnapshotNeverFallsBackToCurrentTimeOrActiveReading() = closeoutTest {
+        val f = Fixture(FocusCloseoutState.PENDING); f.snapshotFailure = true
+        val vm = f.vm(); runCurrent()
+        assertTrue((vm.finishUi.value as SessionFinishUiState.SaveFailed).logicallyClosed)
+        assertNull(vm.closeoutSnapshot); assertEquals(0, f.clockCalls)
+        vm.changeContent("blocked"); assertEquals("", vm.draftContent)
+    }
+    @Test fun failedCompleteRetriesOnlyOriginalSnapshotWithoutResampling() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
+        f.failComplete = true; vm.requestFinishConfirmation(); runCurrent(); vm.confirmFinish {}; runCurrent()
+        assertTrue((vm.finishUi.value as SessionFinishUiState.SaveFailed).logicallyClosed)
+        val frozen = f.snapshot; vm.cancelFinishConfirmation(); runCurrent()
+        assertTrue(vm.finishUi.value is SessionFinishUiState.SaveFailed)
+        f.failComplete = false; vm.retryFinish {}; runCurrent()
+        assertEquals(frozen, f.snapshot); assertEquals(1, f.clockCalls); assertEquals(1, f.finishes); assertEquals(1, f.retries)
+    }
+    @Test fun failedBeginRetainsConfirmationAndAllowsContinuing() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
+        f.failBegin = true; vm.requestFinishConfirmation(); runCurrent(); vm.confirmFinish {}; runCurrent()
+        assertTrue(vm.finishUi.value is SessionFinishUiState.Confirming)
+        assertEquals(FocusCloseoutState.ACTIVE, f.state.value)
+        vm.cancelFinishConfirmation(); assertEquals(SessionFinishUiState.Idle, vm.finishUi.value)
+    }
+    @Test fun repeatedActiveHeartbeatCannotUnlockEditingDuringDraftFlush() = closeoutTest {
+        val f = Fixture(); val events = MutableSharedFlow<FocusCloseoutState?>(replay = 1)
+        events.tryEmit(FocusCloseoutState.ACTIVE); f.closeoutFlow = events
+        val vm = f.vm(); runCurrent(); f.noteBarrier = CompletableDeferred()
+        vm.changeContent("last draft"); vm.requestFinishConfirmation(); runCurrent()
+        events.emit(FocusCloseoutState.ACTIVE); runCurrent()
+        assertEquals(SessionFinishUiState.PreparingConfirmation, vm.finishUi.value)
+        vm.changeContent("must not replace"); vm.requestFinishConfirmation(); runCurrent()
+        assertEquals("last draft", vm.draftContent); assertEquals(0, f.finishes)
+        f.noteBarrier!!.complete(Unit); runCurrent()
+        assertEquals(SessionFinishUiState.Confirming("40"), vm.finishUi.value)
+    }
+    @Test fun nextDraftRotationCompletesBeforeConfirmationAndCompletionNavigatesOnlyOnce() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
+        f.noteBarrier = CompletableDeferred(); vm.changeContent("first draft"); vm.saveAndContinue(); runCurrent()
+        vm.requestFinishConfirmation(); runCurrent()
+        assertEquals(SessionFinishUiState.PreparingConfirmation, vm.finishUi.value)
+        f.noteBarrier!!.complete(Unit); runCurrent()
+        assertEquals("", vm.draftContent); assertEquals(1, f.saved.size)
+        var completions = 0
+        vm.confirmFinish { completions++ }; runCurrent()
+        vm.dispatchCompletion { completions++ }; vm.retryFinish { completions++ }
+        vm.flushDraft(); vm.refreshFocusState(); runCurrent()
+        assertEquals(1, completions); assertEquals(1, f.clockCalls); assertEquals(0, f.evidenceCalls)
+    }
+    @Test fun pendingFlowReadFailureCannotRevokeKnownLogicalClosure() = closeoutTest {
+        val f = Fixture(FocusCloseoutState.PENDING)
+        f.closeoutFlow = flow { emit(FocusCloseoutState.PENDING); yield(); error("read failed") }
+        val vm = f.vm(); runCurrent()
+        assertTrue((vm.finishUi.value as SessionFinishUiState.SaveFailed).logicallyClosed)
+        assertEquals(CloseoutSnapshot("s", 2_000, 42), vm.closeoutSnapshot)
+        vm.changeContent("blocked"); vm.reportEvidence(false, true); runCurrent()
+        assertEquals("", vm.draftContent); assertEquals(0, f.evidenceCalls)
+    }
+    @Test fun failedPageCanBeCorrectedBeforeNewConfirmationAttempt() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
+        f.failPage = true; vm.updatePage("42"); runCurrent(); vm.requestFinishConfirmation(); runCurrent()
+        assertEquals(SessionFinishUiState.Idle, vm.finishUi.value)
+        f.failPage = false; vm.updatePage("43"); runCurrent(); vm.requestFinishConfirmation(); runCurrent()
+        assertEquals(SessionFinishUiState.Confirming("43"), vm.finishUi.value)
+    }
+    @Test fun cancelledChildSaveDoesNotStrandActiveConfirmationAndCanRetry() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent(); f.cancelNote = true
+        vm.changeContent("keep draft"); advanceTimeBy(501); runCurrent()
+        vm.requestFinishConfirmation(); runCurrent()
+        assertEquals(SessionFinishUiState.Idle, vm.finishUi.value)
+        assertEquals("keep draft", vm.draftContent); assertNotNull(vm.error); assertEquals(0, f.clockCalls)
+        f.cancelNote = false; vm.requestFinishConfirmation(); runCurrent()
+        assertEquals(SessionFinishUiState.Confirming("40"), vm.finishUi.value)
+        assertEquals("keep draft", f.saved.last().content)
+    }
+    @Test fun recreationDuringCompleteUsesCurrentNavigationCallbackNotDisposedActivity() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent()
+        f.finishBarrier = CompletableDeferred(); vm.requestFinishConfirmation(); runCurrent()
+        var oldCalls = 0; var newCalls = 0
+        val old: (String) -> Unit = { oldCalls++ }; val current: (String) -> Unit = { newCalls++ }
+        vm.confirmFinish(old); runCurrent()
+        vm.releaseCompletionCallback(old); vm.dispatchCompletion(current)
+        f.finishBarrier!!.complete(Unit); runCurrent()
+        vm.dispatchCompletion(current)
+        assertEquals(0, oldCalls); assertEquals(1, newCalls); assertEquals(1, f.clockCalls)
+    }
+    @Test fun unknownCloseoutReadCannotClaimReadingEndedAfterFailedRetry() = closeoutTest {
+        val f = Fixture(); f.state.value = null
+        val vm = f.vm(); runCurrent(); vm.retryFinish {}; runCurrent()
+        assertFalse((vm.finishUi.value as SessionFinishUiState.SaveFailed).logicallyClosed)
+        assertNull(vm.closeoutSnapshot); assertFalse(vm.canEditLearning); assertEquals(0, f.clockCalls)
+    }
+    @Test fun evidenceRefreshQueuedBeforeFinalConfirmationCannotSubmitAfterSavingGate() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent()
+        f.refreshBarrier = CompletableDeferred(); vm.reportEvidence(false, true); runCurrent()
+        assertEquals(1, f.evidenceCalls)
+        vm.requestFinishConfirmation(); runCurrent(); f.finishBarrier = CompletableDeferred()
+        vm.confirmFinish {}; runCurrent()
+        f.refreshBarrier!!.complete(Unit); runCurrent()
+        assertEquals(1, f.evidenceCalls); assertEquals(SessionFinishUiState.Saving, vm.finishUi.value)
+        f.finishBarrier!!.complete(Unit); runCurrent()
+    }
+}
