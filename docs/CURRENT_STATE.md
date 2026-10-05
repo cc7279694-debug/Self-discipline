@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-Phase 3D-3｜结果、时间线与历史回看已独立验收并正式冻结，Accepted implementation HEAD 为 `54a9e2bdda28da80028aa5313ef243da593e976b`，分支 `codex/phase-3d-reading-record`。Phase 3D-1 Freeze 为 `ba480d9b61f0b71879b07113ec32fc840a97ddab`；Phase 3D-2 Freeze / 本包精确父冻结提交为 `4e15076265ad393c85bd5f0e08916f6e886e4be1`。3D-1 / 3D-2、Phase 2与Module 3C继续冻结；下一阶段为 Phase 3D-4｜最终验证与交付，但尚未开始，等待单独明确授权。
+Phase 3D-4｜最终验证与交付已获单独授权，正在 `codex/phase-3d-final-validation` 执行，精确父 Freeze 为 `80ece95cf24918627e57a57bb6a6d94c253528b0`。默认仅测试、受控夹具、脱敏证据与 Debug APK，不重开冻结核心、不自行冻结 Phase 3D。3D-3 Accepted implementation HEAD 为 `54a9e2bdda28da80028aa5313ef243da593e976b`；3D-2 Freeze 为 `4e15076265ad393c85bd5f0e08916f6e886e4be1`；3D-1 Freeze 为 `ba480d9b61f0b71879b07113ec32fc840a97ddab`，继续保持正式冻结。3D-4 结果及未测边界见 `docs/checkpoints/2026-10-04-module-3d-final.md`。
 
 Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c07fbabf050d6d5ac3aeae0677d5e5abf14f4465`，包括 Clock Rollback Correction、Tasks 1–6 与 Acceptance Patch。Phase 2、Module 3A、Mirra Blue / Visual Parity 与整个 Module 3C 保持原冻结语义。Module 3B 是个人试用开发基线，不等于发布级设备能力验收完成。Room v4 / schemas 1–4 不变。API 23–36 full matrix、OEM / 实体设备完整矩阵、TalkBack、release / Play、真实硬件断电与真实系统时钟人工修改继续 `NOT RUN`，API 37 AVD 结果不外推；一加 13T 反馈仍仅为个人试用。
 
@@ -191,7 +191,7 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 
 ## Pending
 
-- Phase 3D-4｜最终验证与交付尚未开始，等待单独明确授权。Phase 3D-3已独立验收并正式冻结；3D-2 / 3D-1、Phase 2与Module 3C冻结语义不重新打开，一加13T个人试用反馈不升级为兼容性PASS。
+- Phase 3D-4｜最终验证与交付执行中，完成后等待独立验收，不自行宣告 Phase 3D 正式冻结。3D-3 / 3D-2 / 3D-1、Phase 2与Module 3C冻结语义不重新打开，一加13T个人试用反馈不升级为兼容性PASS。
 - Phase 3｜Module 3B Task 6 仍待最终独立验收。Task Manager Stop、reboot、完整 risk/lock/revocation 矩阵、API 23/29/33/34/35 与实体/OEM 设备继续为 `NOT RUN`，不用 API 37 AVD 结果代替。
 
 ## Known Risks / Unknowns
@@ -213,8 +213,8 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 
 ## Git
 
-- Current branch: `codex/phase-3d-reading-record`
-- Frozen Phase 3D-3 accepted implementation HEAD: `54a9e2bdda28da80028aa5313ef243da593e976b`，已独立验收并正式冻结。精确父Freeze / Phase 3D-2 Freeze: `4e15076265ad393c85bd5f0e08916f6e886e4be1`。Task 1–6独立提交、实际Gate与证据见3D-3 checkpoint；纯文档Freeze commit及local/remote SHA另行报告，不替代实现SHA。不合并main、不发布、不开始3D-4。
+- Current branch: `codex/phase-3d-final-validation`；精确 parent `80ece95cf24918627e57a57bb6a6d94c253528b0`。
+- Frozen Phase 3D-3 accepted implementation HEAD: `54a9e2bdda28da80028aa5313ef243da593e976b`，已独立验收并正式冻结。精确父Freeze / Phase 3D-2 Freeze: `4e15076265ad393c85bd5f0e08916f6e886e4be1`。Task 1–6独立提交、实际Gate与证据见3D-3 checkpoint；正式文档Freeze为 `80ece95cf24918627e57a57bb6a6d94c253528b0`，不替代实现SHA。不合并main、不发布。
 - Phase 3D-1 Freeze / Phase 3D-2 exact parent: `ba480d9b61f0b71879b07113ec32fc840a97ddab`。
 - Frozen Phase 3D-2 accepted implementation HEAD: `9b137ea51e824f59ab3480ed770c9dcf24da2d87`，已独立验收并正式冻结；独立 Task 1–4 提交、验证与冻结结论见3D-2 checkpoint，不合并 main。纯文档 Freeze commit 另行报告，不替代该实现 SHA。
 - Frozen Phase 3D-1 accepted implementation HEAD: `c07fbabf050d6d5ac3aeae0677d5e5abf14f4465`（`fix(focus): reject closeout before durable learning facts`），已独立验收并正式冻结。冻结文档提交另行报告，不替代该实现 SHA。
@@ -228,4 +228,4 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 
 ## Next Recommended Task
 
-等待单独明确授权 Phase 3D-4｜最终验证与交付，当前尚未开始。继续继承已冻结的3D-1 / 3D-2 / 3D-3、Phase 2、Module 3C与Room v4 / schemas1–4。保留一加13T个人试用及API23–36 full matrix、OEM / 实体设备完整矩阵、TalkBack、release / Play、真实硬件断电、真实系统时钟人工修改的 `NOT RUN` 边界；API37 AVD不外推这些结果。
+完成已授权 Phase 3D-4 的故障窗口、用户闭环、覆盖安装、离线和最终自动化／APK证据后，停止等待独立验收。继续继承已冻结的3D-1 / 3D-2 / 3D-3、Phase 2、Module 3C与Room v4 / schemas1–4。保留一加13T个人试用及API23–36 full matrix、OEM / 实体设备完整矩阵、TalkBack、release / Play、真实硬件断电、真实系统时钟人工修改的 `NOT RUN` 边界；API37 AVD不外推这些结果。
