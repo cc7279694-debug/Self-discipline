@@ -4,19 +4,19 @@
 
 ## Current Stage
 
-Phase 3D-3｜结果、时间线与历史回看已按Task 1–6实施并完成最终Gate，当前等待用户独立验收，尚未正式冻结。精确父冻结提交为 `4e15076265ad393c85bd5f0e08916f6e886e4be1`，分支 `codex/phase-3d-reading-record`。3D-2 accepted implementation `9b137ea51e824f59ab3480ed770c9dcf24da2d87`、3D-1、Phase 2与Module 3C继续冻结；3D-4尚未开始，必须另行明确授权。
+Phase 3D-3｜结果、时间线与历史回看已独立验收并正式冻结，Accepted implementation HEAD 为 `54a9e2bdda28da80028aa5313ef243da593e976b`，分支 `codex/phase-3d-reading-record`。Phase 3D-1 Freeze 为 `ba480d9b61f0b71879b07113ec32fc840a97ddab`；Phase 3D-2 Freeze / 本包精确父冻结提交为 `4e15076265ad393c85bd5f0e08916f6e886e4be1`。3D-1 / 3D-2、Phase 2与Module 3C继续冻结；下一阶段为 Phase 3D-4｜最终验证与交付，但尚未开始，等待单独明确授权。
 
 Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c07fbabf050d6d5ac3aeae0677d5e5abf14f4465`，包括 Clock Rollback Correction、Tasks 1–6 与 Acceptance Patch。Phase 2、Module 3A、Mirra Blue / Visual Parity 与整个 Module 3C 保持原冻结语义。Module 3B 是个人试用开发基线，不等于发布级设备能力验收完成。Room v4 / schemas 1–4 不变。API 23–36 full matrix、OEM / 实体设备完整矩阵、TalkBack、release / Play、真实硬件断电与真实系统时钟人工修改继续 `NOT RUN`，API 37 AVD 结果不外推；一加 13T 反馈仍仅为个人试用。
 
-## Phase 3D-3 Reading Records — Awaiting Independent Acceptance
+## Frozen Phase 3D-3 Reading Records
 
 - Source只读组合Session / Context / Segments / 历史App快照 / 非空Note count；固定5次读取，无逐段N+1。统一Projection复用冻结Validator，不修补旧历史或更改信任标准。
 - Summary原地展开；书籍History与Search SESSION通过既有详情Route同源回看并返回原入口，不恢复Session。仅严格相邻的FOCUS/DEEP_FOCUS在展示层合为“阅读”，未知与异常记录不伪造有效时间，App名仅用历史快照或“风险 App”。
 - 刚结束结果仅RELEASE_PENDING/RELEASE_FAILED弱提示并复用release retry/设置刷新；旧历史不持续DND提示，不apply或修改偏好。书籍详情按合格effective.window有效优先，只有窗口不足回退原Phase 2口径；读取错误明确显示，自然完成日期继续独立。
-- Task 1–5独立提交分别为 `e0230c6` / `38c3983` / `a45ae22` / `31d1ff4` / `c230d44`，完整SHA、RED/GREEN与Task 6证据见 `docs/checkpoints/2026-10-04-module-3d-3.md`；最终完整HEAD见交付报告，不squash。
-- 本轮fresh完整JVM318/318、单次未过滤API37 connected268/268，均0 failure/error/skipped，DND平台3项与渠道5项实际执行。lint0 errors / 9 existing warnings / 1 hint，assembleDebug PASS；实际宽度320/360/411dp、fontScale1/2与≥48dp可达性已验证。
+- Task 1–5独立提交分别为 `e0230c6` / `38c3983` / `a45ae22` / `31d1ff4` / `c230d44`；Task 6 / Accepted implementation HEAD 为 `54a9e2bdda28da80028aa5313ef243da593e976b`。完整SHA、RED/GREEN、Task 6证据与独立验收结论见 `docs/checkpoints/2026-10-04-module-3d-3.md`，不squash。
+- 已提交的实现轮次执行证据：fresh完整JVM318/318、单次未过滤API37 connected268/268，均0 failure/error/skipped，DND平台3项与渠道5项实际执行。lint0 errors / 9 existing warnings / 1 hint，assembleDebug PASS；实际宽度320/360/411dp、fontScale1/2与≥48dp可达性已验证。用户独立review已复核最终implementation diff、Source / Projection / UI / Navigation / Effective Pace接线，未发现新的阻断缺陷。本次独立review及纯文档Freeze没有重新运行Gradle / AVD，不将已提交证据冒称本次执行。
 - 专用AVD覆盖安装保留原测试数据；断网真实1→3页 / 1Note / NORMAL/NONE/COMPLETED通过结果→History→Search，同事实且无有效时间。闭合事实在Force Stop/冷启动后不变。7张受控fixture截图与3张真实离线截图分开标记，不把FULL fixture当监测或实体机证明。临时平台授权与网络已恢复。
-- Debug产物 `build/deliverables/Mirra-3D3-debug.apk`，16488770 bytes，SHA-256 `68C89D5948E34E3EF48DE374CA2043B6B5D0EE43702E7D3B63E7A1CE3EF674E8`，不入Git。Room v4 / Schema1–4与所有冻结核心不变。内部只读review不代替用户独立验收；DECISIONS不重复既有批准设计。
+- Debug产物 `build/deliverables/Mirra-3D3-debug.apk`，16488770 bytes，SHA-256 `68C89D5948E34E3EF48DE374CA2043B6B5D0EE43702E7D3B63E7A1CE3EF674E8`，不入Git。Room v4 / Schema1–4与所有冻结核心不变。用户独立验收已完成；内部只读review不冒充独立验收，DECISIONS不重复既有批准设计。
 
 ## Frozen Phase 3D-2 Effective Metrics
 
@@ -191,7 +191,7 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 
 ## Pending
 
-- Phase 3D-3已实施并通过本轮Gate，等待用户独立验收与正式冻结；3D-4尚未开始，等待单独明确授权。3D-2 / 3D-1、Phase 2与Module 3C冻结语义不重新打开，一加13T个人试用反馈不升级为兼容性PASS。
+- Phase 3D-4｜最终验证与交付尚未开始，等待单独明确授权。Phase 3D-3已独立验收并正式冻结；3D-2 / 3D-1、Phase 2与Module 3C冻结语义不重新打开，一加13T个人试用反馈不升级为兼容性PASS。
 - Phase 3｜Module 3B Task 6 仍待最终独立验收。Task Manager Stop、reboot、完整 risk/lock/revocation 矩阵、API 23/29/33/34/35 与实体/OEM 设备继续为 `NOT RUN`，不用 API 37 AVD 结果代替。
 
 ## Known Risks / Unknowns
@@ -209,12 +209,12 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 - 文件系统与 SQLite 无法形成真正的跨资源原子事务；当前通过 trash、补偿和启动清理实现最终一致。若设备在文件系统持续故障时终止进程，文件会保留供后续启动再次恢复或清理。
 - Android Instrumented 测试为兼容 Room 2.8.5 Migration Schema 验证，在 androidTest 配置中固定 kotlinx-serialization 1.8.1；生产运行时依赖未因此替换。
 - Mono / Night 尚未进行全页面、字号放大、TalkBack 与主题切换视觉验收，因此本阶段不向用户开放主题选择入口。
-- 首版中途重新授权不自动恢复当前 Session 监测，保持 PARTIAL。3C-2 已接入真实页面可见性/屏幕证据及应用内干预；不使用缓存前台 package 冒充长时间稳定，FULL 不等于全程 Focus。3C-3 渠道已正式冻结；通知 POSTED 与 Overlay attach 均不能外推为用户已读，OEM 可进一步限制通道。3D-2已增加纯派生有效指标，3D-3结果/历史/pace UI现已接入并等待独立验收。批量独立Flow非跨表事务快照，依赖冻结的结束后学习事实不可变；未来若改变此前提须重新审查一致性。
+- 首版中途重新授权不自动恢复当前 Session 监测，保持 PARTIAL。3C-2 已接入真实页面可见性/屏幕证据及应用内干预；不使用缓存前台 package 冒充长时间稳定，FULL 不等于全程 Focus。3C-3 渠道已正式冻结；通知 POSTED 与 Overlay attach 均不能外推为用户已读，OEM 可进一步限制通道。3D-2已增加纯派生有效指标，3D-3结果/历史/pace UI已独立验收并正式冻结。批量独立Flow非跨表事务快照，依赖冻结的结束后学习事实不可变；未来若改变此前提须重新审查一致性。
 
 ## Git
 
 - Current branch: `codex/phase-3d-reading-record`
-- Phase 3D-3 exact parent / 3D-2 Freeze: `4e15076265ad393c85bd5f0e08916f6e886e4be1`。Task 1–6独立提交、实际Gate与证据见3D-3 checkpoint；最终完整HEAD / local=remote / 工作区状态在交付报告核验。当前等待独立验收，不合并main、不发布、不开始3D-4。
+- Frozen Phase 3D-3 accepted implementation HEAD: `54a9e2bdda28da80028aa5313ef243da593e976b`，已独立验收并正式冻结。精确父Freeze / Phase 3D-2 Freeze: `4e15076265ad393c85bd5f0e08916f6e886e4be1`。Task 1–6独立提交、实际Gate与证据见3D-3 checkpoint；纯文档Freeze commit及local/remote SHA另行报告，不替代实现SHA。不合并main、不发布、不开始3D-4。
 - Phase 3D-1 Freeze / Phase 3D-2 exact parent: `ba480d9b61f0b71879b07113ec32fc840a97ddab`。
 - Frozen Phase 3D-2 accepted implementation HEAD: `9b137ea51e824f59ab3480ed770c9dcf24da2d87`，已独立验收并正式冻结；独立 Task 1–4 提交、验证与冻结结论见3D-2 checkpoint，不合并 main。纯文档 Freeze commit 另行报告，不替代该实现 SHA。
 - Frozen Phase 3D-1 accepted implementation HEAD: `c07fbabf050d6d5ac3aeae0677d5e5abf14f4465`（`fix(focus): reject closeout before durable learning facts`），已独立验收并正式冻结。冻结文档提交另行报告，不替代该实现 SHA。
@@ -228,4 +228,4 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 
 ## Next Recommended Task
 
-等待Phase 3D-3独立验收；通过后仅在单独明确授权下进入3D-4，当前3D-4尚未开始。继续继承已冻结的3D-1 / 3D-2、Phase 2、Module 3C与Room v4 / schemas1–4。保留一加13T个人试用及API23–36 full matrix、OEM / 实体设备完整矩阵、TalkBack、release / Play、真实硬件断电、真实系统时钟人工修改的 `NOT RUN` 边界；API37 AVD不外推这些结果。
+等待单独明确授权 Phase 3D-4｜最终验证与交付，当前尚未开始。继续继承已冻结的3D-1 / 3D-2 / 3D-3、Phase 2、Module 3C与Room v4 / schemas1–4。保留一加13T个人试用及API23–36 full matrix、OEM / 实体设备完整矩阵、TalkBack、release / Play、真实硬件断电、真实系统时钟人工修改的 `NOT RUN` 边界；API37 AVD不外推这些结果。
