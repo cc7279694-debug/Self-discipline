@@ -2,6 +2,10 @@ package com.guanyi.mirra
 
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.viewModelScope
@@ -48,7 +52,9 @@ class ReadingRecordNavigationTest {
         var summary by mutableStateOf(true)
         try {
             rule.setContent { MirraTheme {
-                if (summary) SessionSummaryScreen(vm, container.dndUserActions, { summary = false })
+                if (summary) Scaffold(containerColor = MirraTheme.colors.background) { padding ->
+                    Box(Modifier.padding(padding)) { SessionSummaryScreen(vm, container.dndUserActions, { summary = false }) }
+                }
                 else MirraApp(readOnlyContainer, TopLevelDestination.Knowledge, {})
             } }
             await("本次阅读已保存"); assertRecord()
@@ -56,6 +62,7 @@ class ReadingRecordNavigationTest {
             await("统一记录测试"); rule.onNodeWithText("统一记录测试").performClick()
             await("当前第 58 页，共 320 页"); openHistory()
             await("阅读记录"); assertRecord()
+            rule.waitForIdle(); captureReadingRecordEvidence("history-record")
             clickExit("返回")
             await("阅读历史")
             clickExit("返回")
@@ -63,6 +70,7 @@ class ReadingRecordNavigationTest {
             rule.onNode(hasSetTextAction() and hasText("搜索笔记、内容、Topic 或阅读总结")).performTextInput("记录测试总结")
             await("统一记录测试"); rule.onNodeWithText("统一记录测试").performClick()
             await("阅读记录"); assertRecord()
+            rule.waitForIdle(); captureReadingRecordEvidence("search-record")
             clickExit("返回")
             await("统一记录测试")
             assertTrue(writes.isEmpty())
@@ -78,7 +86,7 @@ class ReadingRecordNavigationTest {
             val intent = container.studyWorkflowRepository.createIntent(book.id)
             container.studyWorkflowRepository.startSession(intent.id, 40)
         }
-        rule.setContent { MirraApp(container, TopLevelDestination.Start, {}) }
+        rule.setContent { MirraTheme { MirraApp(container, TopLevelDestination.Start, {}) } }
         await("继续学习"); rule.onNodeWithText("继续学习").performClick()
         await("结束本次阅读"); rule.onNodeWithText("结束本次阅读").performScrollTo().performClick()
         await("结束本次阅读？"); rule.onNodeWithTag("confirm-session-finish").performClick()
@@ -95,12 +103,40 @@ class ReadingRecordNavigationTest {
 
     @Test fun abnormalHistoryCanBeReadButNeverShowsEffectiveTime() {
         runBlocking { insertReadingRecordFixture(container, SessionEndType.ABNORMAL) }
-        rule.setContent { MirraApp(container, TopLevelDestination.Knowledge, {}) }
+        rule.setContent { MirraTheme { MirraApp(container, TopLevelDestination.Knowledge, {}) } }
         await("统一记录测试"); rule.onNodeWithText("统一记录测试").performClick()
         await("当前第 58 页，共 320 页"); openHistory(); await("阅读记录")
         rule.onNodeWithText("异常结束 · 不参与有效统计").assertExists()
         rule.onNodeWithText("有效专注时间：", substring = true).assertDoesNotExist()
         clickExit("返回"); await("阅读历史")
+    }
+
+    @Test fun bookDetailShowsRepositoryBackedEffectivePaceAndKeepsNaturalPredictionSeparate() {
+        runBlocking {
+            insertReadingRecordFixture(container)
+            val original = readingRecordTestSource()
+            val now = System.currentTimeMillis()
+            for (index in 0..2) {
+                val id = "recent-$index"
+                val end = now - 3_600_000L - index * 86_400_000L
+                val start = end - 1_800_000
+                val delta = start - original.session.startedAt
+                container.database.intentDao().insert(StudyIntentEntity("intent-$id", "book", start, start, start, start, IntentOutcome.CONVERTED, null))
+                container.database.sessionDao().insert(original.session.copy(id = id, intentId = "intent-$id", startedAt = start, endedAt = end))
+                container.database.focusDao().insertContext(original.context!!.copy(sessionId = id, lastHeartbeatAt = end, createdAt = start, updatedAt = end))
+                original.segments.forEach { segment -> container.database.focusDao().insertSegment(segment.copy(
+                    id = "$id-${segment.id}", sessionId = id, startedAt = segment.startedAt + delta, endedAt = segment.endedAt!! + delta)) }
+            }
+        }
+        rule.setContent { MirraTheme { MirraApp(container, TopLevelDestination.Knowledge, {}) } }
+        await("统一记录测试"); rule.onNodeWithText("统一记录测试").performClick()
+        await("当前第 58 页，共 320 页")
+        rule.onNode(hasScrollAction()).performScrollToNode(hasText("有效阅读速度约 54 页/小时"))
+        rule.onNodeWithText("根据最近 7 天 3 次完整阅读").assertExists()
+        rule.onNodeWithText("预计还需约 4 小时 52 分钟 有效阅读").assertExists()
+        rule.onNodeWithText("最近约 36 页/小时").assertDoesNotExist()
+        rule.onNodeWithText("近期节奏仍在积累，暂不估算完成日期").assertExists()
+        rule.waitForIdle(); captureReadingRecordEvidence("book-effective-pace")
     }
 
     private fun await(text: String) = rule.waitUntil(5_000) { rule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
