@@ -68,8 +68,8 @@ Replayed the saved real notification episode's explicit VIEW URI/request after C
 
 PENDING-stage stale-action guards remain separately proven by `ModuleThreeDPendingGuardsTest`; no dangerous manual A/B interval was fabricated. Existing crash fixtures, Stage B trigger/retry, backward-clock and layout tests are separate automation evidence, not this manual scene.
 
-## Pending final gates and restoration
+## Final gate outcome and safe stop
 
-This milestone alone is not 3D-4 completion. Fresh unfiltered JVM/connected/lint/build, exact final APK cover installation/offline readback and final four-permission restoration are recorded in the final checkpoint when actually completed. Ordinary full suite intentionally does not execute four opt-in fixtures; their existing explicit actual executions stay separately classified.
+This milestone alone is not 3D-4 completion. Subsequent fresh JVM318/318 passed, but full connected269 passed/2 real timeouts/4 opt-in assumptions was not clean; then the actual preservation check found the controlled JPEG missing and identified shared test file cleanup. Final gates stopped without production/test repairs. Temporary permissions/preferences/risk/network were restored and actually read back, but the missing JPEG was not fabricated or reseeded. Full counts, targeted2/2 diagnostic results, current artifact distinction and remaining gates are recorded in [final regression blockers](final-regression-blockers.md) and the final checkpoint. Ordinary full suite intentionally does not execute four opt-in fixtures; their original explicit actual executions remain separately classified.
 
 API23–36 full matrix, OEM/full physical compatibility, TalkBack, release/Play, hardware power loss, actual system clock changes and real15min Deep Focus remain NOT RUN. OnePlus13T was not operated.

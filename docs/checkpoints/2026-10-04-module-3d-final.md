@@ -1,6 +1,6 @@
 # Phase 3D-4 — Final validation and personal-use delivery
 
-日期：2026-10-05。状态：权限专项已执行并恢复；外部入口后的Recovery异常待审查，3D-4尚未完成；不表示 Phase 3D 已冻结。
+更新日期：2026-10-06。当前状态：Recovery诊断结论已接受，剩余真实平台闭环已补齐；最终connected存在两项未定根因超时，且受控图片保留检查发现缺失JPEG/未隔离测试清理，触发数据停止条件。配置已恢复，待单独审查/修补授权；3D-4尚未完成，Phase3D未冻结。下文所有早期RED、权限前提、失败与NOT RUN作为历史继续保留，最新状态见末尾2026-10-06补充。
 
 ## Contract and exact parent
 
@@ -178,3 +178,48 @@ API23–36 full matrix、完整 OEM matrix、完整实体设备 compatibility、
 - 新截图为专用AVD实际UI，不是fixture或概念图。关键异常截图为 `recovery-after-overlay-not-completed.png`。内部只读审查提供候选原因，不冒称用户独立验收。
 
 **当前停止点：SOL_REVIEW_REQUIRED。3D-4未完成，未Freeze Phase3D，未进入下一Phase。** 本轮Git只提交验证文档和上述脱敏截图，实际commit / localremote / clean在提交后报告。
+
+## Accepted Recovery review and remaining validation — 2026-10-06
+
+用户接受 `d0da1061a7b706e25784e43fc700189564bbe980` 诊断结论 RECOVERY_DIAGNOSTIC_INCONCLUSIVE，允许沿原计划继续剩余验证，不授权production fix。上文Recovery停止点为历史，不删除。原成功91.566sec、诊断90.827/90.858/91.006sec与一次>120sec异常全部保留，异常分类仍为 Historical intermittent Recovery anomaly / Observed once / Not reproduced in targeted diagnostic，不标FIXED、ROOT CAUSE RESOLVED或AVD ISSUE。
+
+### Remaining actual platform paths
+
+详见 [remaining platform flow](../evidence/phase3d-final/final-remaining-platform-flow.md)，真实记录与四张脱敏AVD截图已单独提交 `50d9a0bdf339c623169cb2f1e6f3924a7bc2631c`（`test(focus): verify the complete reading record flow`）。没有新增测试来重复已有完整自动化，也没有生产修补。
+
+- Usage Access near-finish撤销：先durable PARTIAL/UNMONITORED，再NORMAL/COMPLETED；末段精确结束，effective unavailable，DND RELEASED。
+- 已有Diagnostics“停止监测测试”：先durable loss，ServiceRecord0，再正常Closeout；PARTIAL不回FULL，DND RELEASED，没有后台重启。
+- 最终真实Start主线→Preparation→FULL/FOCUS→页42到44/1Note→Chrome短访及持续确认→Session Notification fallback→实际通知PendingIntent点击→Allowance5min/一次+2min→提前结束→Recovery91.661sec成功→FOCUS→最终确认→Summary/inline timeline→History/Search。没有出现新的≥110sec健康正向页面异常。
+- 通知实际POSTED、fullScreenIntent=null、channel不bypassDND，无MirraOverlay；实际drawer观察和IN_APP receipt分别记录，不把POSTED写成SHOWN。合法风险退出由monitor转RECOVERY，不把该状态变更归因于notification navigation。此场DND偏好OFF用于实际drawer观察；前两条实际DND ACTIVE/RELEASED证据单列。
+- 最终Session endedAt1791249203077、末段同边界，总时长321164ms、有效Focus138230ms；结果页≥32sec不变，无新增Session/Intent、活动段或FGS。COMPLETED后保存的真实episode URI/request等价回放不新增任何学习事实；不是再次发送原系统PendingIntent。
+- A/PENDING间隙guard、B失败/重试、ClockSample真实Controller→Room gap继续由现有专项/自动化证明，不危险地重新造人工窗口。实际OS query-gap不可可靠触发，NOT RUN；真实15min Deep仍NOT RUN。
+
+### Final fresh regression — not a clean PASS
+
+2026-10-06真实执行的未过滤JVM：318 discovered /318 executed /318 passed /0 failure/error/skipped，test task实际重跑。完整未过滤connected：275 discovered /271 executed /269 passed /2 assertion failures /0error /4opt-in assumptions，10m15s、Gradle退出1。原XML275tests/6failure/0error/0skipped，其中4节点为AssumptionViolatedException、2节点为ComposeTimeoutException；未改XML。
+
+五项原permission-gated DND/Overlay/Notification用例全部真正进入断言并PASS；320/360/411dp×fontScale1/2六项可达性也在该full中PASS。四opt-in原prepare/assert/seed/assert专项各1/1已重新读取原日志核对，普通full仍按设计不执行，不能加到269passes。
+
+两项真实失败均为最终confirm之后Summary文本等待5000ms超时：`PhaseOneCorrectionTest.finishingImmediatelyFlushesDraft:130` 与 `PhaseOneLearningLoopTest.completeLearningLoopCreatesBookNotesProgressAndSummary:70`。仅无改动定向复现一次，2/2 PASS、41.268sec；不拼成full-suite PASS、不放宽timeout。日志没有确认Mirra crash/ANR/Room错误，也不能把共同框架警告直接认定为AVD原因。完整原始报告及每测日志已保存在仓库外本地，不上传全量raw日志。
+
+随后尝试新full命令时，PowerShell未引用的dotted `-P` 属性导致Gradle task selection错误，测试没有开始；这是执行工具问题，不算新business FAIL或新full结果。此后因下述数据保留STOP没有继续重跑。
+
+### Blocking test-storage preservation evidence
+
+完整回归后实际只读发现：原preservation ImageAsset仍有1行及正确相对路径/818bytes metadata，但对应JPEG不存在，images目录为空。历史seed/assert marker仍VERIFIED_PREFERENCES_RESTORED，不是当前文件仍在的证明。学习数据库16Session/16Intent、最新FULL endedAt/page44和Active0/0未改变。
+
+现有TestAppContainer.close使用target application filesDir递归删除images及image-work；生产DefaultImageStorageService使用同一路径。内存Room不能隔离文件，该测试cleanup已存在于冻结基线。没有本轮full之前即时文件hash，不能指定精确删除run；但现存缺失文件和共享清理边界已确认，触发原计划数据丢失STOP。不是Recovery回归、不是新生产修改，也不把缺文件归因于Summary超时。
+
+详见 [final regression blockers](../evidence/phase3d-final/final-regression-blockers.md)。未修test/core、未补造JPEG、未删除行/marker或重新seed掩盖问题。应先获单独test-isolation修补与安全保留重验授权，再取一次完整clean connected。fresh最终lint/assemble、exact-file交付覆盖安装/离线preservation因此NOT RUN，不用历史PASS替代。
+
+### Restoration, frozen source and artifacts
+
+停止后实际读回：Usage/Overlay default、POST false及原flags、resumed Diagnostics DND access false；DND/cross-app OFF、原单条受控风险选择、Knowledge、网络1/1。Active Session/Segment0/0、monitor ServiceRecord0、MirraOverlay0、intervention notification0；当前Mirra-owned rule FALSE、ZenMode OFF，原consolidatedPolicy一致。历史Zen-log TRUE不是当前active。实体手机从未操作。缺失受控JPEG仍未恢复，权限恢复不等于图片恢复。
+
+Room version4与Schema1–4 hashes再次实际核对，仍与Task1封存表一致，v4=`EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`。生产/app/src/main、Manifest、Migration、Entity、Gradle/依赖相对parent无diff；本轮相对诊断HEAD也只新增证据/文档，未改test。
+
+connected实际构建的app-debug.apk为16488770bytes、SHA-256 `9C9B33337A8FB9A3969089308C28E8302AB285939DFBD47A4103CC7D48C68CD9`，com.guanyi.mirra /0.1.0 /code1，sourceHEAD50d9a0bdf339c623169cb2f1e6f3924a7bc2631c。与保存parentAPK双向163entry inventory及每项未压缩内容完全一致、公开signer相同，但whole archive hash不同，不假称byte-identical。未覆盖交付文件/重新安装exact file或宣告final APK完成。
+
+API23–36 full matrix、OEM/完整实体机、TalkBack、release/Play、真实硬件断电、人工系统时钟、真实15min Deep继续NOT RUN。一加13T试用不升级OEM PASS；API37自动化/普通UI/受控fixture证据严格分列。
+
+**最新停止点：测试文件隔离/受控图片保留待审查授权。Phase 3D-4未完成；没有自行Freeze Phase3D，没有进入下一阶段。** 本轮只保存真实验证证据、历史风险与安全停止状态，不把内部审计称为用户独立验收。

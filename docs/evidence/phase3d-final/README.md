@@ -4,18 +4,31 @@
 
 - Exact parent: `80ece95cf24918627e57a57bb6a6d94c253528b0`.
 - Environment: explicitly selected `Mirra_API_37`, Android 17 / API37 AOSP AVD. No physical-device operations.
-- Scope: frozen production semantics, tests / controlled fixtures / validation only. 3D-4 incomplete: authorized platform assertions passed, Recovery-after-external-entry anomaly requires review. No Phase3D freeze.
+- Current scope/status (2026-10-06): frozen production semantics, validation only. Remaining actual platform flow completed, but final full connected has two real timeouts and the controlled JPEG preservation check fails; existing test storage is also confirmed not isolated. **STOP / review required; 3D-4 incomplete, no Phase3D freeze.** See [final regression blockers](final-regression-blockers.md).
+
+## Latest execution and safe stop — 2026-10-06
+
+- [Actual remaining platform flow](final-remaining-platform-flow.md): near-finish Usage revoke and controlled stop durably PARTIAL/UNMONITORED before NORMAL closeout; final Start/FULL/notification/Allowance/91.661sec Recovery/precise closeout/three-record-entrances and ≥32sec result stability. Four new actual controlled-AVD captures linked there, not fixtures or OEM proof.
+- Fresh JVM318/318/0failed/error/skipped. Fresh unfiltered connected275 discovered /271 executed /269 passed /2 real ComposeTimeoutException /0error /4opt-in assumptions; raw XML6failure/0error/0skipped, task exit1. All five gated platform assertions and six width/font cases actually passed. Unchanged targeted2/2 rerun is diagnostic only, not a full-suite PASS.
+- Existing four opt-in explicit executions4/4 rechecked, not newly rerun or counted as ordinary full execution. Attempted second full run failed Gradle task selection before tests; no new full result.
+- Preservation ImageAsset row/marker remain, referenced controlled JPEG is missing. TestAppContainer.close recursively clears the shared target images/image-work directories; in-memory Room does not isolate files. Exact deletion run is not proven. No restoration by reseeding, row deletion or fake image recreation; further regression stopped for separately authorized test-isolation review.
+- Four temporary permissions, DND/cross-app preferences, original risk selection and network restored/read back; no active Session/Segment, monitor FGS, MirraOverlay, intervention notification or unexpectedly active own rule. Missing JPEG remains unrepaired. No physical-device operations.
+- Final fresh lint/build and exact-file cover/offline gate NOT RUN after stop. Current built APK payload matches163 uncompressed frozen entries, but archive hash is9C9B33337A8FB9A3969089308C28E8302AB285939DFBD47A4103CC7D48C68CD9, not the old68C89D hash; not a completed final artifact.
+- Historical >120sec Recovery anomaly remains Observed once / Not reproduced in targeted diagnostic; original91.566 and diagnostic90.827/90.858/91.006sec successes plus this91.661sec success do not meanFIXED. All original screenshots/failure records remain.
+
+## Earlier execution records — retained history, not current gates
+
 - Initial JVM: 318 total / 318 executed / 318 passed / 0 failure / 0 error / 0 skipped.
 - Initial unfiltered connected: 268 discovered, 263 passed, 5 explicit unmet-prerequisite assumptions (DND3 / Overlay1 / notification1). Gradle exit0; raw AGP/UTP XML calls these 5 `failure` nodes, reporting 5 failures / 0 errors / 0 skipped. All five are `AssumptionViolatedException`, not executed platform assertions. Preserve both raw-report and execution meanings; NOT a 268/268 clean platform PASS. Channel3 actually executed; DND0. Temporary permission authorization still pending.
-- Initial lint / build: exit0, PASS; lint0 errors / 9 existing warnings / 1 informational hint. Current production APK hash equals the saved parent build.
+- Initial lint / build: exit0, PASS; lint0 errors / 9 existing warnings / 1 informational hint. At that earlier build, the production APK hash equaled the saved parent build; this is not the current archive hash.
 - Schema1–4 seal and saved pre-validation APK: checkpoint Task1.
 - Task2 controlled Stage A + actual cold start: prepare1 / assert1 actually passed. A durable PENDING at original boundary1791204072064/page42 recovered to COMPLETED/NORMAL at the same boundary before assert runner started; no FGS. Dedicated fixture data only; not hardware power loss.
 - Task2 isolated real Room integration: DND fake release failure/retry and final six-second monitoring gap, 2 actually executed / 2 passed. Fake Android DND failure is not real platform delivery evidence.
 - Task4 actual same-binary cover-install: old saved APK → opt-in persistent seed1/1 → install-r current APK → assertion1/1. Aggregate before/after/read checksum79019e05a56c729c137cb4eabed952f7e69652f1411e8d6cc8c538dcafa460fb; original preferences restored. Isolated migration/reopen additionally1/1, not the installation proof.
 - Actual offline NONE chain: page40→temporary4→42, Note35, Break/early end, continue from confirmation, lower end page rejection, final closeout, same Summary/History/Search, local JPEG and its Note. Network restored1/1. End boundary/duration/last Segment/row counts stable after >75s, noFGS. Monitored FULL/Allowance/90s Recovery and platform-granted paths still NOT RUN pending authorization.
 - Additional actual NONE cases: first finish dialog before final confirmation → Force Stop/cold start → ABNORMAL (no durable PENDING); direct final finish while BREAK → NORMAL/COMPLETED with BREAK closed at frozen boundary. These are ordinary UI, not FULL monitoring proof.
-- Latest unfiltered JVM318/318/0failed/error/skipped. Latest unfiltered connected275 discovered / 266 passed / 9 explicit assumptions (opt-in4 + missing DND3/Overlay1/notification1), business assertion failures0. Raw AGP/UTP XML9failure/0error/0skipped, runner exit0. DND0/channel3 actually executed; not275/275 clean platform PASS. New ordinary preservation1 and boundary2 actually passed in this full run.
-- Latest lint/build exit0, 0errors / 9existing warnings / 1hint. Candidate `build/deliverables/Mirra-3D4-debug.apk`, 16488770 bytes / SHA-256 `68C89D5948E34E3EF48DE374CA2043B6B5D0EE43702E7D3B63E7A1CE3EF674E8`, appId com.guanyi.mirra / 0.1.0 / code1. Exact candidate install-r, cold start and same preserved History/Search record passed; same frozen production binary, not a release or completed 3D-4 claim.
+- Then-latest unfiltered JVM318/318/0failed/error/skipped. Then-latest unfiltered connected275 discovered / 266 passed / 9 explicit assumptions (opt-in4 + missing DND3/Overlay1/notification1), business assertion failures0. Raw AGP/UTP XML9failure/0error/0skipped, runner exit0. DND0/channel3 actually executed; not275/275 clean platform PASS. New ordinary preservation1 and boundary2 actually passed in that earlier full run.
+- Earlier lint/build exit0, 0errors / 9existing warnings / 1hint. Historical candidate `build/deliverables/Mirra-3D4-debug.apk`, 16488770 bytes / SHA-256 `68C89D5948E34E3EF48DE374CA2043B6B5D0EE43702E7D3B63E7A1CE3EF674E8`, appId com.guanyi.mirra / 0.1.0 / code1. Exact candidate install-r, cold start and same preserved History/Search record passed at that time; same frozen production binary, not a release or completed 3D-4 claim.
 - Remaining: temporary dedicated-AVD permissions await user confirmation; actual FULL/risk/channel/Allowance/90s Recovery chain, near-finish system revoke/stop, external stale action replay and this package's FULL/PARTIAL / width / large-font manual checks remain NOT RUN. Original checkpoints and failed/environment history are retained. No Phase3D freeze claim.
 
 ## Actual screenshots
@@ -36,9 +49,9 @@ These seven captures show actual UI on the dedicated AVD with newly controlled t
 
 Ordinary UI execution、controlled fault + actual cold start、isolated Room/fake-clock automation分别记录。预置 FULL fixture 不表示真实监测；Notification POSTED 不表示 SHOWN；未实际等待15分钟不表示真实 Deep Focus。发布级 API/OEM/TalkBack/release 未测项保持 NOT RUN。
 
-## Authorized supplement and current blocker
+## Authorized supplement — historical Recovery stop
 
-以上授权等待/full-suite assumptions为授权前历史，保留不删除。最新实际执行与恢复见 [permission and Recovery handoff](authorized-permissions-and-recovery-review.md)：平台8/8实际断言PASS，原五项permission cases真正执行；第一场FULL/in-app Recovery91.566sec成功，第二场跨应用Overlay后的Recovery在独立无UI抓取窗口>120sec仍未完成。停止相关链路、不修改生产或测试、不宣布3D-4完成。
+以上授权等待/full-suite assumptions为授权前历史，保留不删除。当时的专项执行与恢复见 [permission and Recovery handoff](authorized-permissions-and-recovery-review.md)：平台8/8实际断言PASS，原五项permission cases真正执行；第一场FULL/in-app Recovery91.566sec成功，第二场跨应用Overlay后的Recovery在独立无UI抓取窗口>120sec仍未完成。该历史轮次停止相关链路、不修改生产或测试、不宣布3D-4完成。
 
 原四权限、DND/cross-app偏好、风险选择、Knowledge目的地及网络均恢复读回；无活动Session/Segment、FGS、Overlay、干预通知和意外active Mirra rule。根因待审，FULL+心跳不证明positive page evidence。最终granted full suite、重复opt-in、near-finish专项和Task5最终Gate未执行，不用平台8项替代。
 

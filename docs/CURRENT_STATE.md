@@ -1,23 +1,26 @@
 # Current State
 
-更新日期：2026-10-05
+更新日期：2026-10-06
 
 ## Current Stage
 
-Phase 3D-4｜最终验证与交付尚未完成，当前为 Recovery 验收异常待审查；分支 `codex/phase-3d-final-validation`，精确父 Freeze 为 `80ece95cf24918627e57a57bb6a6d94c253528b0`。用户已明确授权专用API37 AVD临时四权限，平台8项真实断言通过且权限/偏好已恢复；第一场FULL/in-app Recovery实测91.566秒成功，第二场Overlay入口后的Recovery在独立无UI抓取的>120秒窗口仍未完成，已停止相关链路，没有擅自修改生产/测试。最终granted full connected、near-finish系统专项与最终交付Gate尚未补完，不自行冻结Phase3D。3D-3 Accepted implementation HEAD `54a9e2bdda28da80028aa5313ef243da593e976b`、3D-2 Freeze `4e15076265ad393c85bd5f0e08916f6e886e4be1`、3D-1 Freeze `ba480d9b61f0b71879b07113ec32fc840a97ddab`保持冻结。具体异常、执行计数和恢复证明见 `docs/checkpoints/2026-10-04-module-3d-final.md` 与 `docs/evidence/phase3d-final/authorized-permissions-and-recovery-review.md`。
+Phase 3D-4｜最终验证与交付尚未完成，当前因测试文件隔离/图片保留问题停止；分支 `codex/phase-3d-final-validation`，精确父 Freeze 为 `80ece95cf24918627e57a57bb6a6d94c253528b0`。用户接受 Recovery 诊断结论 RECOVERY_DIAGNOSTIC_INCONCLUSIVE 后，本轮已补齐实际撤权/监测停止、Session通知回退、FULL学习结束及三入口回看。最终fresh connected为275 discovered /271 executed /269 passed /2真实超时 /4opt-in assumptions；两项定向重跑2/2通过，不替代全量PASS。之后只读发现保留夹具ImageAsset仍在但JPEG缺失；既有TestAppContainer清理共享App文件目录，存在未隔离的破坏性测试边界。未修生产/测试、未补造图片，已停止进一步验证并恢复全部临时权限/偏好/风险选择/网络。需单独审查并授权测试隔离修正，不能宣告3D-4完成或Phase3D冻结。具体证据见 `docs/evidence/phase3d-final/final-regression-blockers.md` 与最终checkpoint。
+
+3D-3 Accepted implementation HEAD `54a9e2bdda28da80028aa5313ef243da593e976b`、3D-2 Freeze `4e15076265ad393c85bd5f0e08916f6e886e4be1`、3D-1 Freeze `ba480d9b61f0b71879b07113ec32fc840a97ddab`保持冻结。历史Recovery >120sec异常仍为“Observed once / Not reproduced in targeted diagnostic”，不宣称FIXED、ROOT CAUSE RESOLVED或AVD ISSUE；本轮自然Recovery91.661sec成功，不覆盖历史风险。
 
 Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c07fbabf050d6d5ac3aeae0677d5e5abf14f4465`，包括 Clock Rollback Correction、Tasks 1–6 与 Acceptance Patch。Phase 2、Module 3A、Mirra Blue / Visual Parity 与整个 Module 3C 保持原冻结语义。Module 3B 是个人试用开发基线，不等于发布级设备能力验收完成。Room v4 / schemas 1–4 不变。API 23–36 full matrix、OEM / 实体设备完整矩阵、TalkBack、release / Play、真实硬件断电与真实系统时钟人工修改继续 `NOT RUN`，API 37 AVD 结果不外推；一加 13T 反馈仍仅为个人试用。
 
-## Phase 3D-4 Verified Partial Evidence
+## Phase 3D-4 Verification Evidence and Stop
 
 - 没有生产修补：相对精确父 Freeze，`app/src/main`、Schema1–4、Migration、Gradle和依赖不变。新增代码只有3个androidTest文件，夹具默认要求显式参数与专用API37 AVD；不会在普通full suite留下PENDING或改变偏好。
-- 最新完整未过滤JVM：318/318，0failure/error/skipped。最新完整connected：275 discovered / 266 passed / 9 unmet-prerequisite assumptions；其中4项opt-in fixture默认未执行、5项缺平台授权。原始AGP/UTP XML记为9failure/0error/0skipped，9项均为AssumptionViolatedException，实际业务断言失败0；不能写275/275 clean PASS。DND平台0项、渠道平台3项实际执行。4项opt-in fixture另有各1/1专项执行证据，不拼成全量平台PASS。
+- 本轮fresh未过滤JVM318/318，0failure/error/skipped。最终fresh connected275 discovered /271 executed /269 passed /2 assertion failures /0error /4opt-in assumptions；原始XML6failure/0error/0skipped，分别为2个ComposeTimeoutException和4个AssumptionViolatedException，Gradle退出1。两项最终确认后Summary等待超时定向2/2通过、根因未定，不能拼成全量PASS。五项此前permission-gated平台断言、六项尺寸/字号组合均在full中实际通过。四opt-in原专项4/4真实执行证据重新核对保留，不计为本次full实际执行。
 - 受控A后PENDING + 实际Force Stop/冷启动已证明原边界NORMAL/COMPLETED、无FGS复活；真实NONE页面覆盖第一次确认前强停→ABNORMAL、Break中直接结束、40→临时4→42/旧页Note35、低结束页拒绝、继续阅读/最终确认、Summary原地展开/History/Search同事实、结果停留超过75秒不增长。
-- 真实保存的旧APK→受控seed→覆盖安装→assert，业务checksum与图片、Topic关联、旧无段/可信3C形态历史、风险选择和偏好保留；原偏好恢复。冻结前后生产binary相同，明确是同binary覆盖保留，不宣称发生版本升级或Schema迁移。离线NONE阅读及三个记录入口/Note/本地图片已实测，AVD网络恢复原1/1。
+- 原Task4真实旧APK→seed→覆盖安装→assert及离线NONE链仍是当时通过的历史证据；本轮full之后只读确认其受控JPEG缺失、ImageAsset仍在、images目录为空。TestAppContainer使用target application filesDir并在close中删除images/image-work，内存数据库不等于文件隔离。无本轮full前即时JPEG校验，不能指定某一run为准确删除时点；不能用旧marker PASS证明当前图片保留。最终exact-file覆盖/离线preservation gate因该STOP未运行，既有数据和marker未清除或重新seed。
 - 授权后raw平台8/8，0failure/error/skipped，原DND3/Overlay1/notification1实际进入断言。第一场真实FULL→Break→brief/confirmed risk→in-app→Allowance/一次延长→91.566sec Recovery→FOCUS→NORMAL/COMPLETED，DND RELEASED；真实FULL结果/时间线截图已保存。COMPLETED后的真实token URI/request replay不创建新学习事实，不冒充原PendingIntent.send或PENDING间隙回放。
-- 第二场跨应用ON的Overlay真实显示及receipt成功；Allowance提前结束后Recovery未完成，独立无uiautomator窗口118.786sec/124.830sec仍FULL/RECOVERY、心跳健康。根因尚未确认，FULL不是页面正向证据证明；待审页面owner/reporters/证据循环。已正式UI正常Closeout保留RECOVERY事实，再恢复四权限、DND/cross-app OFF、原风险选择/Knowledge和网络1/1；无Active Session/Segment、FGS、Overlay或干预通知残留。
-- Session-level Notification fallback、near-finish撤权/停止服务、A/PENDING旧外部action回放、本轮320/360/411dp/fontScale2、重复opt-in与最终granted full suite均未补完。真实15min Deep未执行；既有自动化和3D-3历史证据不冒充本轮手工结果。此次补充未修改生产/测试/Schema/Gradle，暂停后不为文档再重复Gradle。
-- 证据、候选APK及每项实际边界见 `docs/checkpoints/2026-10-04-module-3d-final.md` 与 `docs/evidence/phase3d-final/README.md`。本包尚不具备“3D-4完成等待独立验收”资格，Phase3D未冻结。
+- 历史Overlay之后>120sec Recovery异常保留，后续诊断90.827/90.858/91.006sec均成功且结论已接受，不授权生产修补。本轮最终真实FULL链再次91.661sec成功，无新的≥110sec异常；未宣称根因解决。
+- 本轮真实Usage撤权和Diagnostics监测停止均先durable PARTIAL/UNMONITORED再NORMAL/COMPLETED，effective unavailable。实际Start→Preparation→FULL→页42到44/1Note→brief/confirmed risk→真实Notification点击→Allowance/一次延长→Recovery→FOCUS→正常Closeout→Summary原地展开/History/Search完成；结果≥32sec边界不增长，COMPLETED旧request不复活事实。PENDING旧动作/Stage B故障仍单列自动化，真实OS query gap与15min Deep NOT RUN。
+- 四权限原状态、本轮停止后恢复均真实读回；DND/cross-app OFF、原单条受控风险选择、Knowledge、网络1/1保留。Active Session/Segment0/0、FGS/Overlay/ID3002通知0，当前Mirra-owned rule FALSE；原consolidated policy一致。停止后不跑新lint/build，不修改生产/测试/Schema/Gradle。第二次full命令在Gradle task selection阶段因参数引用失败，未执行测试，不算新的full结果。
+- 真实平台闭环里程碑已提交 `50d9a0bdf339c623169cb2f1e6f3924a7bc2631c`；恢复诊断基线 `d0da1061a7b706e25784e43fc700189564bbe980`。全部证据见最终checkpoint/evidence index；本包尚不具备“3D-4完成等待独立验收”资格，Phase3D未冻结。API23–36 / OEM / physical / TalkBack / release继续NOT RUN，实体机未操作。
 
 ## Frozen Phase 3D-3 Reading Records
 
@@ -202,7 +205,7 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 
 ## Pending
 
-- Phase3D-4权限补充证据已保存并恢复配置；第二场外部入口后的Recovery未完成，需先审查具体可重复现象，再明确授权最小修补或继续验证。其余near-finish/渠道/最终Gate未完成项保持NOT RUN，本包尚未完成或冻结。3D-3 / 3D-2 / 3D-1、Phase2与Module3C冻结语义不擅自重新打开，一加13T反馈不升级为兼容性PASS。
+- Phase3D-4待审测试文件隔离和受控JPEG缺失；不得在共享文件目录继续全量connected或用重新seed掩盖保留失败。另两项最终结果显示超时尚无稳定复现或根因；需单独授权后处理最小test-only隔离修正、真实图片保留重验与新完整Gate。当前恢复诊断结论已接受，不授权Recovery生产修补。3D-3/2/1、Phase2与Module3C冻结语义不重开，一加13T试用不升级为兼容性PASS。
 - Phase 3｜Module 3B Task 6 仍待最终独立验收。Task Manager Stop、reboot、完整 risk/lock/revocation 矩阵、API 23/29/33/34/35 与实体/OEM 设备继续为 `NOT RUN`，不用 API 37 AVD 结果代替。
 
 ## Known Risks / Unknowns
@@ -239,4 +242,4 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 
 ## Next Recommended Task
 
-先审查授权补充记录中外部入口后Recovery未完成的具体时间线、页面生命周期/证据reporter所有权和潜在循环异常；不要凭候选原因立即改冻结核心，也不要用FULL/心跳代替positive evidence。审查并获必要修补/重试授权后沿原3D-4计划补齐未完成平台链和最终Gate，临时权限必须重新明确记录与恢复。未输出3D-4完成，不自动冻结或进入下一Phase。继续继承3D-1 / 3D-2 / 3D-3、Phase2、Module3C与Room4/schemas1–4；API23–36 full matrix、OEM / 实体设备完整矩阵、TalkBack、release / Play、真实硬件断电、真实系统时钟人工修改保持NOT RUN，API37 AVD不外推。
+先独立审查 `docs/evidence/phase3d-final/final-regression-blockers.md`，明确授权最小test-only文件隔离修补与受控图片保留重验后，再恢复最终Gate。不得由当前回合自行修TestAppContainer、重建JPEG、清marker或删除数据；两项偶发Summary超时继续保留，不随意加timeout。已补齐near-finish/通知/FULL闭环不无意义重跑，Recovery诊断结论不重开或宣称已修复。未输出3D-4完成，不自动Freeze或进入下一Phase；Room4/schemas1–4及所有原NOT RUN边界不变。
