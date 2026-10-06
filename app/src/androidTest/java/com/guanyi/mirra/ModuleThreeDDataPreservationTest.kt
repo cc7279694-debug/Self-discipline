@@ -78,9 +78,9 @@ class ModuleThreeDDataPreservationTest {
     @Test fun seedPreservationFixture() = runBlocking(Dispatchers.IO) {
         requireDedicatedThreeDScenario("data_seed")
         val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val marker = markerFile(context)
         val container = (context.applicationContext as MirraApplication).container
         container.startup.await()
-        val marker = markerFile(context)
         check(!marker.exists() && !File("${marker.path}.bak").exists()) {
             "A preservation marker already exists; retain it and inspect its evidence before reseeding"
         }
@@ -89,6 +89,8 @@ class ModuleThreeDDataPreservationTest {
         var markerSaved = false
         var primaryFailure: Throwable? = null
         try {
+            val originalRiskAppsHash = tableHash(database.openHelper.readableDatabase,
+                "SELECT * FROM risk_apps ORDER BY packageName", emptyList())
             check(database.sessionDao().getActive() == null && database.intentDao().getActive() == null) {
                 "Preservation requires an idle dedicated AVD; existing workflows must not be changed"
             }
@@ -166,6 +168,7 @@ class ModuleThreeDDataPreservationTest {
             writeMarker(marker, JSONObject().put("formatVersion", 1).put("state", "SEEDED")
                 .put("sourceFreeze", SOURCE_FREEZE).put("fixture", fixture.toJson())
                 .put("originalPreferences", originalPreferences.toJson())
+                .put("originalRiskAppsHash", originalRiskAppsHash)
                 .put("baseline", frameJson(baseline)).put("baselineHash", frameHash(baseline)))
             markerSaved = true
             println("MIRRA_3D_DATA_SEED run=$runId baseline=${frameHash(baseline)} persistent=mirra.db")
@@ -188,9 +191,9 @@ class ModuleThreeDDataPreservationTest {
     @Test fun assertPreservationFixture() = runBlocking(Dispatchers.IO) {
         requireDedicatedThreeDScenario("data_assert")
         val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val marker = markerFile(context)
         val container = (context.applicationContext as MirraApplication).container
         container.startup.await()
-        val marker = markerFile(context)
         val evidence = readMarker(marker)
         check(evidence.getInt("formatVersion") == 1 && evidence.getString("state") == "SEEDED") {
             "An unconsumed seed marker is required; assertion must not silently reseed"
@@ -238,6 +241,19 @@ class ModuleThreeDDataPreservationTest {
                         .put("state", if (verified) "VERIFIED_PREFERENCES_RESTORED" else "FAILED_PREFERENCES_RESTORED")
                     writeMarker(marker, evidence)
                     println("MIRRA_3D_DATA_RESTORE run=${fixture.runId} preferences=${preferenceHash(restored)} business=${frameHash(restoredFrame - PREFERENCES_KEY)}")
+                    // Only after the complete keyed chain and preference restoration pass,
+                    // remove this run's risk selection; never rewrite any pre-existing risk row.
+                    if (verified && InstrumentationRegistry.getArguments().containsKey("mirra3dEvidenceRun")) {
+                        val originalRiskHash = evidence.getString("originalRiskAppsHash")
+                        require(Regex("[0-9a-f]{64}").matches(originalRiskHash))
+                        container.focusRepository.removeRiskApp(fixture.riskPackage)
+                        val restoredRiskHash = tableHash(database.openHelper.readableDatabase,
+                            "SELECT * FROM risk_apps ORDER BY packageName", emptyList())
+                        assertEquals("Restore the exact pre-seed risk selection", originalRiskHash, restoredRiskHash)
+                        evidence.put("restoredRiskAppsHash", restoredRiskHash)
+                        writeMarker(marker, evidence)
+                        println("MIRRA_3D_RISK_RESTORE checksum=$restoredRiskHash")
+                    }
                 }
             } finally {
                 cleanup.attempt { database.close() }
@@ -472,8 +488,9 @@ class ModuleThreeDDataPreservationTest {
         json.getString(it).also { hash -> require(Regex("[0-9a-f]{64}").matches(hash)) }
     }.toSortedMap()
 
-    private fun markerFile(context: Context) = context.noBackupFilesDir
-        .resolve("mirra3d-preservation").resolve("manifest.json")
+    private fun markerFile(context: Context) = preservationEvidenceMarker(
+        context, InstrumentationRegistry.getArguments().getString("mirra3dEvidenceRun"),
+    )
 
     private fun readMarker(file: File): JSONObject {
         check(file.isFile && file.length() in 1L..65_536L) { "Missing or invalid preservation marker" }

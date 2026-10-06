@@ -13,6 +13,7 @@ import com.guanyi.mirra.data.repository.LinkTopicResult
 import com.guanyi.mirra.data.repository.UnlinkTopicResult
 import com.guanyi.mirra.data.search.SearchIndexWriter
 import com.guanyi.mirra.data.storage.DefaultImageStorageService
+import com.guanyi.mirra.TestImageStorageSandbox
 import com.guanyi.mirra.domain.DefaultSearchEngine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -26,6 +27,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ModuleTwoCTopicRepositoryTest {
     private lateinit var database: MirraDatabase
+    private lateinit var imageSandbox: TestImageStorageSandbox
     private lateinit var topics: DefaultTopicRepository
     private lateinit var notes: DefaultNoteRepository
     private lateinit var learningItems: DefaultLearningItemRepository
@@ -34,15 +36,18 @@ class ModuleTwoCTopicRepositoryTest {
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
+        imageSandbox = TestImageStorageSandbox(context)
         database = Room.inMemoryDatabaseBuilder(context, MirraDatabase::class.java).build()
         val writer = SearchIndexWriter(database, DefaultSearchEngine())
         topics = DefaultTopicRepository(database, writer, clock = { 100L }, newId = { "topic-${nextTopicId++}" })
         learningItems = DefaultLearningItemRepository(database)
-        notes = DefaultNoteRepository(database, DefaultImageStorageService(context))
+        notes = DefaultNoteRepository(database, DefaultImageStorageService(imageSandbox.context))
     }
 
     @After
-    fun tearDown() = database.close()
+    fun tearDown() {
+        try { database.close() } finally { imageSandbox.close() }
+    }
 
     @Test
     fun createNormalizesNameAndReturnsExistingAsciiCaseInsensitiveTopic() = runTest {

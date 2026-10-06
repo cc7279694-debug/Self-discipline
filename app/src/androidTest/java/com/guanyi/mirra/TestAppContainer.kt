@@ -50,7 +50,8 @@ class TestAppContainer(
     private val monitorPort: MonitoredStartPort? = null,
 ) : AppContainer, AutoCloseable {
     val database = Room.inMemoryDatabaseBuilder(context, MirraDatabase::class.java).build()
-    private val imageStorage = DefaultImageStorageService(context)
+    private val imageSandbox = TestImageStorageSandbox(context)
+    private val imageStorage = DefaultImageStorageService(imageSandbox.context)
     private val searchEngine = DefaultSearchEngine()
     private val searchIndexWriter = SearchIndexWriter(database, searchEngine)
     private val searchIndexRebuilder = SearchIndexRebuilder(database, searchEngine)
@@ -107,9 +108,9 @@ class TestAppContainer(
     )
     override val startup: Deferred<Unit> = CompletableDeferred(Unit)
 
+    fun resolveImageStorageTestPath(relativePath: String) = imageSandbox.resolve(relativePath)
+
     override fun close() {
-        database.close()
-        context.filesDir.resolve("images").deleteRecursively()
-        context.filesDir.resolve("image-work").deleteRecursively()
+        try { database.close() } finally { imageSandbox.close() }
     }
 }

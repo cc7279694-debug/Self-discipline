@@ -102,7 +102,7 @@ class ModuleTwoBFlowTest {
 
     private suspend fun addImage(noteId: String, caption: String) =
         container.imageRepository.createCameraTarget().let { target ->
-            writeJpeg(context.filesDir.resolve(target.tempPath))
+            writeJpeg(container.resolveImageStorageTestPath(target.tempPath))
             container.imageRepository.completeCameraImport(noteId, target).also {
                 container.imageRepository.updateCaption(it.id, caption)
             }

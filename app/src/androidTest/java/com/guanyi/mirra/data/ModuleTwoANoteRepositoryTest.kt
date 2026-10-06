@@ -9,6 +9,7 @@ import com.guanyi.mirra.data.local.entity.NoteSemanticType
 import com.guanyi.mirra.data.repository.DefaultLearningItemRepository
 import com.guanyi.mirra.data.repository.DefaultNoteRepository
 import com.guanyi.mirra.data.storage.DefaultImageStorageService
+import com.guanyi.mirra.TestImageStorageSandbox
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -30,6 +31,7 @@ private suspend inline fun <reified T : Throwable> assertNoteSuspendThrows(cross
 @RunWith(AndroidJUnit4::class)
 class ModuleTwoANoteRepositoryTest {
     private lateinit var database: MirraDatabase
+    private lateinit var imageSandbox: TestImageStorageSandbox
     private lateinit var learningItems: DefaultLearningItemRepository
     private lateinit var notes: DefaultNoteRepository
     private var now = 1_000L
@@ -37,13 +39,16 @@ class ModuleTwoANoteRepositoryTest {
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
+        imageSandbox = TestImageStorageSandbox(context)
         database = Room.inMemoryDatabaseBuilder(context, MirraDatabase::class.java).build()
         learningItems = DefaultLearningItemRepository(database, clock = { now })
-        notes = DefaultNoteRepository(database, DefaultImageStorageService(context), clock = { now })
+        notes = DefaultNoteRepository(database, DefaultImageStorageService(imageSandbox.context), clock = { now })
     }
 
     @After
-    fun tearDown() = database.close()
+    fun tearDown() {
+        try { database.close() } finally { imageSandbox.close() }
+    }
 
     @Test
     fun standaloneNoteRequiresValidContentAndNeverAdvancesProgress() = runTest {

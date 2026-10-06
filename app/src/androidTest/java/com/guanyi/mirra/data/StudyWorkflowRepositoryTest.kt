@@ -12,6 +12,7 @@ import com.guanyi.mirra.data.local.entity.StudyIntentEntity
 import com.guanyi.mirra.data.repository.DefaultLearningItemRepository
 import com.guanyi.mirra.data.repository.DefaultNoteRepository
 import com.guanyi.mirra.data.storage.DefaultImageStorageService
+import com.guanyi.mirra.TestImageStorageSandbox
 import com.guanyi.mirra.data.repository.DefaultStudyWorkflowRepository
 import com.guanyi.mirra.domain.IntentExpiryPolicy
 import com.guanyi.mirra.domain.RuleBasedSummaryEngine
@@ -28,6 +29,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class StudyWorkflowRepositoryTest {
     private lateinit var database: MirraDatabase
+    private lateinit var imageSandbox: TestImageStorageSandbox
     private lateinit var learningItems: DefaultLearningItemRepository
     private lateinit var workflow: DefaultStudyWorkflowRepository
     private lateinit var notes: DefaultNoteRepository
@@ -36,6 +38,7 @@ class StudyWorkflowRepositoryTest {
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
+        imageSandbox = TestImageStorageSandbox(context)
         database = Room.inMemoryDatabaseBuilder(context, MirraDatabase::class.java).build()
         learningItems = DefaultLearningItemRepository(database, clock = { now })
         workflow = DefaultStudyWorkflowRepository(
@@ -44,11 +47,13 @@ class StudyWorkflowRepositoryTest {
             expiryPolicy = IntentExpiryPolicy(),
             clock = { now },
         )
-        notes = DefaultNoteRepository(database, DefaultImageStorageService(context), clock = { now })
+        notes = DefaultNoteRepository(database, DefaultImageStorageService(imageSandbox.context), clock = { now })
     }
 
     @After
-    fun tearDown() = database.close()
+    fun tearDown() {
+        try { database.close() } finally { imageSandbox.close() }
+    }
 
     @Test
     fun settingNewMainlineAtomicallyClearsPreviousMainline() = runTest {

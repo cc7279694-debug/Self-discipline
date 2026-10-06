@@ -8,6 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.guanyi.mirra.data.storage.DefaultImageStorageService
 import com.guanyi.mirra.data.storage.ManagedImagePath
+import com.guanyi.mirra.TestImageStorageSandbox
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -22,17 +23,18 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ImageStorageServiceTest {
     private lateinit var context: Context
+    private lateinit var sandbox: TestImageStorageSandbox
     private lateinit var service: DefaultImageStorageService
 
     @Before
     fun setUp() {
-        context = ApplicationProvider.getApplicationContext()
-        clearManagedFiles()
+        sandbox = TestImageStorageSandbox(ApplicationProvider.getApplicationContext())
+        context = sandbox.context
         service = DefaultImageStorageService(context)
     }
 
     @After
-    fun tearDown() = clearManagedFiles()
+    fun tearDown() = sandbox.close()
 
     @Test
     fun cameraImageIsRotatedCompressedAndMovedToPrivateRelativePath() = runTest {
@@ -214,8 +216,4 @@ class ImageStorageServiceTest {
         }
     }
 
-    private fun clearManagedFiles() {
-        context.filesDir.resolve("images").deleteRecursively()
-        context.filesDir.resolve("image-work").deleteRecursively()
-    }
 }

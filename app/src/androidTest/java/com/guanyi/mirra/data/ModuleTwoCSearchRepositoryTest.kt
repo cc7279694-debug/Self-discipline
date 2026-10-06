@@ -20,6 +20,7 @@ import com.guanyi.mirra.data.search.SearchIndexRebuilder
 import com.guanyi.mirra.domain.DefaultSearchEngine
 import com.guanyi.mirra.data.search.SearchIndexWriter
 import com.guanyi.mirra.data.storage.DefaultImageStorageService
+import com.guanyi.mirra.TestImageStorageSandbox
 import com.guanyi.mirra.domain.IntentExpiryPolicy
 import com.guanyi.mirra.domain.RuleBasedSummaryEngine
 import kotlinx.coroutines.test.runTest
@@ -35,10 +36,12 @@ import com.guanyi.mirra.data.local.model.SearchHitRow
 @RunWith(AndroidJUnit4::class)
 class ModuleTwoCSearchRepositoryTest {
     private lateinit var database: MirraDatabase
+    private lateinit var imageSandbox: TestImageStorageSandbox
     private lateinit var repository: DefaultSearchRepository
     private lateinit var rebuilder: SearchIndexRebuilder
 
     @Before fun setUp() {
+        imageSandbox = TestImageStorageSandbox(ApplicationProvider.getApplicationContext())
         database = Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext<Context>(),
             MirraDatabase::class.java,
@@ -48,7 +51,9 @@ class ModuleTwoCSearchRepositoryTest {
         repository = DefaultSearchRepository(database, engine, rebuilder)
     }
 
-    @After fun tearDown() = database.close()
+    @After fun tearDown() {
+        try { database.close() } finally { imageSandbox.close() }
+    }
 
     @Test fun searchesChineseEnglishMixedCaptionAndTopic() = runTest {
         seed()
@@ -84,10 +89,9 @@ class ModuleTwoCSearchRepositoryTest {
     }
 
     @Test fun repositoryWritesReplaceOldCaptionAndRemoveDeletedNoteDocument() = runTest {
-        val context = ApplicationProvider.getApplicationContext<Context>()
         val engine = DefaultSearchEngine()
         val writer = SearchIndexWriter(database, engine)
-        val storage = DefaultImageStorageService(context)
+        val storage = DefaultImageStorageService(imageSandbox.context)
         val items = DefaultLearningItemRepository(database, searchIndexWriter = writer)
         val notes = DefaultNoteRepository(database, storage, searchIndexWriter = writer)
         val images = DefaultImageRepository(database, storage, searchIndexWriter = writer)
