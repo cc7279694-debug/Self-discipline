@@ -4,22 +4,23 @@
 
 ## Current Stage
 
-Phase 3D-4｜最终验证与交付尚未完成，当前因 androidTest 主题偏好污染使新 preservation gate 失败而停止；分支 `codex/phase-3d-final-validation`，精确父 Freeze 为 `80ece95cf24918627e57a57bb6a6d94c253528b0`。已按单独授权完成 image isolation test-only patch `9cfae55898ad6a1a21b0afb8a943a81599ad9ef8`，定向9/9和六owner类40/40通过；一次完整未过滤 connected 为284 discovered /280 executed /280 passed /0 assertion failures /4设计性opt-in assumptions。此前两项Compose超时在本次full均通过，旧失败历史保留。全新storage-isolation-v2 JPEG跨full与覆盖安装保持相同818bytes/SHA，但同key data_assert实际1/1失败：仅真实DataStore主题从Night变Blue，定位到既有MainActivityThemeLifecycleTest的finally固定写回Blue。未扩大image patch修主题测试；FAILED marker不重跑或重写。四临时权限、原偏好与网络已恢复读回，无活动学习或系统残留；本run新增模拟风险选择因断言失败未清理，等待窄范围清理授权。旧缺失JPEG/旧行/旧marker完全保留。详情见 `docs/evidence/phase3d-final/test-image-storage-isolation.md`；不能宣告3D-4完成或Phase3D冻结。
+Phase 3D-4｜最终验证与交付尚未完成，当前停止于新的完整 connected 被 Android 系统/runtime/ADB 异常中断；分支 `codex/phase-3d-final-validation`，精确父 Freeze 为 `80ece95cf24918627e57a57bb6a6d94c253528b0`。已保留 image isolation patch `9cfae55898ad6a1a21b0afb8a943a81599ad9ef8`，并独立提交主题原值恢复 test-only patch `5331661f24e0d1f01a89deeeaaeafbb3d6a3a891`：RED证明Night被旧测试改为Blue，定向GREEN5/5。v2唯一模拟风险选择已精确清理，FAILED marker和图片完全不变。新storage-isolation-v3 seed实际1/1PASS；新full退出1，只留下21节点（16已完成PASS、4opt-in assumptions、1无断言栈的中断节点），不能算完整PASS或确诊业务Bug。立即post-run的JPEG/四偏好/risk/marker均未变，但后续candidate覆盖安装、data_assert和final gates均未执行。四权限、原knowledge/blue/false/false、原risk整表hash及网络已恢复读回，无活动学习或系统残留；v3保持原字节SEEDED且未消费。旧缺失JPEG/旧行/旧marker完全保留。详情见 `docs/evidence/phase3d-final/theme-isolation-and-final-preservation.md`；3D-4未完成、Phase3D未冻结。
 
-3D-3 Accepted implementation HEAD `54a9e2bdda28da80028aa5313ef243da593e976b`、3D-2 Freeze `4e15076265ad393c85bd5f0e08916f6e886e4be1`、3D-1 Freeze `ba480d9b61f0b71879b07113ec32fc840a97ddab`保持冻结。历史Recovery >120sec异常仍为“Observed once / Not reproduced in targeted diagnostic”，不宣称FIXED、ROOT CAUSE RESOLVED或AVD ISSUE；本轮自然Recovery91.661sec成功，不覆盖历史风险。
+3D-3 Accepted implementation HEAD `54a9e2bdda28da80028aa5313ef243da593e976b`、3D-2 Freeze `4e15076265ad393c85bd5f0e08916f6e886e4be1`、3D-1 Freeze `ba480d9b61f0b71879b07113ec32fc840a97ddab`保持冻结。历史Recovery >120sec异常仍为“Observed once / Not reproduced in targeted diagnostic”，不宣称FIXED、ROOT CAUSE RESOLVED或AVD ISSUE；之前实际平台闭环Recovery91.661sec成功，不覆盖历史风险，本轮未重跑Recovery诊断。
 
 Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c07fbabf050d6d5ac3aeae0677d5e5abf14f4465`，包括 Clock Rollback Correction、Tasks 1–6 与 Acceptance Patch。Phase 2、Module 3A、Mirra Blue / Visual Parity 与整个 Module 3C 保持原冻结语义。Module 3B 是个人试用开发基线，不等于发布级设备能力验收完成。Room v4 / schemas 1–4 不变。API 23–36 full matrix、OEM / 实体设备完整矩阵、TalkBack、release / Play、真实硬件断电与真实系统时钟人工修改继续 `NOT RUN`，API 37 AVD 结果不外推；一加 13T 反馈仍仅为个人试用。
 
 ## Phase 3D-4 Verification Evidence and Stop
 
 - 没有生产修补：相对精确父 Freeze，`app/src/main`、app/src/test、Schema1–4、Migration、Manifest、Gradle和依赖不变。当前新增/修改只在androidTest及验证文档；image isolation patch独立12文件（新增4、修改8），新fixture继续真实installed storage，不隔离为fake。普通full四opt-in fixture默认不执行。
-- 最新单次完整未过滤connected：284 discovered /280 executed /280 passed /0 assertion failures /0error /4opt-in assumptions，Gradle退出0；原XML284tests/4failure/0error/0skipped，四节点全是AssumptionViolatedException，不改XML或宣称284业务PASS。DND平台3/3、渠道5/5、9新增隔离/key测试、原六尺寸/字号自动化均真实PASS。此前两项Phase1 Summary超时在此full均PASS；旧275/271executed/269passed/2timeout/4assumptions及定向2/2为保留的历史，不替代当前full。318/318 JVM与lint/build为较早实际证据，本次image patch未重新跑JVM或最终lint/assemble。
+- 最新未过滤connected尝试退出1、5m34s；raw XML21tests/5failure/0error/0skipped，仅16已完成PASS、4明确opt-in assumptions、1ModuleTwoAFlowTest.createNoteDoesNotPersistBlankPlaceholder空failure（120.410s、无finished/断言栈）。系统多进程FATAL、DeadSystemException及activity service短暂消失支持环境/runtime中断，不定位根因或确诊blank-note业务断言错误。历史两个Phase1 timeout、DND3/channel5和主题full用例未到达；不重跑定向或第二次full。主题定向5/5、v2 cleanup1/1与v3 seed1/1分开记录，不拼完整PASS。
+- 此前已接受的完整connected284 discovered /280 executed /280 passed /4opt-in assumptions、DND3/channel5实际PASS与六尺寸字号PASS保留为历史；此前两项Phase1 Summary超时在该full均PASS。旧275/271/269/2timeout/4assumptions及定向2/2也保留。318/318 JVM与lint/build仍为较早证据，最新interrupted full不以旧结果补齐；fresh JVM/lint/assemble/exact APK/offline/manual visual final gates本轮NOT RUN。
 - 受控A后PENDING + 实际Force Stop/冷启动已证明原边界NORMAL/COMPLETED、无FGS复活；真实NONE页面覆盖第一次确认前强停→ABNORMAL、Break中直接结束、40→临时4→42/旧页Note35、低结束页拒绝、继续阅读/最终确认、Summary原地展开/History/Search同事实、结果停留超过75秒不增长。
-- 原Task4旧JPEG已缺失而ImageAsset/旧marker仍在，永久保留，不补造或重seed覆盖。共享cleanup已用每实例UUID sandbox/canonical guard修正，相机真实FileProvider仍验证、不扩大路径。新storage-isolation-v2 seed1/1PASS；full前/后立即及install-r/assert后新JPEG均818bytes且SHA相同。覆盖后同key data_assert1executed/1assertion failure，仅app_preferences因既有主题测试固定写Blue不一致，其余业务/媒体/Topic/relations/legacy均一致。当前marker为FAILED_PREFERENCES_RESTORED，不能把图片保留PASS扩写为整个preservation PASS。
+- 原Task4缺失JPEG/ImageAsset/旧marker原样保留。v2原seed1/1/full/覆盖后JPEG818bytes同SHA及data_assert仅主题失败全部保留；marker永远FAILED_PREFERENCES_RESTORED且未改字节。按授权只用Repository移除v2模拟riskrow，整表hash精确还原。v3新seed1/1、pre/post partial-full JPEG/knowledge/night/true/true/risk/SEEDED marker完全一致，但不是完整full或覆盖保留PASS。按收尾授权恢复原偏好/移除v3模拟riskrow，marker保持SEEDED原字节、不consume/reseed；一次性helpers从源码及已安装test APK移除。
 - 授权后raw平台8/8，0failure/error/skipped，原DND3/Overlay1/notification1实际进入断言。第一场真实FULL→Break→brief/confirmed risk→in-app→Allowance/一次延长→91.566sec Recovery→FOCUS→NORMAL/COMPLETED，DND RELEASED；真实FULL结果/时间线截图已保存。COMPLETED后的真实token URI/request replay不创建新学习事实，不冒充原PendingIntent.send或PENDING间隙回放。
-- 历史Overlay之后>120sec Recovery异常保留，后续诊断90.827/90.858/91.006sec均成功且结论已接受，不授权生产修补。本轮最终真实FULL链再次91.661sec成功，无新的≥110sec异常；未宣称根因解决。
-- 本轮真实Usage撤权和Diagnostics监测停止均先durable PARTIAL/UNMONITORED再NORMAL/COMPLETED，effective unavailable。实际Start→Preparation→FULL→页42到44/1Note→brief/confirmed risk→真实Notification点击→Allowance/一次延长→Recovery→FOCUS→正常Closeout→Summary原地展开/History/Search完成；结果≥32sec边界不增长，COMPLETED旧request不复活事实。PENDING旧动作/Stage B故障仍单列自动化，真实OS query gap与15min Deep NOT RUN。
-- 最新停止后四权限已恢复读回（Usage/Overlay default、DND false、POST false及原flags）；原knowledge/blue/dnd=false/cross-app=false已恢复，网络1/1。Active Session/Intent/Segment0/0/0、FGS/Overlay/ID3002通知0，当前Mirra-owned rule FALSE、系统Zen OFF。风险选择未完全恢复：原行保留，新fixture唯一不可启动模拟包仍在，待授权精确cleanup；未直接改库或改失败marker。本次gate后不再跑新lint/build/offline或改主题测试；历史命令参数引用失败仍保留。
+- 历史Overlay之后>120sec Recovery异常保留，后续诊断90.827/90.858/91.006sec均成功且结论已接受，不授权生产修补。此前已提交的平台验证（`50d9a0bdf339c623169cb2f1e6f3924a7bc2631c`）中，真实FULL链再次91.661sec成功，无新的≥110sec异常；未宣称根因解决，本轮主题隔离未重新执行此闭环。
+- 此前已提交的平台验证（`50d9a0bdf339c623169cb2f1e6f3924a7bc2631c`）中，真实Usage撤权和Diagnostics监测停止均先durable PARTIAL/UNMONITORED再NORMAL/COMPLETED，effective unavailable。实际Start→Preparation→FULL→页42到44/1Note→brief/confirmed risk→真实Notification点击→Allowance/一次延长→Recovery→FOCUS→正常Closeout→Summary原地展开/History/Search完成；结果≥32sec边界不增长，COMPLETED旧request不复活事实。本轮未重新执行这些平台场景。PENDING旧动作/Stage B故障仍单列自动化，真实OS query gap与15min Deep NOT RUN。
+- 最新停止后四权限精确恢复读回（Usage/Overlay default、DND false、POST false及原flags）；原knowledge/blue/dnd=false/cross-app=false已恢复，网络1/1。v2/v3新增模拟riskrow均只经Repository精确移除，原一行与整表hash `07b9ba7feafd9451048b6e0188abf6195c96549bf0431f5dee812a66bf869cc8`保留。Active Session/Intent/Segment0/0/0、FGS/Overlay/ID3002通知0，Mirra-owned rule STATE_FALSE、Zen OFF。未改失败/SEEDED marker，未候选覆盖/data_assert/新full，未修生产或操作实体机。
 - 真实平台闭环里程碑已提交 `50d9a0bdf339c623169cb2f1e6f3924a7bc2631c`；恢复诊断基线 `d0da1061a7b706e25784e43fc700189564bbe980`。全部证据见最终checkpoint/evidence index；本包尚不具备“3D-4完成等待独立验收”资格，Phase3D未冻结。API23–36 / OEM / physical / TalkBack / release继续NOT RUN，实体机未操作。
 
 ## Frozen Phase 3D-3 Reading Records
@@ -205,7 +206,7 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 
 ## Pending
 
-- Phase3D-4待独立审查授权androidTest主题原值恢复与失败fixture风险选择精确清理，再用新独立run验证preservation/final gate；image isolation与本次full/JPEG均通过，不重复修production。当前FAILED marker不得回写Night重试、删除或复用，旧broken fixture保持原状。两项历史Summary超时本次full已通过但根因未定；Recovery诊断结论不重开或宣称已修复。3D-3/2/1、Phase2与Module3C冻结语义不重开，一加13T试用不升级兼容性PASS。
+- Phase3D-4待审查新的系统/runtime中断证据并明确稳定环境重新验证；主题test-only修补与v2精确清理已执行，v3 seed通过但full未完成、data_assert未执行。旧FAILED/v3未消费SEEDED marker与图片都不重写/reseed；原偏好/risk/权限/网络已经精确恢复。仍需完整clean connected及独立preservation、fresh final gates，不以局部/历史PASS补齐；不修production、重开Recovery诊断、外推一加13T兼容性或自动Freeze。
 - Phase 3｜Module 3B Task 6 仍待最终独立验收。Task Manager Stop、reboot、完整 risk/lock/revocation 矩阵、API 23/29/33/34/35 与实体/OEM 设备继续为 `NOT RUN`，不用 API 37 AVD 结果代替。
 
 ## Known Risks / Unknowns
@@ -229,6 +230,7 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 
 - Current branch: `codex/phase-3d-final-validation`；精确 parent `80ece95cf24918627e57a57bb6a6d94c253528b0`。
 - AndroidTest image storage isolation patch: `9cfae55898ad6a1a21b0afb8a943a81599ad9ef8`（`test(storage): isolate android image fixtures`），定向GREEN后已独立Push；不含生产代码或验证文档。最新失败gate及恢复边界在独立证据提交记录，不标为3D-4 COMPLETE。
+- AndroidTest theme exact-original restore patch: `5331661f24e0d1f01a89deeeaaeafbb3d6a3a891`（`test(theme): restore persisted preference after lifecycle test`），单文件定向5/5后独立Push；临时helpers未提交。新的full中断/状态恢复证据单独提交，不标为3D-4 COMPLETE。
 - Frozen Phase 3D-3 accepted implementation HEAD: `54a9e2bdda28da80028aa5313ef243da593e976b`，已独立验收并正式冻结。精确父Freeze / Phase 3D-2 Freeze: `4e15076265ad393c85bd5f0e08916f6e886e4be1`。Task 1–6独立提交、实际Gate与证据见3D-3 checkpoint；正式文档Freeze为 `80ece95cf24918627e57a57bb6a6d94c253528b0`，不替代实现SHA。不合并main、不发布。
 - Phase 3D-1 Freeze / Phase 3D-2 exact parent: `ba480d9b61f0b71879b07113ec32fc840a97ddab`。
 - Frozen Phase 3D-2 accepted implementation HEAD: `9b137ea51e824f59ab3480ed770c9dcf24da2d87`，已独立验收并正式冻结；独立 Task 1–4 提交、验证与冻结结论见3D-2 checkpoint，不合并 main。纯文档 Freeze commit 另行报告，不替代该实现 SHA。
@@ -243,4 +245,4 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 
 ## Next Recommended Task
 
-先独立审查 `docs/evidence/phase3d-final/test-image-storage-isolation.md`，单独授权最小androidTest主题原值恢复、FAILED fixture的精确模拟风险选择cleanup及新独立preservation run后，再恢复最终Gate。不得在本轮修MainActivityThemeLifecycleTest、直接改库、回写Night retry或覆盖FAILED/旧broken marker。图像隔离和一次完整280业务断言PASS已取得，不把旧超时/Recovery历史删掉或随意加timeout。未输出3D-4完成，不自动Freeze或进入下一Phase；Room4/schemas1–4及所有原NOT RUN边界不变。
+先独立审查 `docs/evidence/phase3d-final/theme-isolation-and-final-preservation.md`：主题修补定向5/5已通过，v2精确清理已完成；最新full只有21节点且系统/runtime中断，不能拼成完整PASS或已确认业务Bug。需要稳定环境重新验证授权及新的独立保留链路安排，才能恢复候选覆盖/data_assert/final gates。原值已恢复，v2失败/v3未消费marker/旧broken图片保持原样，不自行重试、改expected或改production。Room4/schemas1–4及所有NOT RUN不变；不自动Freeze或进入下一Phase。

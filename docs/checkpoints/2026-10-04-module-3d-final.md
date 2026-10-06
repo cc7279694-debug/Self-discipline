@@ -275,3 +275,34 @@ API23–36 full matrix、OEM/完整实体机、TalkBack、release/Play、真实�
 - Room4/Schema1–4均原hash；v4=`EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`。生产/app/src/test/Manifest/Gradle/Room/Migration相对父Freeze无diff。本轮source patch仅androidTest12文件，随后仅证据文档commit。
 
 **当前停止点：需要独立审查授权最小androidTest主题原值恢复、FAILED fixture风险选择精确cleanup和新独立preservation run。Image isolation及单次full已成功，但完整preservation失败，3D-4未完成、Phase3D未冻结。** API23–36/OEM/fullphysical/TalkBack/release/Play/真实断电/人工walltime/真实15minDeep继续NOT RUN；此前Recovery观察一次异常与所有RED完整保留。内部只读审核不代替用户独立验收。
+
+## Theme preference isolation and interrupted final revalidation — 2026-10-06
+
+上文主题授权等待和v2失败是保留的历史。用户另行授权原值恢复、v2精确cleanup及独立v3保留链路；本轮严格不改production。完整脱敏记录见 [theme isolation and final preservation](../evidence/phase3d-final/theme-isolation-and-final-preservation.md)。
+
+### Test-only patch and precise v2 cleanup
+
+- Theme patch独立commit/Push `5331661f24e0d1f01a89deeeaaeafbb3d6a3a891`，`test(theme): restore persisted preference after lifecycle test`，只有MainActivityThemeLifecycleTest.kt。读取真实original theme，NIGHT/recreate和BLUE/light-bars原断言全部保留，finally exact restore+assert。新增initial NIGHT和BLUE各自外层恢复准备值；真实installed DataStore，不fake化。
+- RED实际1executed/1failure，expected NIGHT but BLUE；GREEN定向5executed/5passed/0failure/0assumption，77.505sec。AndroidTest writer审计没有第二处不恢复真实偏好的owner；独立DataStore/fake与明确opt-in区分。两次命令准备错误没有执行测试，保留本地、不计为RED/GREEN。
+- v2一次性helper实际1/1PASS。只有marker指定的模拟riskrow经production Repository移除；active前置满足，删除前排除该行全表hash==original，删除后全表hash==original。before `22069e34ca338fbe6c468f4b412a1de2c1803cd7ca4eaf51bc59c8e1428d038e` → original/after `07b9ba7feafd9451048b6e0188abf6195c96549bf0431f5dee812a66bf869cc8`。
+- v2 marker仍FAILED_PREFERENCES_RESTORED，SHA `b81af0e97b2a2d489928cf530084aa500b532fd3081243dedb04fd47eb3c437c`字节不变；业务/media/prefs无额外修改。helper执行后移除，不提交永久cleanup入口；旧missing JPEG/row/marker未修复/删除。
+
+### Independent v3 seed and one interrupted full attempt
+
+- 新key storage-isolation-v3真实installed seed1/1PASS，1.352sec。baseline frame `82c2f7bcea143addbe6362c70335413b2d17453b052f848eec95b215a2afb91d`；prefs knowledge/night/true/true；SEEDED marker SHA `33b6d2db91000c1f24427337644aa54a0f359e78a0d67550028e6f29d4e4ae64`；seeded risk full hash `f42506b413e469d67a99efffd4c4ae1f26a5fa205af0127323c9b35cba65968a`。
+- JPEG `images/b8f4a4a9-c114-4ae2-9537-81b2bd964083.jpg`，818bytes，SHA `df30c3e577a2ac4ef7d299ee08c4c78e0f5e6a28016e6c595c7c206920793fcc`。四权限先读真实原值、仅AVD/Mirra临时授权并readback；full前立即读取JPEG/prefs/risk。
+- 唯一新未过滤connected在5m34s退出1。原XML21reportedcases/5failure/0error/0skipped；16已完成PASS、4设计性opt-in assumption、1未完成空failure：ModuleTwoAFlowTest.createNoteDoesNotPersistBlankPlaceholder，120.410sec，无断言stack/message或finished。此21不是全套discovered count；不写17PASS。
+- 03:25:57–58 UTC系统多个进程FATAL，测试线程JNI携pending DeadSystemRuntimeException/DeadSystemException；收集output出现Software caused connection abort。随后activity service短暂不可用，再自行恢复。不能把空failure认定为blank-note业务断言失败，也不能确诊系统崩溃根因；没有改测试/production、重跑定向或第二次full。
+- 原两个PhaseOne timeout、DND3/channel5、MainActivityThemeLifecycleTest均未到达。本轮不套用上一轮280全量PASS，也不触发“两项历史timeout再次业务失败”结论；此前全部历史失败/成功保留。
+- 自动立即post-run快照在任何candidate安装前确认JPEG path/size/SHA、knowledge/night/true/true、risk hash、marker全部相同。这是穿过部分中断run的保留证据，不是完整full-suite或覆盖安装/data_assert PASS。
+- 按gate停止候选覆盖安装、v3 data_assert、fresh JVM/lint/assemble、最终exact APK/offline和V-VISUAL-01人工尺寸/大字/PARTIAL结果补图；没有用旧结果或局部测试拼齐。新fixture不重seed、marker不改expected/状态、不消费为成功。Recovery诊断未重开。
+
+### Exact cleanup after interruption
+
+- 四权限恢复原Usage/Overlay default、DND false、POST false及原flags；网络1/1读回。在系统服务恢复过程中一次launch暂报activity不存在，随后只读package/resolve-activity确认已安装debuggable 0.1.0/code1/MainActivity仍在；不以candidate重装掩盖故障。
+- 按本轮授权§16恢复prefs/risk，临时opt-in validation_restore/v3 helper实际1/1PASS（1.036sec），不是data_assert。前置ActiveSession/Intent/Segment0/0/0，marker原值只经Repository写回；仅移除自己的riskrow，前后exact table hash验证，其他业务/media frame和marker bytes不变。之后helper移除，已验证themed test APK还原。
+- final knowledge/blue/dnd=false/cross=false，风险原一行/hash `07b9ba7feafd9451048b6e0188abf6195c96549bf0431f5dee812a66bf869cc8`；v3仍SEEDED原SHA，未consume/reseed。原seed偏好已按收尾恢复，不得把这个中止链路直接当成功assert。
+- ActiveSession/Intent/Segment0/0/0、monitorFGS/Overlay/ID3002notification0、Mirra rule STATE_FALSE、Zen OFF。v3 JPEG仍818bytes同SHA；v2FAILED marker原SHA、legacy marker `6bbd53c86d2cd35dd1b99e74af79e28925c9335cce45e9c73ffc1de54a7fd445`不变，旧JPEG仍MISSING。
+- 再次实际核对Room4/Schema1–4全部freeze hash，v4 `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`；app/src/main、app/src/test、Room/Schema/Migration、Manifest/Gradle/依赖相对精确父Freeze无diff。未操作实体手机，无wipe/pm clear/uninstall/reboot/系统时间修改。
+
+**当前停止点：环境/runtime中断的full需独立审查与稳定环境重新验证授权。Phase3D-4仍未完成，Phase3D未Freeze，未进入下一阶段。** 本轮只补主题test-only修复及脱敏证据，历史风险和所有NOT RUN继续保留；内部只读核对不冒充用户独立review或重新执行完整Gradle/AVD。
