@@ -3,10 +3,21 @@
 本目录仅保存脱敏结果与少量专用测试内容截图；完整执行记录见 [final checkpoint](../../checkpoints/2026-10-04-module-3d-final.md)。不提交完整 logcat、设备序列号、私人内容或签名材料。
 
 - Exact parent: `80ece95cf24918627e57a57bb6a6d94c253528b0`.
-- Environment: explicitly selected `Mirra_API_37`, Android 17 / API37 AOSP AVD. No physical-device operations.
-- Current scope/status (2026-10-06): accepted image/theme isolation retained. Sole same-userdata reboot/revalidation produced a complete but failed full:286unique cases,282actualcompleted,281PASS/1historicalComposeTimeout/4opt-in assumptions. DND3/channel5/Theme3actualPASS; v4 seed1/1 and immediate pre/post/finalJPEG/preferences/risk/marker exactly retained, not consumed as preservationPASS. Subsequent install/data_assert/fresh gates stopped. SystemUI ANR discovered during cleanup predates full; no production root cause confirmed. Four permissions/network restored, but v4 seed preferences/synthetic risk selection still pending precise restoration. **STOP / architecture and environment review required; 3D-4 incomplete, no Phase3D freeze.** See [same-userdata revalidation and stop](stable-environment-revalidation.md).
+- Environment: latest final gate explicitly selects fresh `Mirra_API_37_Final`, actual Android17/API37/qemu1 with the same installed Google APIs/x86_64 image. Old `Mirra_API_37` userdata/history retained; no physical-device operations.
+- Current scope/status (2026-10-06): **Phase 3D-4 validation complete, awaiting independent acceptance.** Test-only oracle commit `768127951c57e01aa09ed16de4c2e5e9ee929b4c`; production unchanged. One fresh full286discovered/282executed/282PASS/4opt-in assumptions/0businessfailure, v5seed/assert1/1each and full/cover exact preservation; freshJVM318/318, lint0errors/9existingwarnings/1hint, buildPASS. Exact finalAPK cover/cold/offline reads and all permissions/preferences/risk/network restoration completed. No Phase3D freeze or nextphase. See [fresh AVD final gate](fresh-avd-final-gate.md).
 
-## Latest same-userdata revalidation and recurring timeout — 2026-10-06
+## Latest fresh AVD clean gate — 2026-10-06
+
+- New userdata/no old snapshot/DB/marker import; four health rounds in67.650sec, noANR sinceboot before/afterfull/final. Single full8m21s, actual282/282; rawXML286tests/4failure/0error/0skipped has only4explicitopt-in Assumption failures. DND3/channel5/Theme3 and sixwidth/fontcases actualPASS, no secondfull or targeted补绿.
+- Legacy finish test asserts exact durableNote immediately beforefinalconfirm, durableNORMAL/ReadingRecordcount/Note after; Summaryrenderdeadline removed，未增加timeout/sleep/retry，durablecloseout wait仍5000ms。Directed19/19 beforetest-onlycommit; all independent Summarycoverage retained.
+- Oldv4 preciseRepositoryrestore1/1 keeps SEEDEDmarker/JPEG/businessfixture, noassert/reseed; originalknowledge/blue/false/false andriskhash restored. Newv5seed1/1→exactpre/postfull→install-r→exactpostcover→assert1/1, same818byteJPEG/hash, fourprefs/risk/marker acrossfull; successfulnormalmarker andexactoriginalstart/blue/OFF/OFF/emptyrisk restored.
+- FinalAPK16488770bytes, `9C9B33337A8FB9A3969089308C28E8302AB285939DFBD47A4103CC7D48C68CD9`, sourceHEAD768127951c57e01aa09ed16de4c2e5e9ee929b4c, 0.1.0/code1. Actualexactfileinstall/cold/offlineHistory/Search/Note/JPEG/Topic readsPASS; controlledtrustedfixture notFULLmonitoringproof. Five new actualoffline screenshots/classifications linked in freshgate record.
+- Fourpermissions restored/readbackdefault/false/default/false withoriginalPOSTflags, originalnetwork1/1, prefsstart/blue/false/false/risk0, active0/0/0 andplatformleftovers0. Room4/Schema1–4unchanged, production0diff. Temporaryhelpers/guardadapters removed fromsource andfinalinstalledtestAPK; noDECISIONS duplication.
+- Oldfailures/markers/missingJPEG/Recoveryinconclusive preserved belowandcheckpoint. PreviousactualPENDING/near-finish/91.661secRecovery evidence explicitlyinherited, notrerunthisround. API23–36/OEM/fullphysical/TalkBack/release/realpowerloss/manualclock/Deep15min/realOSquerygap remainNOTRUN.
+
+## Earlier same-userdata revalidation and recurring timeout — retained 2026-10-06 history
+
+This was the earlier failed gate. Subsequent authorization restored v4 preferences/risk exactly and used a fresh independent environment; the original failure is not erased or relabelled PASS.
 
 - SourceHEAD `b3b4c89d6ced6011babce93cd73bf49e2967115d`; no source/test fixes. One normal dedicated-AVD reboot,71.485sec repeated service health; no userdata reset/clock change/physical operations.
 - v4real seed1/1PASS; original JPEG818bytes/SHA, knowledge/night/true/true, riskhash andSEEDEDmarker identical beforefull/immediatelyafterfull/final. v4remainsSTOPPED_FULL_FAILURE/UNCONSUMED; no install/assert/reseed/expected edit. v3INTERRUPTED/UNCONSUMED andv2FAILED bytes/images retained, legacymissingJPEG/row/marker untouched.

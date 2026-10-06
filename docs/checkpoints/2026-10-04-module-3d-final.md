@@ -1,6 +1,6 @@
 # Phase 3D-4 — Final validation and personal-use delivery
 
-更新日期：2026-10-06。当前状态：accepted image/theme测试隔离修补均保留；唯一新full完整286节点、281PASS/1历史同位置timeout/4opt-in assumptions，非clean。v4seed及pre/post/final快照完整保留，未install/data_assert/fresh final gate。收尾发现SystemUI ANR，记录发生在full之前，不能确诊生产根因。四权限/网络恢复，原偏好和v4模拟风险选择尚未恢复，等待架构/环境审查及精确cleanup授权；3D-4未完成，Phase3D未冻结。所有历史RED、missing JPEG、v2FAILED、v3INTERRUPTED/UNCONSUMED和未测边界保留；最新实际证据见末尾same-userdata revalidation及新脱敏文档。
+更新日期：2026-10-06。当前状态：**Phase 3D-4 validation complete, awaiting independent acceptance.** Legacy finish test-only oracle修正已独立提交768127951c57e01aa09ed16de4c2e5e9ee929b4c，production不变；旧v4原偏好/risk已精确恢复，失败marker/JPEG继续保留。全新Mirra_API_37_Final唯一full286discovered/282executed/282PASS/4opt-in assumptions/0业务failure，v5seed/assert各1/1及跨full/覆盖数据保留通过；freshJVM318/318、lint0errors/9existingwarnings/1hint、build、exact最终APK/离线读取与四权限/偏好/risk/network恢复完成。无active事实/FGS/Overlay/干预通知/意外active ownDND。Phase3D未Freeze。所有旧RED、Recovery异常/诊断未定、missingJPEG、v2FAILED/v3中断/v4历史timeout/旧ANR与NOT RUN边界保留在下面历史轮次，不改写为PASS；最新详细证据见末尾fresh AVD final gate及[完整脱敏记录](../evidence/phase3d-final/fresh-avd-final-gate.md)。
 
 ## Contract and exact parent
 
@@ -323,3 +323,50 @@ API23–36 full matrix、OEM/完整实体机、TalkBack、release/Play、真实�
 - Room4、Schema1–4全原hash，v4 `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`；本轮source/test/Manifest/Gradle/Migration0diff、production相对父Freeze0diff。仅docs/evidence交付；内部核对不冒充独立用户验收。
 
 **当前停止点：full非clean，需架构/环境审查与v4原prefs/risk精准收尾授权。3D-4未完成、Phase3D未冻结，不进入下一Phase。** API23–36/OEM/fullphysical/TalkBack/release/Play/真实断电/人工系统时钟/实际15minDeep继续NOT RUN；本轮未操作一加13T或其他实体机。
+
+## Legacy finish oracle correction and fresh AVD final gate — 2026-10-06
+
+上文为此前失败的原始记录，继续保留。用户随后授权：精确v4恢复、唯一legacy androidTest oracle修正、全新userdata专用AVD及独立v5最终gate；没有授权production修补。最新完整脱敏记录与五张真实离线fixture读取截图见 [fresh AVD final gate](../evidence/phase3d-final/fresh-avd-final-gate.md)。
+
+### Test-only correction and exact v4 restoration
+
+- 本轮入口 `5987692e65b3f3bbd9e52124ab78d9beae136b2b`，分支 `codex/phase-3d-final-validation`，精确生产父Freeze `80ece95cf24918627e57a57bb6a6d94c253528b0`。
+- 临时marker-scoped validation_restore/v4实际 **1/1 /0assumption**，0.412sec；只经Repository恢复四项exact original `knowledge/blue/false/false`，排除fixture风险行的完整hash匹配后只移除这一行，最终原一行hash `07b9ba7feafd9451048b6e0188abf6195c96549bf0431f5dee812a66bf869cc8`。
+- v4仍SEEDED/UNCONSUMED，marker原SHA `633681c91ffb61f1efff601bca7c64f55450d4f25d1afb3d1d7efc62a2184c85`，JPEG818bytes/path/原SHA未变。未assert/reseed/改marker/删fixture/修legacy缺图；临时helper删除，canonical test APK恢复，旧AVD正常关闭并保留userdata/历史。
+- Permanent改动仅PhaseOneCorrectionTest：确认框出现立即读取exactly1 Note、“最后一笔”、同sessionId/page10，**在final confirm之前**证明durable flush；单次确认后等待NORMAL/endedAt/nonactive、ReadingRecord.noteCount1及同完整Note保留。删除Summary“1条笔记”presentation deadline，不增加timeout/sleep/retry，不改production；其他Summary覆盖原样。
+- 历史重复timeout是本次已授权RED证据，未制造新RED。提交前实际GREEN：PhaseOneCorrection5/5、SessionCloseoutUi6/6、ReadingRecordNavigation4/4、ReadingRecordRepository4/4，合计19/19、0assumptions。组合class命令实际只选第一类5项，另外三类明确分别执行，保留命令选择记录；非full失败后的补绿。
+- 独立test-only commit/Push **`768127951c57e01aa09ed16de4c2e5e9ee929b4c`**，`test(session): verify draft flush at durable closeout boundary`；提交时local=remote、clean。
+
+### Fresh dedicated environment, not an OEM result
+
+- 新建 `Mirra_API_37_Final`，实际Android17/API37/qemu1，原已安装Google APIs/x86_64 image，fresh userdata、无旧snapshot/DB/marker导入，不删除旧AVD、不操作实体机。
+- 初次默认10GiB建盘因需要12GiB而主机只有11.65GiB失败；尚无boot/测试。仅新AVD首次建盘前改为4GiB，随后正常启动。该setup失败保留本地，不算MirraFAIL，没有清理磁盘用户数据/wipe/clear/uninstall。
+- 稳定窗口67.6497279sec，4轮约15秒间隔真实检查boot1/activity/package/window/power/shell/MainActivity。四点首尾50.484sec与整个窗口67.650sec明确区分。预检/full前后/最终lastanr均noANR sinceboot；无DeadSystem/SystemUI/system_server crash、transport中断或服务消失。
+- 仅v5专项的临时guard适配要求显式key/scenario+真实新AVDname/API37/ranchu，不伪造属性或允许physical。seed后在**唯一full前**恢复原guard和canonical APK；assert后再恢复源码、重建并覆盖canonical test APK。adapter未提交，最终源码/安装包无临时入口。
+
+### Sole full connected and v5 preservation
+
+- 唯一未过滤full使用leaveApksInstalledAfterRun=true，UTC07:15:19.725441→07:23:41.520650，501.795sec/8m21s/exit0。没有secondfull、classfilter或targeted补绿。
+- XML **286discovered /282executed /282passed /0业务failure /0error /0incomplete /4opt-in assumptions**。raw286tests/4failure/0error/0skipped，四failure节点全部AssumptionViolatedException，pending_prepare/assert与data_seed/assert不算普通PASS。XML SHA `0744B9F008645020E4613485DD450EE7EE0E3EFDDEEE0A04A6CD5BBCB3A80A03`。
+- 原flush与完整Phase1LearningLoop均实际PASS；DND3/3、channel5/5、theme3/3、六320/360/411dp×font1/2及窄屏大字escape实际PASS。平台权限前提已满足；denial capability seam与真实granted调用分列，不伪造手工撤权。其余非opt-in全套回归均实际PASS。
+- v5seed实际1/1/0assumption，0.775sec；prefs knowledge/night/true/true、baseline frame `fed286a9688774c0ba7c691c84a45ed382b34321c326c403e489a376ea2dd49d`、seeded风险hash `1d55e8eb7959e03e1907cb1661b9cfb520150496c5a5f1c136d399915cd0d94d`、SEEDEDmarkerSHA `047d82b8d80332fbbbb0962627bf9aa13529ba4b3fd4763ecac5a8c5bf30c1ea`。
+- full立即前→立即后（install前）→candidateinstall-r后，这四组与JPEG严格相同。JPEG `images/7c0bde67-d08a-43f2-97e8-30d3949b472d.jpg`，actual/metadata818bytes，SHA `df30c3e577a2ac4ef7d299ee08c4c78e0f5e6a28016e6c595c7c206920793fcc`。
+- v5data_assert **1executed/1passed/0failure/0assumption**，0.967sec，完整business/media/Topic/relations/Session/Segment/risk snapshot/legacy/trusted/Search/preferences checks实际进入主体。成功cleanup exact originalstart/blue/false/false、空riskhash `74a6760bc31e8746ee0a56de778654a51e980f9256623e709fb950a006c96d40`。
+- marker正常成功消费为VERIFIED_PREFERENCES_RESTORED，SHA `891c7150e54754851162569090c5f81aa36771c7454fed3a48036153746416cd`；不是修改FAILED/SEEDED重试。最终离线后marker/JPEG相同，active0/0/0。
+
+### Final regression, exact artifact and offline delivery
+
+- cleanfull+v5PASS之后fresh JVM **318/318 /0failed/error/skipped**（45XML，--rerun-tasks，26tasks实际执行，2m47s）；freshlint **0errors/9existingwarnings/1hint**（28tasks实际执行，4m17s）；assembleDebug/assembleDebugAndroidTest **PASS**（1m5s）。不为文档再跑full。
+- Room4/Schema1–4/Migration不变，四SHA再次live核对：1=`4528DCEDF74A1875D7A132F2E41F00049A252F82070B8DB1C25CBE5C46ACD1B1`；2=`C831ED5C8B3A0AA5C56E43859AB0AF4EA1343E4AB4AF76224EE86B70F3E79E0D`；3=`CCB563F899DD68ECBFBE3369A7939F6D202CD1393508C26E0B33EE6A91CE1205`；4=`EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`。
+- 最终 `build/deliverables/Mirra-3D4-debug.apk`：**16488770bytes**，SHA **`9C9B33337A8FB9A3969089308C28E8302AB285939DFBD47A4103CC7D48C68CD9`**，appIdcom.guanyi.mirra/0.1.0/code1，sourceHEAD768127951c57e01aa09ed16de4c2e5e9ee929b4c。artifact实际读回与报告一致，不强求旧archivehash，也不提交APK/signing材料。
+- exact交付文件install-r Success；普通Force Stop/cold start成功。网络实际0/0下再次Force Stop/cold start，真实History NORMAL/NONE记录、Search受控trusted旧记录、Note正文、全屏本地JPEG/Caption、Topic两关联Note均可读。没有新建Session/学习事实，不改正文/页码。五张新截图只标“真实UI读取preservation fixture”，不冒称本轮真实FULL监测；原fixture/平台/离线截图分类保留。
+- 原权限真实读回default/false/default/false及原POSTflags，网络恢复1/1；prefsstart/blue/false/false、risk0/hashoriginal、ActiveSession/Intent/Segment0/0/0、FGS/Overlay/interventionnotification/ownruleunexpectedACTIVE均0、ZenOFF、最终noANR。无实体机/非Mirra权限/globalPolicy/非Mirra规则修改。
+
+### Retained evidence boundary and delivery status
+
+- 受控PENDING→实际Force Stop/cold start→assert已提交1/1+1/1（f39277b…）；真实FULL/notification/Allowance/一次延长/Recovery91.661sec/Closeout/三入口与nearfinishUsage撤权/controlledstop已提交（50d9a0b…）。本轮授权免重复这些实际链路；只引用已有证据，不冒称重新执行。
+- Recovery>120sec仍Observed once / Not reproduced in targeted diagnostic / INCONCLUSIVE，不因新cleanfull或此前成功宣称FIXED/AVDrootcause。legacy缺图/旧row/marker、v2FAILED、v3中断未消费、v4fulltimeout/旧ANR与所有RED保留。v4原偏好/risk恢复不改变其失败证据性质。
+- API23–36full/OEM/full实体机/TalkBack/releasePlay/真实硬件断电/真实系统时钟人工修改/实际15minDeep/真实OSquerygap仍NOT RUN；一加13T未操作，日常试用不升级compatibilityPASS。
+- `DECISIONS.md`不增加重复决定；无production fix。最终证据提交仅docs/checkpoint/脱敏截图；test-only修正已独立提交，不夹带其他测试或临时helper。完整日志/XML/serial只保存在本地。
+
+**当前正式状态：Phase 3D-4 validation complete, awaiting independent acceptance. Phase3D未Freeze。** 内部只读核对不代替用户独立验收；本包完成后停止，不进入下一Phase。

@@ -4,13 +4,25 @@
 
 ## Current Stage
 
-Phase 3D-4｜最终验证与交付尚未完成，当前停止于唯一新 full 的历史 Compose timeout 再现，等待架构/环境审查与 v4 精确收尾授权。分支 `codex/phase-3d-final-validation`，执行基线 `b3b4c89d6ced6011babce93cd73bf49e2967115d`，精确父 Freeze `80ece95cf24918627e57a57bb6a6d94c253528b0`。一次同 userdata 正常 reboot、71.485sec 服务健康检查后，独立 v4 seed1/1PASS；新 full 完整结束但非 clean：286项，282实际执行/完成，281PASS、1历史同位置5000ms timeout、4opt-in assumptions。DND3/channel5/Theme3实际PASS，v4 JPEG/四偏好/risk/SEEDED marker 的 pre/post/final 快照完全相同；未覆盖安装、data_assert或继续 final gates。收尾时看到“Process system isn't responding”系统 ANR 弹窗；另有 full 前的 SystemUI lastanr 记录，不合并推断弹窗身份或超时根因，不能声称持续稳定环境。四系统权限和网络已恢复，active事实0/0/0，无FGS/Overlay/干预通知，current Mirra rule STATE_FALSE；但原Blue/DND OFF/cross OFF及risk选择尚未恢复，当前保留knowledge/night/true/true与v4模拟riskrow，不能宣称完整cleanup。详情见 `docs/evidence/phase3d-final/stable-environment-revalidation.md`。本轮无任何源码修补，3D-4未完成、Phase3D未冻结。
+Phase 3D-4 validation complete, awaiting independent acceptance。分支 `codex/phase-3d-final-validation`，本轮授权基线 `5987692e65b3f3bbd9e52124ab78d9beae136b2b`，精确生产父 Freeze `80ece95cf24918627e57a57bb6a6d94c253528b0`。只修正legacy androidTest的durable Note flush验证边界，test-only commit `768127951c57e01aa09ed16de4c2e5e9ee929b4c`；没有production修补。旧v4仅精确恢复原偏好/模拟risk选择，SEEDED marker/JPEG/业务fixture保留。全新 `Mirra_API_37_Final` fresh userdata在67.650sec健康窗口后，唯一未过滤connected取得286 discovered /282 executed /282 passed /0业务failure或error /4明确opt-in assumptions；DND3/channel5/Theme3及六width/font项实际执行。v5 seed1/1→full立即前后→candidate覆盖→assert1/1全链保留JPEG/四偏好/risk/marker，成功按原fixture恢复。随后fresh JVM318/318、lint0errors/9existingwarnings/1hint、build通过，最终exact APK覆盖安装/普通及断网冷启动/History/Search/Note/JPEG/Topic读取完成。权限/网络/原start-blue-false-false/空risk选择均恢复并真实读回，无Active Session/Intent/Segment、FGS、Overlay、干预通知或意外active Mirra rule。详细计数、artifact和证据性质见 [fresh AVD final gate](evidence/phase3d-final/fresh-avd-final-gate.md)。Phase3D未冻结，不进入下一Phase。
 
 3D-3 Accepted implementation HEAD `54a9e2bdda28da80028aa5313ef243da593e976b`、3D-2 Freeze `4e15076265ad393c85bd5f0e08916f6e886e4be1`、3D-1 Freeze `ba480d9b61f0b71879b07113ec32fc840a97ddab`保持冻结。历史Recovery >120sec异常仍为“Observed once / Not reproduced in targeted diagnostic”，不宣称FIXED、ROOT CAUSE RESOLVED或AVD ISSUE；之前实际平台闭环Recovery91.661sec成功，不覆盖历史风险，本轮未重跑Recovery诊断。
 
 Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c07fbabf050d6d5ac3aeae0677d5e5abf14f4465`，包括 Clock Rollback Correction、Tasks 1–6 与 Acceptance Patch。Phase 2、Module 3A、Mirra Blue / Visual Parity 与整个 Module 3C 保持原冻结语义。Module 3B 是个人试用开发基线，不等于发布级设备能力验收完成。Room v4 / schemas 1–4 不变。API 23–36 full matrix、OEM / 实体设备完整矩阵、TalkBack、release / Play、真实硬件断电与真实系统时钟人工修改继续 `NOT RUN`，API 37 AVD 结果不外推；一加 13T 反馈仍仅为个人试用。
 
-## Latest Phase 3D-4 Revalidation and Mandatory Stop
+## Latest Fresh AVD Final Gate
+
+- Legacy测试只去掉Summary“1条笔记”5000ms渲染deadline：确认前立即读取exact durable Note，最终确认后检查NORMAL/endedAt/nonactive、ReadingRecord.noteCount1及同一Note仍在。不加timeout/sleep/retry、不改生产。提交前四类19/19，保留其他Summary覆盖。
+- 新AVD实际Android17/API37/qemu1，原API37 Google APIs/x86_64镜像，无旧snapshot/DB/marker导入。4轮健康检查、整个窗口67.650sec；full前后及最终lastanr均noANR sinceboot，无DeadSystem/transportabort/系统服务消失。旧AVD和所有失败历史保留，不推断旧timeout的生产根因。
+- 唯一full8m21s/exit0；rawXML286tests/4failure/0error/0skipped，4failure均明确opt-in Assumption。实际282/282，0真实失败/未完成，原flush/完整Phase1闭环及所有非opt-in测试PASS。四opt-in不算PASS；不做第二full或targeted补绿。
+- v5真实installed storage seed1/1 + candidateinstall-r + assert1/1；JPEG818bytes同path/SHA，pre/post full/install四偏好、riskhash与SEEDED marker字节完全相同。成功marker正常为VERIFIED_PREFERENCES_RESTORED，最终start/blue/false/false、risk0/原整表hash、active0/0/0。旧v4通过独立restore1/1仅恢复原偏好/risk，保持SEEDED/UNCONSUMED；不assert/reseed/补缺图。
+- 全量后fresh JVM318/318、lint0errors/9existingwarnings/1hint、assembleDebug PASS。最终Debug APK16488770bytes，SHA `9C9B33337A8FB9A3969089308C28E8302AB285939DFBD47A4103CC7D48C68CD9`，0.1.0/code1，buildHEAD `768127951c57e01aa09ed16de4c2e5e9ee929b4c`。exact交付文件覆盖、普通/断网cold start及五类读取PASS；受控trusted记录截图不冒称真实FULL监测，原fixture/实际平台截图分类保留。
+- 四权限精确恢复default/false/default/false及原POSTflags；网络1/1，平台残留0、ZenOFF。Room4/Schema1–4全hash不变，生产/JVM-test/Manifest/Gradle/Migration相对父Freeze0diff。临时helper/AVDguard适配已从源码及最终已安装testAPK移除，不提交。
+- 本包只达到validation complete / awaiting independent acceptance，未自行Freeze。API23–36/OEM/fullphysical/TalkBack/releasePlay/真实断电/人工系统时钟/实际15minDeep/真实OSquery-gap仍NOT RUN。已有90秒Recovery/near-finish/PENDING实际证据独立引用，本轮不冒称重新执行。
+
+## Earlier Same-userdata Revalidation and Mandatory Stop — retained history
+
+以下为此前失败轮次的原记录；后续经单独授权完成精确v4恢复与fresh AVD gate，不能用新成功改写旧失败。
 
 - 唯一未过滤 connected 实际35m32s/exit1，XML286个唯一且完整终态，raw286tests/5failure/0error/0skipped；语义281PASS+1真实ComposeTimeout+4明确opt-in assumptions，无空中断节点。`PhaseOneCorrectionTest.finishingImmediatelyFlushesDraft`在line130等“1 条笔记”再超时；另一历史LearningLoop实际PASS。满足 `FULL_SUITE_INTERMITTENT_CONFIRMED / ARCHITECTURE_REVIEW_REQUIRED`，没有targeted或第二full，没有用旧PASS拼齐。
 - 服务检查没有发现新的DeadSystem/transportabort，但post-full实际系统弹窗和lastanr确认04:11:10UTC SystemUI input-dispatch ANR，早于04:12:58 full start；不能用服务healthy证明全程UI稳定，亦不能推断它就是超时根因。未点击系统Wait/Close、未二次reboot。
@@ -214,7 +226,7 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 
 ## Pending
 
-- Phase3D-4等待历史同位置timeout再现与系统ANR的架构/环境审查，以及v4精确收尾授权：唯一新full已完整结束，282实际完成/281PASS/1真实timeout/4opt-in assumptions；四权限及网络已恢复，但v4 seed偏好knowledge/night/true/true和模拟riskrow仍保留。v4保持SEEDED/STOPPED_FULL_FAILURE/UNCONSUMED，未install/data_assert/reseed；旧FAILED/v3未消费marker和图片也不改。未获新授权前不targeted/再跑full/改源码或执行后续final gates，不以局部/历史PASS补齐，不自动Freeze或进入下一Phase。
+- Phase3D-4等待用户独立验收：新fresh AVD唯一clean full、v5真实保留链、fresh JVM/lint/build、exact APK/离线读取和权限收尾已完成。旧v4仅精确恢复原偏好/risk，保留SEEDED/UNCONSUMED；v2FAILED/v3中断/旧缺图与全部历史失败继续保留。独立验收前不自行Freeze Phase3D、修改生产或进入下一Phase。
 - Phase 3｜Module 3B Task 6 仍待最终独立验收。Task Manager Stop、reboot、完整 risk/lock/revocation 矩阵、API 23/29/33/34/35 与实体/OEM 设备继续为 `NOT RUN`，不用 API 37 AVD 结果代替。
 
 ## Known Risks / Unknowns
@@ -237,7 +249,8 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 ## Git
 
 - Current branch: `codex/phase-3d-final-validation`；精确 parent `80ece95cf24918627e57a57bb6a6d94c253528b0`。
-- Latest same-userdata revalidation source HEAD: `b3b4c89d6ced6011babce93cd73bf49e2967115d`；本轮只提交验证文档/环境截图，286完整节点但281PASS/1timeout/4assumptions，不标为3D-4 COMPLETE。v4保留但未consume，精确prefs/risk恢复仍待授权；无新的source/test修补。
+- Latest fresh-gate build/test HEAD: `768127951c57e01aa09ed16de4c2e5e9ee929b4c`（`test(session): verify draft flush at durable closeout boundary`），仅PhaseOneCorrectionTest.kt；GREEN19/19后独立Push。后续仅验证文档/受控截图提交，无production fix、未合并main或发布；最终local/remote SHA见交付报告。
+- Earlier same-userdata source HEAD: `b3b4c89d6ced6011babce93cd73bf49e2967115d`；原286完整节点/281PASS/1timeout/4assumptions与旧ANR保留为失败历史，不混写为当前fresh PASS。旧v4已获授权精确恢复prefs/risk但未consume。
 - AndroidTest image storage isolation patch: `9cfae55898ad6a1a21b0afb8a943a81599ad9ef8`（`test(storage): isolate android image fixtures`），定向GREEN后已独立Push；不含生产代码或验证文档。最新失败gate及恢复边界在独立证据提交记录，不标为3D-4 COMPLETE。
 - AndroidTest theme exact-original restore patch: `5331661f24e0d1f01a89deeeaaeafbb3d6a3a891`（`test(theme): restore persisted preference after lifecycle test`），单文件定向5/5后独立Push；临时helpers未提交。新的full中断/状态恢复证据单独提交，不标为3D-4 COMPLETE。
 - Frozen Phase 3D-3 accepted implementation HEAD: `54a9e2bdda28da80028aa5313ef243da593e976b`，已独立验收并正式冻结。精确父Freeze / Phase 3D-2 Freeze: `4e15076265ad393c85bd5f0e08916f6e886e4be1`。Task 1–6独立提交、实际Gate与证据见3D-3 checkpoint；正式文档Freeze为 `80ece95cf24918627e57a57bb6a6d94c253528b0`，不替代实现SHA。不合并main、不发布。
@@ -254,4 +267,4 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 
 ## Next Recommended Task
 
-先独立审查 `docs/evidence/phase3d-final/stable-environment-revalidation.md`：唯一full完整286节点但历史同位置timeout再现，另有SystemUI ANR环境证据，生产根因未确认；不得自行targeted、再跑full、加timeout或修源码。需要明确授权v4 marker限定的原偏好/模拟风险选择精准收尾，并审查环境/测试/业务边界后再决定下一验证路径。v4仍SEEDED未消费，v3仍INTERRUPTED/UNCONSUMED，v2失败与旧missing JPEG保留；不得接着assert/reseed修饰证据。Room4/schemas1–4及发布级NOT RUN不变，3D-4未完成，不Freeze或进入下一Phase。
+用户独立审查本轮legacy durable-boundary test-only commit、新fresh AVD gate、v5保留链、最终APK/离线读取及恢复证据：`docs/evidence/phase3d-final/fresh-avd-final-gate.md` 与最终checkpoint。当前仅validation complete / awaiting independent acceptance；只有另行验收与纯文档Freeze授权后才能关闭Phase3D。Room4/schemas1–4、Phase2/3C/3D1–3冻结语义及发布级NOT RUN不变；保留全部旧失败、未消费marker和缺图，不进入下一Phase。
