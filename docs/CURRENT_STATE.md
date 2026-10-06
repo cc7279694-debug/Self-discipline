@@ -4,9 +4,13 @@
 
 ## Current Stage
 
-Phase 3D-4 validation complete, awaiting independent acceptance。分支 `codex/phase-3d-final-validation`，本轮授权基线 `5987692e65b3f3bbd9e52124ab78d9beae136b2b`，精确生产父 Freeze `80ece95cf24918627e57a57bb6a6d94c253528b0`。只修正legacy androidTest的durable Note flush验证边界，test-only commit `768127951c57e01aa09ed16de4c2e5e9ee929b4c`；没有production修补。旧v4仅精确恢复原偏好/模拟risk选择，SEEDED marker/JPEG/业务fixture保留。全新 `Mirra_API_37_Final` fresh userdata在67.650sec健康窗口后，唯一未过滤connected取得286 discovered /282 executed /282 passed /0业务failure或error /4明确opt-in assumptions；DND3/channel5/Theme3及六width/font项实际执行。v5 seed1/1→full立即前后→candidate覆盖→assert1/1全链保留JPEG/四偏好/risk/marker，成功按原fixture恢复。随后fresh JVM318/318、lint0errors/9existingwarnings/1hint、build通过，最终exact APK覆盖安装/普通及断网冷启动/History/Search/Note/JPEG/Topic读取完成。权限/网络/原start-blue-false-false/空risk选择均恢复并真实读回，无Active Session/Intent/Segment、FGS、Overlay、干预通知或意外active Mirra rule。详细计数、artifact和证据性质见 [fresh AVD final gate](evidence/phase3d-final/fresh-avd-final-gate.md)。Phase3D未冻结，不进入下一Phase。
+Phase 3D 正式完成并冻结。Phase 3D-4 已通过用户独立验收，Accepted validation HEAD 为 `bf1082983859c1f24d096e3bb49d4bcb92afc34e`；最终 test-only durable flush correction 为 `768127951c57e01aa09ed16de4c2e5e9ee929b4c`，精确生产父 / Phase 3D-3 Freeze 为 `80ece95cf24918627e57a57bb6a6d94c253528b0`。3D-4 没有 production fix。本次纯文档提交作为 Phase 3D-4 / 整个 Phase 3D 的 Formal Freeze，提交 SHA 见交付报告。当前分支 `codex/phase-3d-final-validation`；不合并 main、不创建 release、不进入下一 Phase。
 
-3D-3 Accepted implementation HEAD `54a9e2bdda28da80028aa5313ef243da593e976b`、3D-2 Freeze `4e15076265ad393c85bd5f0e08916f6e886e4be1`、3D-1 Freeze `ba480d9b61f0b71879b07113ec32fc840a97ddab`保持冻结。历史Recovery >120sec异常仍为“Observed once / Not reproduced in targeted diagnostic”，不宣称FIXED、ROOT CAUSE RESOLVED或AVD ISSUE；之前实际平台闭环Recovery91.661sec成功，不覆盖历史风险，本轮未重跑Recovery诊断。
+冻结能力包括继承的 monitored Session foundation、SessionSegment timeline、monitoring coverage、risk App confirmation、Break / Allowance / Recovery / Stable Start / Deep Focus rules、DND protection 与 safe cross-app intervention，以及 Closeout A/B、crash / PENDING recovery、effective focus metrics / reading speed、统一 ReadingRecord（Summary / History / Search）、真实本地存储保留与离线 Debug 交付。这是产品行为与个人试用开发基线冻结，不是发布级 Android 全设备或 OEM compatibility complete；Module 3B 的未测设备矩阵不因本次冻结升级为 PASS。
+
+用户独立 review 已核对最终 branch diff、test-only correction、fresh AVD final gate、v5 preservation chain 与最终 APK evidence，未发现新的阻断缺陷。该独立 review 与本次纯文档冻结均没有重新运行 Gradle / AVD；下列自动化、平台、覆盖安装和离线结果全部来自已提交的 Codex 执行证据，详见 [fresh AVD final gate](evidence/phase3d-final/fresh-avd-final-gate.md) 与 [Independent Acceptance](checkpoints/2026-10-04-module-3d-final.md#independent-acceptance)。
+
+3D-3 Accepted implementation HEAD `54a9e2bdda28da80028aa5313ef243da593e976b`、3D-2 Freeze `4e15076265ad393c85bd5f0e08916f6e886e4be1`、3D-1 Freeze `ba480d9b61f0b71879b07113ec32fc840a97ddab`保持冻结。历史 Recovery >120sec 异常仍为“Observed once / Not reproduced in targeted diagnostic / Root cause unresolved / No production fix”，不宣称 FIXED、ROOT CAUSE RESOLVED 或 AVD ISSUE；后续真实成功 91.566 / 90.827 / 90.858 / 91.006 / 91.661sec 不覆盖历史风险，本轮未重跑 Recovery 诊断。
 
 Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c07fbabf050d6d5ac3aeae0677d5e5abf14f4465`，包括 Clock Rollback Correction、Tasks 1–6 与 Acceptance Patch。Phase 2、Module 3A、Mirra Blue / Visual Parity 与整个 Module 3C 保持原冻结语义。Module 3B 是个人试用开发基线，不等于发布级设备能力验收完成。Room v4 / schemas 1–4 不变。API 23–36 full matrix、OEM / 实体设备完整矩阵、TalkBack、release / Play、真实硬件断电与真实系统时钟人工修改继续 `NOT RUN`，API 37 AVD 结果不外推；一加 13T 反馈仍仅为个人试用。
 
@@ -18,7 +22,7 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 - v5真实installed storage seed1/1 + candidateinstall-r + assert1/1；JPEG818bytes同path/SHA，pre/post full/install四偏好、riskhash与SEEDED marker字节完全相同。成功marker正常为VERIFIED_PREFERENCES_RESTORED，最终start/blue/false/false、risk0/原整表hash、active0/0/0。旧v4通过独立restore1/1仅恢复原偏好/risk，保持SEEDED/UNCONSUMED；不assert/reseed/补缺图。
 - 全量后fresh JVM318/318、lint0errors/9existingwarnings/1hint、assembleDebug PASS。最终Debug APK16488770bytes，SHA `9C9B33337A8FB9A3969089308C28E8302AB285939DFBD47A4103CC7D48C68CD9`，0.1.0/code1，buildHEAD `768127951c57e01aa09ed16de4c2e5e9ee929b4c`。exact交付文件覆盖、普通/断网cold start及五类读取PASS；受控trusted记录截图不冒称真实FULL监测，原fixture/实际平台截图分类保留。
 - 四权限精确恢复default/false/default/false及原POSTflags；网络1/1，平台残留0、ZenOFF。Room4/Schema1–4全hash不变，生产/JVM-test/Manifest/Gradle/Migration相对父Freeze0diff。临时helper/AVDguard适配已从源码及最终已安装testAPK移除，不提交。
-- 本包只达到validation complete / awaiting independent acceptance，未自行Freeze。API23–36/OEM/fullphysical/TalkBack/releasePlay/真实断电/人工系统时钟/实际15minDeep/真实OSquery-gap仍NOT RUN。已有90秒Recovery/near-finish/PENDING实际证据独立引用，本轮不冒称重新执行。
+- 本包已独立验收，Phase 3D-4 / 整个 Phase 3D 正式冻结。API23–36/OEM/fullphysical/TalkBack/releasePlay/真实断电/人工系统时钟/实际15minDeep/真实OSquery-gap仍NOT RUN；API37 AVD 结果不得外推。已有90秒Recovery/near-finish/PENDING实际证据独立引用，独立 review 与本次纯文档冻结不冒称重新执行。
 
 ## Earlier Same-userdata Revalidation and Mandatory Stop — retained history
 
@@ -226,7 +230,7 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 
 ## Pending
 
-- Phase3D-4等待用户独立验收：新fresh AVD唯一clean full、v5真实保留链、fresh JVM/lint/build、exact APK/离线读取和权限收尾已完成。旧v4仅精确恢复原偏好/risk，保留SEEDED/UNCONSUMED；v2FAILED/v3中断/旧缺图与全部历史失败继续保留。独立验收前不自行Freeze Phase3D、修改生产或进入下一Phase。
+- Phase 3D 已正式关闭，目前没有获授权的下一阶段实施任务；下一 Phase 仍等待用户单独明确授权。旧 v4 仅精确恢复原偏好/risk，保留 STOPPED_FULL_FAILURE / UNCONSUMED 与 SEEDED marker；v2 FAILED_PREFERENCES_RESTORED、v3 INTERRUPTED / UNCONSUMED、旧缺图与全部历史失败继续保留。
 - Phase 3｜Module 3B Task 6 仍待最终独立验收。Task Manager Stop、reboot、完整 risk/lock/revocation 矩阵、API 23/29/33/34/35 与实体/OEM 设备继续为 `NOT RUN`，不用 API 37 AVD 结果代替。
 
 ## Known Risks / Unknowns
@@ -249,15 +253,16 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 ## Git
 
 - Current branch: `codex/phase-3d-final-validation`；精确 parent `80ece95cf24918627e57a57bb6a6d94c253528b0`。
+- Phase 3D-4 Accepted validation HEAD: `bf1082983859c1f24d096e3bb49d4bcb92afc34e`。本次纯文档提交为 Phase 3D-4 / 整个 Phase 3D Formal Freeze，SHA 与 local / remote 一致性见交付报告，不替代该验收 HEAD。
 - Latest fresh-gate build/test HEAD: `768127951c57e01aa09ed16de4c2e5e9ee929b4c`（`test(session): verify draft flush at durable closeout boundary`），仅PhaseOneCorrectionTest.kt；GREEN19/19后独立Push。后续仅验证文档/受控截图提交，无production fix、未合并main或发布；最终local/remote SHA见交付报告。
 - Earlier same-userdata source HEAD: `b3b4c89d6ced6011babce93cd73bf49e2967115d`；原286完整节点/281PASS/1timeout/4assumptions与旧ANR保留为失败历史，不混写为当前fresh PASS。旧v4已获授权精确恢复prefs/risk但未consume。
-- AndroidTest image storage isolation patch: `9cfae55898ad6a1a21b0afb8a943a81599ad9ef8`（`test(storage): isolate android image fixtures`），定向GREEN后已独立Push；不含生产代码或验证文档。最新失败gate及恢复边界在独立证据提交记录，不标为3D-4 COMPLETE。
-- AndroidTest theme exact-original restore patch: `5331661f24e0d1f01a89deeeaaeafbb3d6a3a891`（`test(theme): restore persisted preference after lifecycle test`），单文件定向5/5后独立Push；临时helpers未提交。新的full中断/状态恢复证据单独提交，不标为3D-4 COMPLETE。
+- AndroidTest image storage isolation patch: `9cfae55898ad6a1a21b0afb8a943a81599ad9ef8`（`test(storage): isolate android image fixtures`），定向GREEN后已独立Push；不含生产代码或验证文档。历史该轮失败gate及恢复边界保留在独立证据提交记录，不改写为当时3D-4 COMPLETE。
+- AndroidTest theme exact-original restore patch: `5331661f24e0d1f01a89deeeaaeafbb3d6a3a891`（`test(theme): restore persisted preference after lifecycle test`），单文件定向5/5后独立Push；临时helpers未提交。历史该轮full中断/状态恢复证据单独保留，不改写为当时3D-4 COMPLETE。
 - Frozen Phase 3D-3 accepted implementation HEAD: `54a9e2bdda28da80028aa5313ef243da593e976b`，已独立验收并正式冻结。精确父Freeze / Phase 3D-2 Freeze: `4e15076265ad393c85bd5f0e08916f6e886e4be1`。Task 1–6独立提交、实际Gate与证据见3D-3 checkpoint；正式文档Freeze为 `80ece95cf24918627e57a57bb6a6d94c253528b0`，不替代实现SHA。不合并main、不发布。
 - Phase 3D-1 Freeze / Phase 3D-2 exact parent: `ba480d9b61f0b71879b07113ec32fc840a97ddab`。
 - Frozen Phase 3D-2 accepted implementation HEAD: `9b137ea51e824f59ab3480ed770c9dcf24da2d87`，已独立验收并正式冻结；独立 Task 1–4 提交、验证与冻结结论见3D-2 checkpoint，不合并 main。纯文档 Freeze commit 另行报告，不替代该实现 SHA。
 - Frozen Phase 3D-1 accepted implementation HEAD: `c07fbabf050d6d5ac3aeae0677d5e5abf14f4465`（`fix(focus): reject closeout before durable learning facts`），已独立验收并正式冻结。冻结文档提交另行报告，不替代该实现 SHA。
-- Current planning freeze base: `758b3bc163ccc7a187f85594d1c04fbda5ecf7d4`；accepted prerequisite `2d43e8875ed8dc4b93c0411661262909ca5dc56c`。Task 5 实现 `087f6dce67767d4c7e6941d75f11aec0f9455b74`；Tasks 1–4 与额外 ownership fence 的完整 SHA 见 3D-1 checkpoint。未合并 main。
+- Phase 3D-1 planning freeze base: `758b3bc163ccc7a187f85594d1c04fbda5ecf7d4`；accepted prerequisite `2d43e8875ed8dc4b93c0411661262909ca5dc56c`。Task 5 实现 `087f6dce67767d4c7e6941d75f11aec0f9455b74`；Tasks 1–4 与额外 ownership fence 的完整 SHA 见 3D-1 checkpoint。未合并 main。
 - Frozen 3C-4 implementation commit: `da461423dbbe17f0a875373d7a4c38f2a1830788`（`feat(focus): finalize module 3c experience`），已由用户核对远程并正式验收；Module 3C 整体正式冻结，未合并 main。
 - Frozen 3C-3 implementation commit: `b9843eb5c3879899e148792a6a1f252e4b6d573d`（`feat(focus): add safe cross-app intervention`），已由用户核对远程并正式验收；未合并 main。
 - 3C-1 original implementation base: `61ed78f94125e7049c5d4ca73be1b16c5416043b`
@@ -267,4 +272,4 @@ Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c0
 
 ## Next Recommended Task
 
-用户独立审查本轮legacy durable-boundary test-only commit、新fresh AVD gate、v5保留链、最终APK/离线读取及恢复证据：`docs/evidence/phase3d-final/fresh-avd-final-gate.md` 与最终checkpoint。当前仅validation complete / awaiting independent acceptance；只有另行验收与纯文档Freeze授权后才能关闭Phase3D。Room4/schemas1–4、Phase2/3C/3D1–3冻结语义及发布级NOT RUN不变；保留全部旧失败、未消费marker和缺图，不进入下一Phase。
+Phase 3D 已独立验收并正式冻结，本轮完成纯文档同步后停止。下一 Phase 尚未开始，等待单独明确授权，不自动规划或实施。Room4/schemas1–4、Phase2/3C/3D1–3冻结语义及发布级NOT RUN不变；保留全部旧失败、未消费marker和缺图。正式结论见 `docs/checkpoints/2026-10-04-module-3d-final.md` 的 Independent Acceptance。
