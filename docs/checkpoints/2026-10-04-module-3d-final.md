@@ -1,6 +1,6 @@
 # Phase 3D-4 — Final validation and personal-use delivery
 
-更新日期：2026-10-06。当前状态：Recovery诊断结论已接受，剩余真实平台闭环已补齐；最终connected存在两项未定根因超时，且受控图片保留检查发现缺失JPEG/未隔离测试清理，触发数据停止条件。配置已恢复，待单独审查/修补授权；3D-4尚未完成，Phase3D未冻结。下文所有早期RED、权限前提、失败与NOT RUN作为历史继续保留，最新状态见末尾2026-10-06补充。
+更新日期：2026-10-06。当前状态：授权的androidTest image isolation已完成并Push，新单次full connected280业务断言全通过、JPEG保留；同key覆盖断言因既有主题测试固定写Blue使偏好不一致而失败。原权限/偏好/网络已恢复，新增fixture模拟风险选择尚待精确cleanup授权；不扩范围修主题、不改FAILED marker。3D-4尚未完成，Phase3D未冻结。Recovery诊断与剩余实际平台闭环的原证据、全部早期RED/前提/失败/NOT RUN均保留；最新状态见末尾image-isolation补充。
 
 ## Contract and exact parent
 
@@ -223,3 +223,55 @@ connected实际构建的app-debug.apk为16488770bytes、SHA-256 `9C9B33337A8FB9A
 API23–36 full matrix、OEM/完整实体机、TalkBack、release/Play、真实硬件断电、人工系统时钟、真实15min Deep继续NOT RUN。一加13T试用不升级OEM PASS；API37自动化/普通UI/受控fixture证据严格分列。
 
 **最新停止点：测试文件隔离/受控图片保留待审查授权。Phase 3D-4未完成；没有自行Freeze Phase3D，没有进入下一阶段。** 本轮只保存真实验证证据、历史风险与安全停止状态，不把内部审计称为用户独立验收。
+
+## AndroidTest image isolation patch and new preservation gate — 2026-10-06
+
+上文测试文件隔离授权等待与失败为历史，保留不删。本轮用户独立审查正式裁定 TEST HARNESS ISOLATION DEFECT，授权 androidTest-only image storage isolation；没有证据认为 production ImageStorageService / ImageRepository 删除旧JPEG。Pre-patch HEAD `4d995534306291aae84bcb71968f98fc745d17be`；独立test-only修补已Push：`9cfae55898ad6a1a21b0afb8a943a81599ad9ef8`（`test(storage): isolate android image fixtures`）。
+
+### Implementation scope and TDD
+
+- 每个真实storage测试owner使用自己的UUID TestImageStorageSandbox：处于现有camera FileProvider subtree下，ContextWrapper.filesDir/applicationContext指向独立根；严格canonical guard只删本UUID，不删parent/sibling/production images、DB或marker。
+- TestAppContainer及ImageStorageServiceTest / ModuleTwoANoteRepositoryTest / ModuleTwoCSearchRepositoryTest / ModuleTwoCTopicRepositoryTest / StudyWorkflowRepositoryTest全部隔离；ModuleTwoBFlowTest相机写入使用androidTest sandbox resolver。完整owner审计、12文件清单及原断言保留说明见 [isolation evidence](../evidence/phase3d-final/test-image-storage-isolation.md)。真正installed-storage preservation fixture仍使用真实MirraApplication.container，不sandbox/fake化。
+- RED2/2预期失败，初始GREEN8/8；首次六类定向40tests/8FileProvider失败。实际审计AndroidX authority缓存后，只有test helper用native targetContext预建现有路径strategy；probe不创建文件、不扩大Manifest path。新增两sandbox真实camera URI回归。最终编译PASS、helper/key9/9PASS、六owner40/40PASS，原失败保留，不删断言或加timeout。
+- 新显式evidence key严格1–64 ASCII allowed chars；无参数精确保留legacy marker，非法不fallback。新storage-isolation-v2 seed1/1实际PASS；在production Repository创建受控新书/Note/JPEG/Topic/合法Session事实，不补造旧历史。定向GREEN后先独立commit/Push，再进入全量。
+
+### One clean full execution and immediate file check
+
+仅对专用Mirra_API_37 virtual/API37/boot1，四项授权先保存/确认真实原状态、临时开启、重新读回，再运行一次完整未过滤connected；另一个virtual transport未操作。Full actual19m22s、exit0、BUILD SUCCESSFUL。
+
+| Count | Actual |
+| --- | --- |
+| XML discovered | 284 |
+| XML failure nodes / errors / skipped | 4 /0 /0；四failure节点均AssumptionViolatedException |
+| Semantic executed / passed | 280 /280 |
+| Assertion failures / errors | 0 /0 |
+| Default opt-in assumptions | 4（pending_prepare / pending_assert / data_seed / data_assert）；不算实际执行PASS |
+| DND platform / intervention channels | 3/3 +5/5实际执行PASS，原五项permission prerequisite cases真正进入主体 |
+| New sandbox/key ordinary regression | 9/9实际执行PASS |
+
+此前两个Phase1 timeout在本次full都PASS，没有再做第三次targeted rerun；旧275/271/269/2timeouts/4assumptions、原定向诊断2/2和执行参数引用失败继续保留。六width/font原自动化也实际PASS，不冒充新人工尺寸测试。
+
+新真实ImageAsset `cf5826e7-57c4-4739-90f8-d911b5c7e8c0`，相对path `images/8081cbe6-b0e6-492b-a15f-ef23dca5fdb4.jpg`，80×120/818bytes。Full前立即、full后立即、覆盖安装及assert后均存在、同size、同SHA：`df30c3e577a2ac4ef7d299ee08c4c78e0f5e6a28016e6c595c7c206920793fcc`。Image isolation并未再次删除这张production-owned sentinel。
+
+### Cover assertion failed — existing theme-test contamination
+
+新JPEG跨full成功后，明确同AVD `install-r`当前candidate成功；同key data_assert实际 **1executed/0passed/1assertion failure/0assumption**。Runner -2/FAILURES不是PASS，即使ADBprocess exit0。全部业务/图片/Topic/关联/旧facts frame项一致，仅app_preferences不同：
+
+- baseline knowledge/night/true/true，frameHash `7548ed3dd6c8286074724c3c54724fa01543e33a6c58cdbacdf2423addf1c11a`。
+- observed knowledge/blue/true/true，frameHash `d37b683fbd3fc4ec221d395add2ce8399dcc381094f54d9b979cf6f31139c50e`。
+- 完整baseline hash `c06afac6563076f1ad9a0aa8d78bac6ed10c80bcd08264aaa677b246d7dbbdb0`；observedBefore hash `5db187cd187957145e9ff25050d66f3f9c56e013fc0ed2c2e253549f30a7df29`。
+
+只读源码和精确hash复核：既有MainActivityThemeLifecycleTest使用真实应用DataStore，finally固定setThemeId(BLUE)，没有恢复测试前Night。测试自身本次full通过，但污染了preservation偏好。不是production image损坏证据，也不是production主题缺陷。本轮授权仅image隔离，**未修改主题测试或扩大生产范围**。
+
+新marker已消费为FAILED_PREFERENCES_RESTORED，不能写Night再重试、改expected、重写FAILED marker或同key重seed掩盖失败。此处停止后，不继续最终新lint/assemble/APK/offlineGate；较早318/318JVM与lint/build仅为原执行历史，不冒称本次image patch后fresh回归。
+
+### Actual restoration and remaining controlled risk row
+
+- assert finally已恢复原knowledge/blue/dnd=false/cross-app=false，restorehash `12311ba07fc3daf6152044c4b02fc96a61901e3c0443addb4bba3da2126bda95`。
+- Usage/Overlay appops恢复default；实际DND approval=false；POST_NOTIFICATIONS=false及原flags；全部再读回。网络Wi-Fi/mobiledata仍1/1。Legacy secure值null不作为DND授权证明，历史TRUE日志不作为当前rule ACTIVE证明。
+- ActiveSession/Intent/Segment0/0/0，无monitorServiceRecord/Overlay/ID3002intervention；当前ownruleSTATE_FALSE、ZenOFF；不操作任何physicaldevice。
+- **risk selection未完全恢复**：失败未进入verified=true success-only cleanup，新增不可启动模拟包 `com.guanyi.mirra.test.preservation.pd5f7c1869c9a4e4892b4e8bb49aaf187`仍保留。原风险行未变化，risk_apps共2条。不直接改SQLite、不临时加入新cleanup代码；后续需要独立授权，用本run marker及原风险整表hash验证仅移除本次模拟选择，继续保留FAILED证据。
+- 旧broken ImageAsset `bbd73522-cf32-404c-819f-10a6d53526d4`与缺失JPEG保持原状，旧legacy marker SHA仍 `6bbd53c86d2cd35dd1b99e74af79e28925c9335cce45e9c73ffc1de54a7fd445`；未补图、删行或改marker。
+- Room4/Schema1–4均原hash；v4=`EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`。生产/app/src/test/Manifest/Gradle/Room/Migration相对父Freeze无diff。本轮source patch仅androidTest12文件，随后仅证据文档commit。
+
+**当前停止点：需要独立审查授权最小androidTest主题原值恢复、FAILED fixture风险选择精确cleanup和新独立preservation run。Image isolation及单次full已成功，但完整preservation失败，3D-4未完成、Phase3D未冻结。** API23–36/OEM/fullphysical/TalkBack/release/Play/真实断电/人工walltime/真实15minDeep继续NOT RUN；此前Recovery观察一次异常与所有RED完整保留。内部只读审核不代替用户独立验收。

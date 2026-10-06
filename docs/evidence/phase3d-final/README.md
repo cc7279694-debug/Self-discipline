@@ -4,9 +4,17 @@
 
 - Exact parent: `80ece95cf24918627e57a57bb6a6d94c253528b0`.
 - Environment: explicitly selected `Mirra_API_37`, Android 17 / API37 AOSP AVD. No physical-device operations.
-- Current scope/status (2026-10-06): frozen production semantics, validation only. Remaining actual platform flow completed, but final full connected has two real timeouts and the controlled JPEG preservation check fails; existing test storage is also confirmed not isolated. **STOP / review required; 3D-4 incomplete, no Phase3D freeze.** See [final regression blockers](final-regression-blockers.md).
+- Current scope/status (2026-10-06): test-only image isolation patch completed; one unfiltered full run has280 executed /280 passed /4 default opt-in assumptions and the new JPEG is byte-preserved. Same-key install-r data_assert fails only on real theme preferences: existing MainActivityThemeLifecycleTest resets NIGHT to BLUE. Original permissions/preferences/network restored; one newly controlled synthetic risk selection remains pending precise cleanup authorization. **STOP / review required; 3D-4 incomplete, no Phase3D freeze.** See [test image storage isolation](test-image-storage-isolation.md).
 
-## Latest execution and safe stop — 2026-10-06
+## Latest image isolation execution and preference stop — 2026-10-06
+
+- Test-only patch `9cfae55898ad6a1a21b0afb8a943a81599ad9ef8`:12androidTest files,0production changes; unique guarded image sandboxes, realcamera URI/root checks, new explicit evidence key. Original missing JPEG/row/marker untouched. Directed9/9 and sixowner40/40 PASS; initialRED and FileProvider cache failures retained.
+- New real-storage storage-isolation-v2 seed1/1PASS; exact sameJPEG818bytes/SHA beforefull/afterfull/immediatelypostinstall/assert. Full connected284discovered/280executed/280passed/0assertionfailures/4assumptions; rawXML4failure nodes allAssumptionViolatedException. DND3+channel5 actualPASS, previousPhase1 two timeout cases actuallyPASS inthissinglefull, no third targeted rerun.
+- Same-key data_assert1executed/0passed/1assertionfailure:onlythemeNight→Blue; allbusiness/media frame entries identical. MarkerFAILED_PREFERENCES_RESTORED is retained, not retried/reseeded. Theme test patch and failure-only precise risk cleanup require separate scope approval; production remains frozen.
+- Four temporarypermissions and originalknowledge/blue/dndOFF/crossOFF restored/readback; network1/1; noActiveSession/Intent/Segment/FGS/Overlay/interventionnotification/unexpectedownDND. Newly seeded synthetic risk row remains because failedassert neverentered success-onlycleanup; originalriskrow unchanged. Thisis notfullriskrestoration.
+- Finalfresh lint/assemble/offline/finalAPKgate stopped; earlierJVM318 andlint/build remainhistoricalactualevidence, notnew execution. API/OEM/physical/TalkBack/releaseNOTRUN unchanged; nophysicaldeviceops.
+
+## Earlier execution and storage stop — retained 2026-10-06 history
 
 - [Actual remaining platform flow](final-remaining-platform-flow.md): near-finish Usage revoke and controlled stop durably PARTIAL/UNMONITORED before NORMAL closeout; final Start/FULL/notification/Allowance/91.661sec Recovery/precise closeout/three-record-entrances and ≥32sec result stability. Four new actual controlled-AVD captures linked there, not fixtures or OEM proof.
 - Fresh JVM318/318/0failed/error/skipped. Fresh unfiltered connected275 discovered /271 executed /269 passed /2 real ComposeTimeoutException /0error /4opt-in assumptions; raw XML6failure/0error/0skipped, task exit1. All five gated platform assertions and six width/font cases actually passed. Unchanged targeted2/2 rerun is diagnostic only, not a full-suite PASS.
