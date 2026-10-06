@@ -1,19 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Kept under the existing name for notification smallIcon callers. No opaque tile. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:fillColor="#F7F5F0"
-        android:pathData="M0,0H108V108H0Z" />
-    <path
-        android:fillColor="#315C4C"
-        android:pathData="M16,54C27,34 81,34 92,54C81,74 27,74 16,54Z" />
-    <path
-        android:fillColor="#F7F5F0"
-        android:pathData="M54,39A15,15 0,1 0,54 69A15,15 0,1 0,54 39" />
-    <path
-        android:fillColor="#315C4C"
-        android:pathData="M54,47A7,7 0,1 0,54 61A7,7 0,1 0,54 47" />
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <group android:scaleX="0.8" android:scaleY="0.8"
+        android:translateX="-19.2" android:translateY="-17.6">
+        <path android:fillColor="#FFFFFFFF"
+            android:pathData="M34,80V47C34,34.85 42.95,25 54,25C65.05,25 74,34.85 74,47V80Z M43,75H65V47C65,40.92 60.08,36 54,36C47.92,36 43,40.92 43,47Z" />
+        <path android:fillColor="#FFFFFFFF"
+            android:pathData="M59,42L65,38V75L59,72Z" />
+    </group>
 </vector>

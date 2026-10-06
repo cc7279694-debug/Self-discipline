@@ -7,4 +7,8 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
+    <!-- Static starting window only; Compose keeps the frozen Mirra Blue theme. -->
+    <style name="Theme.Mirra.Starting" parent="Theme.Mirra">
+        <item name="android:windowBackground">@drawable/mirra_starting_window</item>
+    </style>
 </resources>

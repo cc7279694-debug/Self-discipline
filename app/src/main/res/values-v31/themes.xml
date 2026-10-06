@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Framework SplashScreen, static vector; no library, timer or launch animation. -->
+    <style name="Theme.Mirra.Starting" parent="Theme.Mirra">
+        <item name="android:windowBackground">@color/mirra_brand_background</item>
+        <item name="android:windowSplashScreenBackground">@color/mirra_brand_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_mirra_foreground</item>
+    </style>
+</resources>

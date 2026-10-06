@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Legacy system starting window, not an extra Activity or welcome screen. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/mirra_brand_background" />
+    <item android:width="288dp" android:height="288dp" android:gravity="center"
+        android:drawable="@drawable/ic_mirra_foreground" />
+</layer-list>

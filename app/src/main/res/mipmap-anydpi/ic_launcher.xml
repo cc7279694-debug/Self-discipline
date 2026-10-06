@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 23–25 scalable legacy fallback. Not a raster screenshot. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/mirra_brand_background" />
+    <item android:drawable="@drawable/ic_mirra_foreground" />
+</layer-list>

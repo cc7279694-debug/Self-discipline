@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Inner Window: a quiet arch, open door plane and light crossing its threshold.
+     Artwork stays inside the central 66dp circle of this 108dp adaptive layer. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="@color/mirra_brand_charcoal"
+        android:pathData="M34,80V47C34,34.85 42.95,25 54,25C65.05,25 74,34.85 74,47V79L70,80Z" />
+    <path android:fillColor="@color/mirra_brand_reveal"
+        android:pathData="M34,80V53C34,43 40,36 47.5,34.5V71L66,80Z" />
+    <path android:fillColor="@color/mirra_brand_door"
+        android:pathData="M47.5,71V48C47.5,39.5 55.5,34 65.5,31V75.4Z" />
+    <path android:fillColor="@color/mirra_brand_floor"
+        android:pathData="M34,80L47.5,71L66,80Z" />
+    <path android:fillColor="@color/mirra_brand_light"
+        android:pathData="M47.5,71L74,79L70,80H66Z" />
+</vector>

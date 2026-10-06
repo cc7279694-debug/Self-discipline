@@ -1,5 +1,27 @@
 # Decisions
 
+## 2026-10-06 — Inner Window 品牌资源与 Mirra Blue 分离
+
+### Decision
+
+按用户批准的“静心之窗 / Inner Window”生产适配品牌资源，保留拱门、打开的门板、空间纵深与光路；Launcher / Splash 使用炭黑、暖米白与灰米色，Android themed icon 使用纯单色透明轮廓。
+
+### Context
+
+Phase 3D 已冻结。旧绿色图标同时用于 Launcher 和两个通知 smallIcon；App 内只有既有文字品牌，没有需要替换的 Logo 图片。
+
+### Alternatives
+
+直接裁剪设计截图；为品牌颜色重做 Mirra Blue；新增欢迎页面；修改冻结通知逻辑或引入图标框架。
+
+### Reason
+
+透明矢量前景与独立背景保证安全区和小尺寸识别，去除参考图纹理。保留旧通知资源名但改为透明白色轮廓，避免更改平台调用。静态启动主题不增加页面、动画或延迟。
+
+### Consequences
+
+Mirra Blue、信息架构、业务与 Room v4 不变。SVG 是可维护源图，不新增权限或依赖；已有 Start / Mine 不添加新 Logo。品牌专项 API37 证据不外推为 OEM / 实体设备 / release PASS；Phase 4 不在本任务范围内。
+
 ## 2026-09-21 — Module 3B Task 5A DND 兼容矩阵与归属安全
 
 ### Decision

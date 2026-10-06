@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <title>观已 Mirra — Inner Window</title>
+  <desc>Transparent vector master. Arch, open door plane, and light crossing the threshold. No text, texture, or embedded raster.</desc>
+  <path fill="#343532" d="M34,80V47C34,34.85 42.95,25 54,25C65.05,25 74,34.85 74,47V79L70,80Z"/>
+  <path fill="#5C5B55" d="M34,80V53C34,43 40,36 47.5,34.5V71L66,80Z"/>
+  <path fill="#E8E3D7" d="M47.5,71V48C47.5,39.5 55.5,34 65.5,31V75.4Z"/>
+  <path fill="#8B887E" d="M34,80L47.5,71L66,80Z"/>
+  <path fill="#FFFDF4" d="M47.5,71L74,79L70,80H66Z"/>
+</svg>

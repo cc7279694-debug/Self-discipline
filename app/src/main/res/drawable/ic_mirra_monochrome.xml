@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One ink, transparent negative space, no shading or gradient. System supplies tint. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M34,80V47C34,34.85 42.95,25 54,25C65.05,25 74,34.85 74,47V80Z M43,75H65V47C65,40.92 60.08,36 54,36C47.92,36 43,40.92 43,47Z" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M59,42L65,38V75L59,72Z" />
+</vector>

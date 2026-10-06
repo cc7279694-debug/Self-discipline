@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Brand asset palette, deliberately separate from Mirra Blue UI tokens. -->
+<resources>
+    <color name="mirra_brand_background">#F6F3EC</color>
+    <color name="mirra_brand_charcoal">#343532</color>
+    <color name="mirra_brand_reveal">#5C5B55</color>
+    <color name="mirra_brand_door">#E8E3D7</color>
+    <color name="mirra_brand_floor">#8B887E</color>
+    <color name="mirra_brand_light">#FFFDF4</color>
+</resources>
