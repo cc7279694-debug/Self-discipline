@@ -1,6 +1,6 @@
 # Phase 3D-4 — Final validation and personal-use delivery
 
-更新日期：2026-10-06。当前状态：授权的androidTest image isolation已完成并Push，新单次full connected280业务断言全通过、JPEG保留；同key覆盖断言因既有主题测试固定写Blue使偏好不一致而失败。原权限/偏好/网络已恢复，新增fixture模拟风险选择尚待精确cleanup授权；不扩范围修主题、不改FAILED marker。3D-4尚未完成，Phase3D未冻结。Recovery诊断与剩余实际平台闭环的原证据、全部早期RED/前提/失败/NOT RUN均保留；最新状态见末尾image-isolation补充。
+更新日期：2026-10-06。当前状态：accepted image/theme测试隔离修补均保留；唯一新full完整286节点、281PASS/1历史同位置timeout/4opt-in assumptions，非clean。v4seed及pre/post/final快照完整保留，未install/data_assert/fresh final gate。收尾发现SystemUI ANR，记录发生在full之前，不能确诊生产根因。四权限/网络恢复，原偏好和v4模拟风险选择尚未恢复，等待架构/环境审查及精确cleanup授权；3D-4未完成，Phase3D未冻结。所有历史RED、missing JPEG、v2FAILED、v3INTERRUPTED/UNCONSUMED和未测边界保留；最新实际证据见末尾same-userdata revalidation及新脱敏文档。
 
 ## Contract and exact parent
 
@@ -306,3 +306,20 @@ API23–36 full matrix、OEM/完整实体机、TalkBack、release/Play、真实�
 - 再次实际核对Room4/Schema1–4全部freeze hash，v4 `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`；app/src/main、app/src/test、Room/Schema/Migration、Manifest/Gradle/依赖相对精确父Freeze无diff。未操作实体手机，无wipe/pm clear/uninstall/reboot/系统时间修改。
 
 **当前停止点：环境/runtime中断的full需独立审查与稳定环境重新验证授权。Phase3D-4仍未完成，Phase3D未Freeze，未进入下一阶段。** 本轮只补主题test-only修复及脱敏证据，历史风险和所有NOT RUN继续保留；内部只读核对不冒充用户独立review或重新执行完整Gradle/AVD。
+
+## Same-userdata environment revalidation — 2026-10-06
+
+上文v2失败、v3环境中断及收尾是历史，不以本节改写。最新授权基线 `b3b4c89d6ced6011babce93cd73bf49e2967115d`，本轮不修改任何源码/test。完整记录见 [stable environment revalidation](../evidence/phase3d-final/stable-environment-revalidation.md)。
+
+- 同一专用API37 AVD仅一次正常reboot，不wipe/clear/uninstall/回滚snapshot/改时钟/操作实体机；四次重复服务健康读71.485sec，真实installed 0.1.0/code1与MainActivity保持。原active0/0/0及系统残留0，四权限/网络/原knowledge-blue-false-false/原riskhash均先记录。维护不计hardware reboot/power-lossPASS。
+- 新key `storage-isolation-v4` real-storage seed1/1PASS/0assumption，2.897sec；frame `5f64ecb5c28150c313911516623a30dfdd8e63bf1fddf52d5158afb87bc86e35`；SEEDED marker `633681c91ffb61f1efff601bca7c64f55450d4f25d1afb3d1d7efc62a2184c85`。JPEG818bytes、`df30c3e577a2ac4ef7d299ee08c4c78e0f5e6a28016e6c595c7c206920793fcc`；seed prefs knowledge/night/true/true，riskhash `ce03da40460ffd56f7a611e8cf20df78d5c567c3b88822b5fd92eea5ca260015`。逐项临时平台授权并真实readback。
+- 唯一新完整未过滤connected实际35m32s/exit1，286节点且身份/终态完整无重复；282实际执行并完成，281PASS、1真实ComposeTimeout、4opt-in assumptions、0error/empty/other-skipped。raw XML286tests/5failure/0error/0skipped：4failure是AssumptionViolatedException，不称5业务fail或286PASS。XML64,683bytes/SHA `6D5BDBBC4A96D8F1CB4D1FF4EBAD043AA9ECFA86A59347804DD83BD61F845BE6`。
+- `PhaseOneCorrectionTest.finishingImmediatelyFlushesDraft`再次line130/5000ms等待“1 条笔记”失败，38.324sec；另一历史LearningLoop真实PASS54.545sec。DND3/3、channel5/5、theme3/3实际断言PASS，六自动宽度/字号PASS不替代人工installed gate。没有targeted、第二full、加timeout、绕断言或生产fix；满足FULL_SUITE_INTERMITTENT_CONFIRMED/ARCHITECTURE_REVIEW_REQUIRED。
+- full前/自动即时post-full/最终只读v4 JPEG、四偏好、risk整表和marker全相等，active0/0/0。禁止的candidateinstall-r、data_assert、freshJVM/lint/build、finalAPK/离线/人工视觉gate均停止/NOT RUN；这是失败full中的snapshot保留，不是完整preservationPASS。v4外部状态STOPPED_FULL_FAILURE/UNCONSUMED，marker保持SEEDED原字节。
+- 失败后与full后service均found且crash无DeadSystem，但收尾实际UI见“Process system isn't responding”。lastanr为SystemUI input-dispatch timeout，04:11:10UTC，早于full04:12:58；不能用服务healthy证明全程UI稳定，也不能从此确诊超时根因。未点击Wait/Close、未再次reboot；保留真实截图和本地原始记录，不称本轮system_server死亡/partial suite。
+- 系统四权限与网络读回原值：Usage/Overlay default、DND/POSTfalse及原POSTflags、网络1/1。当前ZenConfig中一条ownrule STATE_FALSE、ZenOFF，FGS/Overlay/ID3002通知0。早期本地dump宽泛扫描混入history TRUE，限定currentmConfig后核实inactive；未为此改DND。
+- **原prefs/risk尚未恢复**：系统dialog阻止正式UI收尾，当前仍knowledge/night/true/true及v4新增模拟riskrow；排除该行只读hash==原一行 `07b9ba7feafd9451048b6e0188abf6195c96549bf0431f5dee812a66bf869cc8`。正式UI无Blue setter、不可启动riskrow移除入口；在no-source/no-new-test边界下不原始改SQLite/DataStore、不重装旧cleanup helper、不通过failed-chain assert清理。需单独精准cleanup授权，不能冒称所有原状态已恢复。
+- legacy missingJPEG仍MISSING、旧ImageAsset仍1行、旧marker原SHA；v2FAILED marker原SHA与JPEG、v3SEEDED marker原SHA与JPEG都未变。v3保持INTERRUPTED/UNCONSUMED，无assert/reseed/删除。Recovery历史异常、两次旧timeout、上一DeadSystem/ADBpartial、RED/命令错误均保留；本地只读legacy path首错已保留，不记业务失败。
+- Room4、Schema1–4全原hash，v4 `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`；本轮source/test/Manifest/Gradle/Migration0diff、production相对父Freeze0diff。仅docs/evidence交付；内部核对不冒充独立用户验收。
+
+**当前停止点：full非clean，需架构/环境审查与v4原prefs/risk精准收尾授权。3D-4未完成、Phase3D未冻结，不进入下一Phase。** API23–36/OEM/fullphysical/TalkBack/release/Play/真实断电/人工系统时钟/实际15minDeep继续NOT RUN；本轮未操作一加13T或其他实体机。
