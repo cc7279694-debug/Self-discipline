@@ -18,6 +18,7 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ApplicationProvider
 import com.guanyi.mirra.data.local.entity.NoteSemanticType
+import com.guanyi.mirra.data.local.entity.SessionEndType
 import com.guanyi.mirra.navigation.TopLevelDestination
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -122,14 +123,35 @@ class PhaseOneCorrectionTest {
     @Test
     fun finishingImmediatelyFlushesDraft() {
         launchAtSession(currentPage = 10)
+        val sessionId = activeSessionId()
         composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performTextInput("最后一笔")
         composeRule.onNodeWithText("结束本次阅读").performClick()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasTestTag("confirm-session-finish")).fetchSemanticsNodes().isNotEmpty() }
-        composeRule.onNodeWithTag("confirm-session-finish").performClick()
 
-        composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(hasText("1 条笔记")).fetchSemanticsNodes().isNotEmpty()
+        // Confirmation is only presented after the draft's database save has completed.
+        val savedNotes = runBlocking { container.noteRepository.observeForSession(sessionId).first() }
+        assertEquals(1, savedNotes.size)
+        val savedNote = savedNotes.single()
+        assertEquals("最后一笔", savedNote.content)
+        assertEquals(sessionId, savedNote.sessionId)
+        assertEquals(10, savedNote.pageNumber)
+
+        composeRule.onNodeWithTag("confirm-session-finish").performClick()
+        val finished = runBlocking {
+            withTimeout(5_000) {
+                requireNotNull(container.studyWorkflowRepository.observeSession(sessionId).first {
+                    it != null && it.endType == SessionEndType.NORMAL &&
+                        it.endedAt != null && it.activeSlot == null
+                })
+            }
         }
+        assertEquals(sessionId, finished.id)
+        val record = runBlocking { requireNotNull(container.readingRecordRepository.observe(sessionId).first()) }
+        assertEquals(sessionId, record.session.id)
+        assertEquals(1, record.noteCount)
+        val retained = runBlocking { container.noteRepository.observeForSession(sessionId).first() }
+        assertEquals(1, retained.size)
+        assertEquals(savedNote, retained.single())
     }
 
     private fun launchAtPreparation() {
