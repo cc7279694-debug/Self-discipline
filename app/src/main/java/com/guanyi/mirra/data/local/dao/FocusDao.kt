@@ -18,6 +18,15 @@ data class PackageConfirmationCount(val packageName: String, val confirmations: 
 
 @Dao
 interface FocusDao {
+    @Query("SELECT * FROM session_focus_contexts WHERE sessionId IN (:sessionIds)")
+    suspend fun getContextsForSessions(sessionIds: List<String>): List<SessionFocusContextEntity>
+
+    @Query("SELECT * FROM session_segments WHERE sessionId IN (:sessionIds) ORDER BY sessionId, startedAt, id")
+    suspend fun getSegmentsForSessions(sessionIds: List<String>): List<SessionSegmentEntity>
+
+    @Query("SELECT * FROM focus_events WHERE sessionId IN (:sessionIds) ORDER BY sessionId, occurredAt, id")
+    suspend fun getEventsForSessions(sessionIds: List<String>): List<FocusEventEntity>
+
     @Query("""UPDATE session_focus_contexts SET closeoutState = 'PENDING',
         requestedEndPage = :requestedEndPage, closeoutStartedAt = :at, updatedAt = :at
         WHERE sessionId = :sessionId AND closeoutState = 'ACTIVE'""")

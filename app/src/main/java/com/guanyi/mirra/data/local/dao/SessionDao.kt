@@ -11,6 +11,32 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SessionDao {
+    @Query("""
+        SELECT s.id AS sessionId, l.name AS learningItemName, s.startedAt, s.endedAt,
+            s.startPage, s.endPage, s.endType, c.monitoringStatus
+        FROM study_sessions s JOIN learning_items l ON l.id = s.learningItemId
+        LEFT JOIN session_focus_contexts c ON c.sessionId = s.id
+        WHERE s.endedAt IS NOT NULL AND s.activeSlot IS NULL AND s.endedAt <= :snapshotNow
+            AND (:cursorEndedAt IS NULL OR s.endedAt < :cursorEndedAt
+                OR (s.endedAt = :cursorEndedAt AND s.id < :cursorSessionId))
+        ORDER BY s.endedAt DESC, s.id DESC LIMIT 51
+    """)
+    suspend fun loadGlobalHistoryRows(snapshotNow: Long, cursorEndedAt: Long?, cursorSessionId: String?):
+        List<com.guanyi.mirra.data.local.model.GlobalReadingHistoryRow>
+
+    @Query("""
+        SELECT id, learningItemId, intentId, startedAt, stableStartedAt, endedAt,
+            startPage, currentPage, endPage, endType, NULL AS generatedSummary, activeSlot
+        FROM study_sessions
+        WHERE endedAt IS NOT NULL AND (:fromInclusive IS NULL OR endedAt >= :fromInclusive)
+            AND endedAt <= :toInclusive
+            AND (:cursorEndedAt IS NULL OR endedAt < :cursorEndedAt
+                OR (endedAt = :cursorEndedAt AND id < :cursorId))
+        ORDER BY endedAt DESC, id DESC LIMIT 801
+    """)
+    suspend fun loadTrendPage(fromInclusive: Long?, toInclusive: Long,
+        cursorEndedAt: Long?, cursorId: String?): List<StudySessionEntity>
+
     @Insert suspend fun insert(session: StudySessionEntity)
 
     @Query("SELECT * FROM study_sessions WHERE id = :id")

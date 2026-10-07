@@ -18,6 +18,14 @@ Implementation and verification are in progress. See [execution contract](../pla
 
 ## Known limitations inherited
 
+## Task 2 — bounded data sources
+
+- Room targeted GREEN 4/4, 0failure/error/skipped. Actual SELECT budgets at0/1/800/801/1601 facts match2/5/5/10/15. One transaction per trends load; batches <=800,801lookahead, cursor at the last consumed fact. Shared history JOIN/projection included in this DAO-foundation commit so each commit compiles independently.
+- Benchmark at10,001 Intents +10,001 ended Sessions: controlled fixture creation25,964ms; reads1,582/1,217/1,162ms,65 SELECTs each. Java heap deltas+3,047,424/+1,183,744/-3,776,512 bytes are GC-sensitive sampled deltas, not peak memory or a constant-space claim. Exact medians retain scalar samples only; raw facts are batch-bounded.
+- First benchmark hit runTest's default one-minute total timeout while seeding and reading. Preserve this failure; benchmark-only timeout explicitly3minutes and seed/read measurements separated. No business assertion, production timeout or schema was changed.
+- EXPLAIN: Intent/Session cohort pages scan and temporary sort; Intent→Session uses the existing intentId index; Context uses its PK; Segment/Event batches use existing(sessionId,time)indexes plus partial temporary ordering. Measured10k reads are bounded on IO; no demonstrated need for a new index at this scope. Larger histories remain a performance risk requiring measurement/review, not an unapproved index.
+- UI integration initial run33cases/3failures: test incorrectly expected start-date time instead of endedAt, and offscreen LazyColumn actions used non-keyset-aware scroll selection. Test corrections will be verified, not counted as PASS yet.
+
 Historical RED/ANR/recovery/data-preservation limitations remain in their original records. API23–36/OEM/full physical matrix/TalkBack/release-Play/real power loss/manual system-clock modification: NOT RUN. OnePlus13T personal feedback is not compatibility acceptance.
 
 ## Stop point

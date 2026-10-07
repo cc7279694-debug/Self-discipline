@@ -9,6 +9,23 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface IntentDao {
+    @Query("""
+        SELECT i.*, s.id AS session_id, s.learningItemId AS session_learningItemId,
+            s.intentId AS session_intentId, s.startedAt AS session_startedAt,
+            s.stableStartedAt AS session_stableStartedAt, s.endedAt AS session_endedAt,
+            s.startPage AS session_startPage, s.currentPage AS session_currentPage,
+            s.endPage AS session_endPage, s.endType AS session_endType,
+            NULL AS session_generatedSummary, s.activeSlot AS session_activeSlot
+        FROM study_intents i LEFT JOIN study_sessions s ON s.intentId = i.id
+        WHERE (:fromInclusive IS NULL OR i.createdAt >= :fromInclusive)
+            AND i.createdAt <= :toInclusive
+            AND (:cursorCreatedAt IS NULL OR i.createdAt < :cursorCreatedAt
+                OR (i.createdAt = :cursorCreatedAt AND i.id < :cursorId))
+        ORDER BY i.createdAt DESC, i.id DESC LIMIT 801
+    """)
+    suspend fun loadTrendPage(fromInclusive: Long?, toInclusive: Long,
+        cursorCreatedAt: Long?, cursorId: String?): List<com.guanyi.mirra.data.local.model.IntentTrendRow>
+
     @Insert suspend fun insert(intent: StudyIntentEntity)
 
     @Query("SELECT * FROM study_intents WHERE id = :id")

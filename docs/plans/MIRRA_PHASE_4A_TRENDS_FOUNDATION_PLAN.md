@@ -37,6 +37,6 @@ Historical Phase3 evidence remains unchanged. API23–36/OEM/full physical matri
 ## Progress ledger
 
 - Task1: implemented; stub RED27/27 plus2/2, targeted GREEN29/29. Internal review found2 conservative Recovery gaps;6 added tests produced5 expected failures and1 passing earlier-result control, then final targeted GREEN35/35 (0failure/error/skipped). No independent user acceptance claimed.
-- Task2: bounded repository Room tests written against an empty-read stub; targeted RED executing.
+- Task2: bounded repository Room RED4/4→GREEN4/4; measured10,001-fact reads1,582/1,217/1,162ms with65 SELECTs. Shared history JOIN/projection belongs to this compile-safe DAO foundation. No new index required by current evidence; larger-scale scans remain a measured follow-up risk.
 - Task3/4: history/trends ViewModel stubs produced6/6 expected failures each, then GREEN12/12. Direct runner history Room4/Compose10/navigation2 stubs produced16/16 expected failures; UI/integration GREEN pending.
 - Task5: pending. No final completion claims before fresh full regression and integration evidence.
