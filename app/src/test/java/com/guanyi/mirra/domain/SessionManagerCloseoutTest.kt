@@ -8,7 +8,9 @@ import java.lang.reflect.Proxy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -21,6 +23,7 @@ class SessionManagerCloseoutTest {
         var cancelAt: String? = null
         var begins = 0
         var completes = 0
+        var beforeComplete: () -> Unit = {}
         val events = mutableListOf<String>()
         val original = StudySessionEntity("s", "book", "intent", 1_000, null, null, 10, 10, null, null, null, 1)
         override suspend fun getCloseoutState(sessionId: String) = state
@@ -34,6 +37,7 @@ class SessionManagerCloseoutTest {
             return snapshot!!
         }
         override suspend fun completeCloseout(sessionId: String): StudySessionEntity {
+            beforeComplete()
             completes++; events += "B"
             if (failComplete) error("B failed")
             check(state != FocusCloseoutState.ACTIVE)
@@ -45,11 +49,22 @@ class SessionManagerCloseoutTest {
     }
     @Test fun finalSampleIsTheOnlyBoundaryAndInvalidationIsBetweenTransactions() = runTest {
         val w = Workflow()
-        val manager = DefaultSessionManager(w, closeoutWithMonitoringFacts = { _, _, block -> block(null, { w.events += "invalidate" }) },
-            cleanupClosedSession = { w.events += "cleanup" })
+        var factsLocked = false
+        w.beforeComplete = { assertFalse("B must run outside the monitoring facts boundary", factsLocked) }
+        val manager = DefaultSessionManager(w, closeoutWithMonitoringFacts = { _, _, block ->
+            factsLocked = true
+            try { block(null, { assertTrue(factsLocked); w.events += "invalidate" }) }
+            finally { factsLocked = false }
+        }, cleanupClosedSession = {
+            assertFalse("Android cleanup must run outside the facts boundary", factsLocked)
+            assertEquals(FocusCloseoutState.PENDING, w.state)
+            w.events += "cleanup"
+        })
         val result = manager.finish("s", 20, ClockSample(2_000, 99)) as SessionFinishResult.Completed
         assertEquals(2_000L, result.session.endedAt)
-        assertEquals(listOf("A", "invalidate", "B", "cleanup"), w.events)
+        assertEquals(listOf("A", "invalidate", "cleanup", "B"), w.events)
+        assertEquals(SessionEndType.NORMAL, result.session.endType)
+        assertEquals(FocusCloseoutState.COMPLETED, w.state)
     }
     @Test fun beginFailureKeepsReadingAndDoesNotCleanup() = runTest {
         val w = Workflow().apply { failBegin = true }
@@ -66,13 +81,74 @@ class SessionManagerCloseoutTest {
         val manager = DefaultSessionManager(w, closeoutWithMonitoringFacts = { _, _, block -> block(null, { invalidated = true }) },
             cleanupClosedSession = { assertTrue(invalidated); entered.complete(Unit); release.await() })
         val finishing = async { manager.finish("s", 20, ClockSample(2_000, 99)) }
-        entered.await(); assertTrue(invalidated); assertEquals(FocusCloseoutState.PENDING, w.state)
-        release.complete(Unit)
+        try {
+            entered.await(); assertTrue(invalidated); assertEquals(FocusCloseoutState.PENDING, w.state)
+            assertEquals("B must not begin while owned cleanup is still running", 0, w.completes)
+        } finally { release.complete(Unit) }
         assertEquals(SessionFinishResult.PendingRetry("s"), finishing.await())
+        assertEquals(1, w.completes)
+        assertEquals(2_000L, w.snapshot!!.closeoutStartedAt)
+        assertEquals(20, w.snapshot!!.requestedEndPage)
         w.failComplete = false
         val retried = manager.retryPendingFinish("s") as SessionFinishResult.Completed
         assertEquals(2_000L, retried.session.endedAt)
+        assertEquals(20, retried.session.endPage)
+        assertEquals(SessionEndType.NORMAL, retried.session.endType)
+        assertEquals(FocusCloseoutState.COMPLETED, w.state)
         assertEquals(1, w.begins)
+    }
+    @Test fun cleanupFailureStillCompletesNormalSessionAtOriginalBoundary() = runTest {
+        val w = Workflow()
+        var cleanupAttempts = 0
+        val manager = DefaultSessionManager(w, cleanupClosedSession = {
+            assertEquals(FocusCloseoutState.PENDING, w.state)
+            cleanupAttempts++
+            error("owned runtime cleanup failed")
+        })
+        val result = manager.finish("s", 20, ClockSample(2_000, 99)) as SessionFinishResult.Completed
+        assertEquals(1, cleanupAttempts)
+        assertEquals(1, w.completes)
+        assertEquals(2_000L, result.session.endedAt)
+        assertEquals(SessionEndType.NORMAL, result.session.endType)
+        assertNull(result.session.activeSlot)
+        assertEquals(FocusCloseoutState.COMPLETED, w.state)
+    }
+    @Test fun cleanupTimeoutStillCompletesNormalSessionAtOriginalBoundary() = runTest {
+        val w = Workflow()
+        val manager = DefaultSessionManager(w, cleanupClosedSession = {
+            assertEquals(FocusCloseoutState.PENDING, w.state)
+            withTimeout(1) { awaitCancellation() }
+        })
+        val result = manager.finish("s", 20, ClockSample(2_000, 99)) as SessionFinishResult.Completed
+        assertEquals(2_000L, result.session.endedAt)
+        assertEquals(SessionEndType.NORMAL, result.session.endType)
+        assertEquals(FocusCloseoutState.COMPLETED, w.state)
+    }
+    @Test fun slowCleanupLeavesPendingOutsideFactsBoundaryAndDoesNotExtendDuration() = runTest {
+        val w = Workflow()
+        val entered = CompletableDeferred<Unit>(); val release = CompletableDeferred<Unit>()
+        var factsLocked = false
+        val manager = DefaultSessionManager(w, closeoutWithMonitoringFacts = { _, _, block ->
+            factsLocked = true
+            try { block(null, {}) } finally { factsLocked = false }
+        }, cleanupClosedSession = {
+            assertFalse(factsLocked)
+            entered.complete(Unit)
+            release.await()
+        })
+        val finishing = async { manager.finish("s", 20, ClockSample(2_000, 99)) }
+        try {
+            entered.await()
+            assertFalse(factsLocked)
+            assertEquals(FocusCloseoutState.PENDING, w.state)
+            assertEquals(0, w.completes)
+            assertEquals(2_000L, w.snapshot!!.closeoutStartedAt)
+            assertFalse(finishing.isCompleted)
+        } finally { release.complete(Unit) }
+        val result = finishing.await() as SessionFinishResult.Completed
+        assertEquals(2_000L, result.session.endedAt)
+        assertEquals(1_000L, result.session.endedAt!! - result.session.startedAt)
+        assertEquals(FocusCloseoutState.COMPLETED, w.state)
     }
     @Test fun doubleFinalConfirmUsesOneBoundary() = runTest {
         val w = Workflow(); val manager = DefaultSessionManager(w)
@@ -81,12 +157,36 @@ class SessionManagerCloseoutTest {
         assertEquals(2_000L, w.snapshot!!.closeoutStartedAt)
         assertEquals(20, w.snapshot!!.requestedEndPage)
     }
+    @Test fun cancellingDuringCleanupKeepsPendingDecisionAndPropagatesCancellation() = runTest {
+        val w = Workflow()
+        val entered = CompletableDeferred<Unit>(); val release = CompletableDeferred<Unit>()
+        val manager = DefaultSessionManager(w, cleanupClosedSession = {
+            entered.complete(Unit); release.await()
+        })
+        val finishing = async { manager.finish("s", 20, ClockSample(2_000, 99)) }
+        try {
+            entered.await()
+            finishing.cancel()
+            assertEquals(FocusCloseoutState.PENDING, w.state)
+            assertEquals(0, w.completes)
+        } finally { release.complete(Unit) }
+        try { finishing.await(); fail("Caller cancellation must propagate") }
+        catch (_: CancellationException) { }
+        assertEquals(FocusCloseoutState.PENDING, w.state)
+        assertEquals(0, w.completes)
+        assertEquals(CloseoutSnapshot("s", 2_000, 20), w.snapshot)
+    }
     @Test fun cancellationBeforeBeginCommitLeavesReadingActive() = runTest { cancellation("beforeA", false) }
     @Test fun cancellationAfterUnknownBeginCommitStillCleansPending() = runTest { cancellation("afterA", true) }
     @Test fun cancellationAfterCompletePreservesOriginalNormalResult() = runTest { cancellation("afterB", true) }
     @Test fun cleanupFailureDoesNotSkipMonitorAndDndRelease() = runTest {
         val calls = mutableListOf<String>()
         cleanupCloseoutSteps({ calls += "channels"; error("channel failed") }, { calls += "monitor" }, { calls += "dnd" })
+        assertEquals(listOf("channels", "monitor", "dnd"), calls)
+    }
+    @Test fun cleanupStepTimeoutDoesNotSkipMonitorAndDndRelease() = runTest {
+        val calls = mutableListOf<String>()
+        cleanupCloseoutSteps({ calls += "channels"; awaitCancellation() }, { calls += "monitor" }, { calls += "dnd" })
         assertEquals(listOf("channels", "monitor", "dnd"), calls)
     }
     private suspend fun cancellation(stage: String, shouldClean: Boolean) {

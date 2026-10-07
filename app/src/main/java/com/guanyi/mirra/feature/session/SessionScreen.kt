@@ -87,7 +87,7 @@ class SessionViewModel(
     private val sessionManager: SessionManager,
     private val noteTypeSuggester: RuleBasedNoteTypeSuggester = RuleBasedNoteTypeSuggester(),
     private val focusActions: FocusSessionActions,
-    learningItems: LearningItemRepository? = null,
+    private val learningItems: LearningItemRepository? = null,
     private val clockSample: () -> ClockSample = { ClockSample(System.currentTimeMillis(), SystemClock.elapsedRealtime()) },
 ) : ViewModel() {
     private val mutableFinishUi = MutableStateFlow<SessionFinishUiState>(SessionFinishUiState.PreparingConfirmation)
@@ -106,6 +106,8 @@ class SessionViewModel(
     private val canObserveLearning: Boolean get() = durableCloseout == FocusCloseoutState.ACTIVE &&
         mutableFinishUi.value !is SessionFinishUiState.Saving && mutableFinishUi.value !is SessionFinishUiState.SaveFailed &&
         mutableFinishUi.value !is SessionFinishUiState.Completed
+    private val canSaveDraft: Boolean get() = canObserveLearning && !rotatingDraft &&
+        session.value?.let { it.activeSlot == 1 && it.endedAt == null } == true
 
     fun requestFinishConfirmation() {
         if (!canEditLearning && !rotatingDraft) return
@@ -114,7 +116,6 @@ class SessionViewModel(
         error = null
         viewModelScope.launch {
             try {
-                flushPendingEdits()
                 check(workflow.getCloseoutState(sessionId) == FocusCloseoutState.ACTIVE) { "当前阅读状态已变化" }
                 val latest = checkNotNull(workflow.observeSession(sessionId).first()) { "Session 不存在" }
                 mutableFinishUi.value = SessionFinishUiState.Confirming(latest.currentPage.toString())
@@ -150,10 +151,20 @@ class SessionViewModel(
         finishOperationRunning = true
         completionCallback = onCompleted
         mutableFinishUi.value = SessionFinishUiState.Saving
-        // This is the final user confirmation: capture exactly once, before any suspension.
-        val sample = clockSample()
+        error = null
         viewModelScope.launch {
-            try { acceptFinishResult(sessionManager.finish(sessionId, page, sample)) }
+            try {
+                // The dialog's page stays temporary. No end boundary exists until the Note is durable.
+                flushPendingEdits(noteFirst = true)
+                check(workflow.getCloseoutState(sessionId) == FocusCloseoutState.ACTIVE) { "当前阅读状态已变化" }
+                val latest = checkNotNull(workflow.observeSession(sessionId).first()) { "Session 不存在" }
+                require(page >= latest.currentPage) { "不能低于已经记录的阅读位置" }
+                learningItems?.get(latest.learningItemId)?.let { item ->
+                    require(page <= item.totalPages) { "结束页必须在书籍范围内" }
+                }
+                val sample = clockSample() // Exactly once, after successful flush and latest-page validation.
+                acceptFinishResult(sessionManager.finish(sessionId, page, sample))
+            }
             catch (cancelled: CancellationException) {
                 currentCoroutineContext().ensureActive()
                 restoreAfterFinishFailure(cancelled, confirming)
@@ -457,9 +468,9 @@ class SessionViewModel(
     }
 
     fun flushDraft() {
-        if (!canEditLearning) return
+        if (!canSaveDraft) return
         debounceJob?.cancel()
-        startNoteSave { if (canEditLearning) saveDraft() }
+        startNoteSave { if (canSaveDraft) saveDraft() }
     }
 
     fun leave(onLeft: () -> Unit) {
@@ -488,7 +499,8 @@ class SessionViewModel(
         if (draftContent.isBlank()) return
         debounceJob = viewModelScope.launch {
             delay(500)
-            if (canEditLearning) startNoteSave { saveDraft() }
+            // A cancellable confirmation does not suspend ordinary Note persistence.
+            if (canSaveDraft) startNoteSave { saveDraft() }
         }
     }
 
@@ -503,7 +515,7 @@ class SessionViewModel(
         }
     }
 
-    internal suspend fun flushPendingEdits() {
+    internal suspend fun flushPendingEdits(noteFirst: Boolean = false) {
         debounceJob?.cancel()
         val saves = pendingSaves.toList()
         val pages = pendingPageWrites.toList()
@@ -516,6 +528,8 @@ class SessionViewModel(
         }
         pendingSaves.removeAll(saves.toSet()); pendingPageWrites.removeAll(pages.toSet())
         outcomes.forEach { it.getOrThrow() }
+        // Closeout must not repair an unsaved page if saving the final Note fails.
+        if (noteFirst) saveDraft()
         val latest = checkNotNull(workflow.observeSession(sessionId).first()) { "Session 不存在" }
         val requestedPage = currentPageText.toIntOrNull()
         if (requestedPage != null && requestedPage > 0) {
@@ -530,7 +544,7 @@ class SessionViewModel(
             }
         }
         pageWriteError?.let { throw it }
-        saveDraft() // Flush newer input that arrived while an earlier autosave was in flight.
+        if (!noteFirst) saveDraft() // Leave/regular flush keeps its established ordering.
     }
 
     private suspend fun saveDraft() = saveMutex.withLock {

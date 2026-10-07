@@ -105,7 +105,7 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
     var diagnostics = RuntimeFactDiagnostics()
         private set
 
-    /** A / memory invalidation / B share the existing facts boundary; platform cleanup is outside it. */
+    /** Serializes closeout learning facts and memory invalidation; platform cleanup stays outside it. */
     suspend fun <T> closeoutWithFacts(sessionId: String, sample: ClockSample,
         block: suspend (BackwardClockCloseoutEvidence?, () -> Unit) -> T): T = mutex.withLock {
         var primary: Throwable? = null

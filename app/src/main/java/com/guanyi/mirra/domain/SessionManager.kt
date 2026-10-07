@@ -11,6 +11,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 interface SessionManager {
     suspend fun start(intentId: String, startPage: Int): StudySessionEntity
@@ -36,16 +38,24 @@ class DefaultSessionManager(
         workflowRepository.updateCurrentPage(sessionId, page)
 
     override suspend fun finish(sessionId: String, endPage: Int, sample: ClockSample): SessionFinishResult =
-        withDurableCleanup(sessionId) {
+        withDurableCleanup(sessionId) { cleanup ->
             closeoutWithMonitoringFacts(sessionId, sample) { evidence, invalidate ->
                 workflowRepository.beginCloseout(sessionId, endPage, sample.wallNowMillis, evidence)
-                invalidate() // Memory only, after A, before B. No Android effect under the facts lock.
-                complete(sessionId)
+                invalidate() // Memory only. PENDING durably rejects all late learning facts.
+                SessionFinishResult.PendingRetry(sessionId) // Internal A result, not presented as a failure.
             }
+            // Release the existing facts mutex before calling any Android capability.
+            cleanup()
+            currentCoroutineContext().ensureActive()
+            complete(sessionId)
         }
 
     override suspend fun retryPendingFinish(sessionId: String): SessionFinishResult =
-        withDurableCleanup(sessionId) { complete(sessionId) }
+        withDurableCleanup(sessionId) { cleanup ->
+            cleanup()
+            currentCoroutineContext().ensureActive()
+            complete(sessionId)
+        }
 
     private suspend fun complete(sessionId: String): SessionFinishResult = try {
         SessionFinishResult.Completed(workflowRepository.completeCloseout(sessionId))
@@ -55,23 +65,28 @@ class DefaultSessionManager(
         else throw failure
     }
 
-    private suspend fun withDurableCleanup(sessionId: String, block: suspend () -> SessionFinishResult): SessionFinishResult {
-        var primary: Throwable? = null
-        try { return block() }
-        catch (failure: Throwable) { primary = failure; throw failure }
-        finally {
-            try {
-                withContext(NonCancellable) { withContext(Dispatchers.IO) {
-                    // Room may have committed even when cancellation hides its return value.
-                    val state = withTimeout(5_000) { workflowRepository.getCloseoutState(sessionId) }
-                    if (state == FocusCloseoutState.PENDING || state == FocusCloseoutState.COMPLETED) {
-                        withTimeout(10_000) { cleanupClosedSession(sessionId) }
-                    }
-                } }
-            } catch (failure: Throwable) {
-                if (primary != null) { if (failure !== primary) primary.addSuppressed(failure) } else throw failure
+    private suspend fun withDurableCleanup(sessionId: String,
+        block: suspend (suspend () -> Unit) -> SessionFinishResult): SessionFinishResult {
+        var cleanupAttempted = false
+        val cleanup: suspend () -> Unit = {
+            if (!cleanupAttempted) {
+                try {
+                    withContext(NonCancellable) { withContext(Dispatchers.IO) {
+                        // Room may have committed even when cancellation hides its return value.
+                        val state = withTimeout(5_000) { workflowRepository.getCloseoutState(sessionId) }
+                        if (state == FocusCloseoutState.PENDING || state == FocusCloseoutState.COMPLETED) {
+                            cleanupAttempted = true
+                            withTimeout(10_000) { cleanupClosedSession(sessionId) }
+                        }
+                    } }
+                } catch (_: Exception) {
+                    // Capability owners retain release-failure metadata. Cleanup cannot mask A/B facts.
+                    // Caller cancellation is checked separately, after this finite compensation.
+                }
             }
         }
+        try { return block(cleanup) }
+        finally { cleanup() }
     }
 
     override suspend fun recoverInterruptedSession() =

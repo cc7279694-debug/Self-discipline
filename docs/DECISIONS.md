@@ -878,6 +878,8 @@ IN_APP composition 与 OVERLAY attach 仅记录各自真实的最小展示事实
 
 ## 2026-10-05 — 3D-1 不可逆结束事实与保存边界
 
+> Partially superseded (2026-10-07)：仅“首次点击先 flush”和“A/B 连续处于事实锁内、之后 cleanup”的顺序由下方授权修订替代。不可逆事实、事务保护、恢复、时钟证明与所有系统 ownership 规则保留。
+
 ### Decision
 
 复用 Room v4 已有 Closeout 字段，采用连续执行、其间不调用 Android API 的 A/B 两事务：A 将最终确认的结束时间和请求页码冻结为 PENDING，并关闭最后一段；B 只使用该快照，原子完成 NORMAL Session、阅读进度、既有 Summary、FTS 与 COMPLETED。第一次点击仅等待 Note/page 实际保存后显示确认；最终确认前可继续阅读，A 成功后永久不能恢复，失败只能重试原 B，不重新采时。
@@ -897,3 +899,27 @@ IN_APP composition 与 OVERLAY attach 仅记录各自真实的最小展示事实
 ### Consequences
 
 Controller 使用既有串行边界 settle → A → 纯内存失效 → B，之后在 Room/事实锁外分别有限尝试渠道、监测与 DND release。取消必须有限回查 durable state 并传播取消；旧 callback 不借用新 Session 的 runtime。冷启动优先完成 PENDING，B 失败保留原快照和只读重试，不改写 ABNORMAL、不重启 FGS；普通遗留 ACTIVE 继续异常恢复。UI 重建显示冻结时间，外部结束请求按 ID 一次消费。DND ownership、READY、Coverage、3C 阈值、Phase 2 analytics、Room v4 与 schemas 1–4 不变；3D-2/3/4 仍需单独授权。
+
+## 2026-10-07 — 3D-1 最终确认后的保存与清理顺序
+
+### Decision
+
+首击结束仅打开可编辑确认，正常 autosave 独立保留。最终确认后等待真实保存结果并保存最新 Note；失败保留 ACTIVE/草稿/临时结束页，不生成结束时刻。Note 成功后才修复普通未保存页码、重新验证最新持久进度/总页数并采唯一 ClockSample。确认框结束页不预写进度。
+
+现有事实锁内只 settle → Stage A → 本场纯内存失效；出锁后有限尝试已有 owned cleanup，再执行幂等 Stage B。A 的 PENDING durable guard 和 occupied slot 保护清理期间所有晚到学习事实及新 Session 创建。普通清理异常/超时不覆盖正常结算；真实调用方取消仍传播，保留 PENDING 供原快照重试/冷启动完成。
+
+### Context
+
+用户明确采用新的 Durable Session Closeout 方案。真实仓库已完成原 3D 与品牌更新，因此仅替换新授权确实改变的两处顺序，不重新开发全部阶段。
+
+### Alternatives
+
+仍在首击强制保存；保存前采结束时间；把 Android 调用放入 Controller mutex；为新方案回退旧分支、重建数据库或复制 Note/Closeout 系统。
+
+### Reason
+
+保存失败发生在不可逆事实之前；Android 清理不持有监测锁，也不影响结算事实。Room v4 的现有保护已足够表达精确边界与幂等恢复。
+
+### Consequences
+
+只修订 3D-1 接线/UI 与测试。原 Phase 3D Freeze 仍作为历史基线；本次新方案待单独 review，不自动改变 3D-2/3 的公式/历史 UI。Phase 2、3A/B/C、DND ownership、READY、coverage、schema 不变。超时只保证可取消操作，不承诺抢占同步 Binder 阻塞。

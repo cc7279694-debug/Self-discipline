@@ -753,6 +753,8 @@ Android 层决定：
 
 # 9. DND 与通知
 
+> 2026-10-07 3D-1 授权修订：首击仅打开确认，普通 Note 自动保存继续；最终确认之后先保存 Note，成功后才固定 durable PENDING 边界。该边界后在事实锁外尽快尝试清理 Mirra-owned 系统能力，再完成正常结算；清理失败不阻止结算。下述旧 Closeout 顺序保留为最初设计，当前以 [3D-1 Closeout Revision](plans/MIRRA_PHASE_3D_1_CLOSEOUT_REVISION.md) 为准。现有各 API 档 DND ownership/restore 决策不变，不控制用户或其他 App 的规则。
+
 开始 Session 后：
 
 优先使用 Android 系统勿扰模式。

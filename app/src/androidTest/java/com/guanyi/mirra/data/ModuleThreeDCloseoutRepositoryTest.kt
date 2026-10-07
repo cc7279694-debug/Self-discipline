@@ -505,10 +505,16 @@ class ModuleThreeDCloseoutRepositoryTest {
             withContext(Dispatchers.IO) { withTimeout(5_000) { entered.await() } }
             withContext(Dispatchers.IO) { withTimeout(5_000) { controller.refresh(s.id, ClockSample(3_000, 2_000)) } }
             assertNull(db.focusDao().getActiveSegment(s.id))
-            assertEquals(SessionEndType.NORMAL, db.sessionDao().get(s.id)?.endType)
-            assertEquals(FocusCloseoutState.COMPLETED, workflow().getCloseoutState(s.id))
+            assertNull(db.sessionDao().get(s.id)?.endedAt)
+            assertNull(db.sessionDao().get(s.id)?.endType)
+            assertEquals(1, db.sessionDao().get(s.id)?.activeSlot)
+            assertEquals(FocusCloseoutState.PENDING, workflow().getCloseoutState(s.id))
+            assertEquals(2_000L, workflow().getCloseoutSnapshot(s.id)?.closeoutStartedAt)
         } finally { release.complete(Unit) }
         assertTrue(finish.await() is SessionFinishResult.Completed)
+        assertEquals(2_000L, db.sessionDao().get(s.id)?.endedAt)
+        assertEquals(SessionEndType.NORMAL, db.sessionDao().get(s.id)?.endType)
+        assertEquals(FocusCloseoutState.COMPLETED, workflow().getCloseoutState(s.id))
     }
 
     @Test fun committedLossWithFailedProofReadCanRetryWithoutRewritingLoss() = runTest {

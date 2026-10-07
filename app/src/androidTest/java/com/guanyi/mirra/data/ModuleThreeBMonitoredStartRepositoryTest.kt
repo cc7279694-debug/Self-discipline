@@ -7,6 +7,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.guanyi.mirra.data.local.MirraDatabase
 import com.guanyi.mirra.data.local.entity.IntentOutcome
 import com.guanyi.mirra.data.local.entity.MonitoringCoverage
+import com.guanyi.mirra.data.local.entity.FocusCloseoutState
+import com.guanyi.mirra.data.local.entity.SessionEndType
 import com.guanyi.mirra.data.local.entity.SessionSegmentType
 import com.guanyi.mirra.data.local.entity.RiskAppEntity
 import com.guanyi.mirra.data.local.entity.FocusEventType
@@ -164,20 +166,47 @@ class ModuleThreeBMonitoredStartRepositoryTest {
         assertEquals(listOf(SessionSegmentType.FOCUS), db.focusDao().listSegments(session.id).map { it.type })
     }
 
-    @Test fun dndReleaseHookRunsOnlyAfterSessionCommitAndDoesNotChangeCoverage() = runTest {
+    @Test fun dndReleaseHookRunsAfterDurableBeginBeforeSettlementAndPreservesCoverage() = runTest {
         val intent = workflow.createIntent(items.create("书", 100, 10).id)
         now = 1_005_100
         val session = monitored(intent.id, 10).session
-        var releaseSawCommitted = false
+        val boundary = 1_010_000L
+        var releaseCalls = 0
         val manager = DefaultSessionManager(workflow,
             cleanupClosedSession = { id ->
-                releaseSawCommitted = db.sessionDao().get(id)?.endedAt != null &&
-                    db.sessionDao().getActive() == null
+                assertEquals(session.id, id)
+                assertFalse(db.inTransaction())
+                val pendingSession = checkNotNull(db.sessionDao().get(id))
+                val pendingContext = checkNotNull(db.focusDao().getContext(id))
+                assertNull(pendingSession.endedAt)
+                assertNull(pendingSession.endType)
+                assertEquals(1, pendingSession.activeSlot)
+                assertEquals(id, db.sessionDao().getActive()?.id)
+                assertEquals(FocusCloseoutState.PENDING, pendingContext.closeoutState)
+                assertEquals(boundary, pendingContext.closeoutStartedAt)
+                assertEquals(11, pendingContext.requestedEndPage)
+                assertEquals(MonitoringCoverage.FULL, pendingContext.monitoringStatus)
+                assertNull(db.focusDao().getActiveSegment(id))
+                val closedSegment = db.focusDao().listSegments(id).single()
+                assertEquals(SessionSegmentType.FOCUS, closedSegment.type)
+                assertEquals(boundary, closedSegment.endedAt)
+                assertNull(closedSegment.activeSlot)
+                releaseCalls++
             })
-        now = 1_010_000
-        manager.finish(session.id, 11, ClockSample(now, 10_000))
-        assertTrue(releaseSawCommitted)
-        assertEquals(MonitoringCoverage.FULL, db.focusDao().getContext(session.id)?.monitoringStatus)
+        now = boundary
+        val ended = (manager.finish(session.id, 11, ClockSample(boundary, 10_000)) as SessionFinishResult.Completed).session
+        assertEquals(1, releaseCalls)
+        assertEquals(boundary, ended.endedAt)
+        assertEquals(SessionEndType.NORMAL, ended.endType)
+        assertNull(ended.activeSlot)
+        assertEquals(ended, db.sessionDao().get(session.id))
+        assertNull(db.sessionDao().getActive())
+        val completedContext = checkNotNull(db.focusDao().getContext(session.id))
+        assertEquals(FocusCloseoutState.COMPLETED, completedContext.closeoutState)
+        assertEquals(boundary, completedContext.closeoutStartedAt)
+        assertEquals(11, completedContext.requestedEndPage)
+        assertEquals(MonitoringCoverage.FULL, completedContext.monitoringStatus)
+        assertEquals(boundary, db.focusDao().listSegments(session.id).single().endedAt)
     }
 
     @Test fun boundUserStopPersistsLossBeforeNormalFinishAndDuplicateDestroyDoesNotAddFacts() = runTest {

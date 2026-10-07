@@ -2,7 +2,9 @@
 
 版本：v1；确认日期：2026-10-04。
 
-状态：用户已确认的正式 DESIGN SPEC；尚未实施 Phase 3D。首次设计落库已完成，本次仅按 Plans Review 修订时钟回退结束例外与 Summary 原地展开，不进入 3D-1～3D-4。
+历史设计落库时状态：用户已确认的正式 DESIGN SPEC；当时尚未实施 Phase 3D。首次设计落库已完成，当时仅按 Plans Review 修订时钟回退结束例外与 Summary 原地展开，未进入 3D-1～3D-4。
+
+> 2026-10-07 当前导航：原 Phase 3D 已完成并保留正式冻结记录。新授权仅以 [3D-1 Closeout Revision](MIRRA_PHASE_3D_1_CLOSEOUT_REVISION.md) 替代本规范的首击 flush 与 A/B/cleanup 顺序；原不可逆结束、数据保护和既有后续模块不变。正文中的“尚未实施/未来”是规划时背景，不代表当前实现状态；当前事实以 `../CURRENT_STATE.md` 为准。
 
 ## 0. 来源、基线与权限
 

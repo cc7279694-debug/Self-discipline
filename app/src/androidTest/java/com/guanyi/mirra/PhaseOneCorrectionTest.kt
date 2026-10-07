@@ -128,14 +128,6 @@ class PhaseOneCorrectionTest {
         composeRule.onNodeWithText("结束本次阅读").performClick()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasTestTag("confirm-session-finish")).fetchSemanticsNodes().isNotEmpty() }
 
-        // Confirmation is only presented after the draft's database save has completed.
-        val savedNotes = runBlocking { container.noteRepository.observeForSession(sessionId).first() }
-        assertEquals(1, savedNotes.size)
-        val savedNote = savedNotes.single()
-        assertEquals("最后一笔", savedNote.content)
-        assertEquals(sessionId, savedNote.sessionId)
-        assertEquals(10, savedNote.pageNumber)
-
         composeRule.onNodeWithTag("confirm-session-finish").performClick()
         val finished = runBlocking {
             withTimeout(5_000) {
@@ -146,6 +138,13 @@ class PhaseOneCorrectionTest {
             }
         }
         assertEquals(sessionId, finished.id)
+        // The final confirmation must durably flush this exact Note before NORMAL settlement.
+        val savedNotes = runBlocking { container.noteRepository.observeForSession(sessionId).first() }
+        assertEquals(1, savedNotes.size)
+        val savedNote = savedNotes.single()
+        assertEquals("最后一笔", savedNote.content)
+        assertEquals(sessionId, savedNote.sessionId)
+        assertEquals(10, savedNote.pageNumber)
         val record = runBlocking { requireNotNull(container.readingRecordRepository.observe(sessionId).first()) }
         assertEquals(sessionId, record.session.id)
         assertEquals(1, record.noteCount)

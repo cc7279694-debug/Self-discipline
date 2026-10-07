@@ -1,8 +1,10 @@
 # Mirra Phase 3D｜Implementation Index
 
-状态：实施计划已落库，本次仅执行用户限定的 Plans Review 文档修订；尚未授权或开始3D-1～3D-4编码。本索引只负责导航、覆盖追踪和Gate，不另立设计或统计算法。
+历史计划落库时状态：实施计划已落库，当时仅执行用户限定的 Plans Review 文档修订；当时尚未授权或开始3D-1～3D-4编码。本索引只负责导航、覆盖追踪和Gate，不另立设计或统计算法。
 
-## 唯一设计基线与当前事实
+> 2026-10-07 当前导航：原 Phase 3D 已完成并正式冻结，见 `../CURRENT_STATE.md`。当前只执行 [3D-1 Closeout Revision](MIRRA_PHASE_3D_1_CLOSEOUT_REVISION.md)，限定替代旧首击保存与 cleanup 顺序；后续模块的既有实现继承，不重新实施。本索引以下保留历史规划事实与 Gate，不将它们误当成当前待开发状态。
+
+## 历史唯一设计基线与规划时事实
 
 - 仓库：`cc7279694-debug/Self-discipline`；工作目录 `C:/Users/CDD/Documents/ChatGPT/Mirra`。
 - 唯一3D设计规范：[MIRRA_PHASE_3D_DESIGN.md](MIRRA_PHASE_3D_DESIGN.md)。原始设计commit：`874d80318c56661218fd03579ba2f1253cc35440`，远程分支 `codex/phase-3d-design`；本次用户批准的Review修订同步在该规范及对应计划中。

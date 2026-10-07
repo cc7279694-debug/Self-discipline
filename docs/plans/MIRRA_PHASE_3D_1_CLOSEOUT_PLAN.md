@@ -1,5 +1,7 @@
 # Mirra Phase 3D-1｜安全结束学习 Implementation Plan
 
+> 2026-10-07：以下内容保留为原实现/验收历史。用户已授权局部新方案；首击/最终确认的 Note flush 顺序和 A/B 间 cleanup 顺序以 [Closeout Revision](MIRRA_PHASE_3D_1_CLOSEOUT_REVISION.md) 为准。其他冻结边界不变。
+
 > 执行者按 Task 逐项完成 Red → 最小实现 → Green → reviewable commit；可使用既有执行计划工作流。此文件是计划，不是实施授权。本回合不执行任何下列测试或代码改动。
 
 **Goal:** 最终确认时精确冻结结束事实，完成 ACTIVE → PENDING → COMPLETED，并使失败、取消和冷启动都不能恢复已结束学习。

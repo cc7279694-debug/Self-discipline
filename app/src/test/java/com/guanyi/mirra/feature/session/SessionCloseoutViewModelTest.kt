@@ -41,6 +41,7 @@ class SessionCloseoutViewModelTest {
         var failNote = false; var failPage = false; var failBegin = false; var failComplete = false
         var cancelNote = false
         var clockCalls = 0; var finishes = 0; var retries = 0; var evidenceCalls = 0; var actions = 0
+        var sample = ClockSample(2_000, 777)
         val saved = mutableListOf<NoteEntity>()
         val pageAttempts = mutableListOf<Int>()
         val boundaries = mutableListOf<ClockSample>()
@@ -102,43 +103,114 @@ class SessionCloseoutViewModelTest {
             }
         }
         fun vm() = SessionViewModel("s", workflow, notes, manager, focusActions = focus,
-            clockSample = { clockCalls++; ClockSample(2_000, 777) }).also { models += it }
+            clockSample = { clockCalls++; sample }).also { models += it }
     }
 
-    @Test fun confirmationWaitsForInFlightDraftAndPageWrites() = closeoutTest {
+    @Test fun confirmationOpensBeforeSavesButFinalConfirmationWaitsForDraftAndPageWrites() = closeoutTest {
         val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
         f.noteBarrier = CompletableDeferred(); f.pageBarrier = CompletableDeferred()
         vm.changeContent("latest note"); advanceTimeBy(501); runCurrent()
         vm.updatePage("42"); runCurrent(); vm.requestFinishConfirmation(); runCurrent()
-        assertEquals(SessionFinishUiState.PreparingConfirmation, vm.finishUi.value)
-        f.noteBarrier!!.complete(Unit); runCurrent()
-        assertEquals(SessionFinishUiState.PreparingConfirmation, vm.finishUi.value)
-        f.pageBarrier!!.complete(Unit); runCurrent()
-        assertEquals(SessionFinishUiState.Confirming("42"), vm.finishUi.value)
+        assertEquals(SessionFinishUiState.Confirming("40"), vm.finishUi.value)
         assertEquals(0, f.clockCalls); assertEquals(0, f.finishes)
+        vm.changeEndPage("42"); vm.confirmFinish {}; runCurrent()
+        assertEquals(SessionFinishUiState.Saving, vm.finishUi.value)
+        f.noteBarrier!!.complete(Unit); runCurrent()
+        assertEquals(SessionFinishUiState.Saving, vm.finishUi.value)
+        assertEquals(0, f.clockCalls); assertEquals(0, f.finishes)
+        f.sample = ClockSample(9_000, 8_000)
+        f.pageBarrier!!.complete(Unit); runCurrent()
+        assertEquals(SessionFinishUiState.Completed("s"), vm.finishUi.value)
+        assertEquals(listOf(ClockSample(9_000, 8_000)), f.boundaries)
     }
     @Test fun latestTextFlushesUnderSameDraftIdWithoutCancellingStartedAutosave() = closeoutTest {
         val f = Fixture(); val vm = f.vm(); runCurrent()
         f.noteBarrier = CompletableDeferred(); vm.changeContent("old"); advanceTimeBy(501); runCurrent()
         vm.changeContent("latest"); vm.requestFinishConfirmation(); runCurrent()
+        assertEquals(SessionFinishUiState.Confirming("40"), vm.finishUi.value)
+        vm.confirmFinish {}; runCurrent()
         f.noteBarrier!!.complete(Unit); runCurrent()
         assertEquals("latest", f.saved.last().content)
         assertEquals(1, f.saved.map { it.id }.distinct().size)
         assertTrue(f.saved.any { it.content == "old" })
-        assertTrue(vm.finishUi.value is SessionFinishUiState.Confirming)
+        assertEquals(SessionFinishUiState.Completed("s"), vm.finishUi.value)
+    }
+    @Test fun openingConfirmationDoesNotDropNormalDebouncedDraftSave() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent()
+        vm.changeContent("draft before confirmation")
+        vm.requestFinishConfirmation(); runCurrent()
+        assertEquals(SessionFinishUiState.Confirming("40"), vm.finishUi.value)
+        assertFalse(vm.canEditLearning)
+        vm.changeContent("must not edit behind confirmation")
+        advanceTimeBy(501); runCurrent()
+        assertEquals("draft before confirmation", f.saved.single().content)
+        assertEquals(FocusCloseoutState.ACTIVE, f.state.value)
+        assertNull(f.snapshot); assertEquals(0, f.finishes); assertEquals(0, f.clockCalls)
+        vm.cancelFinishConfirmation(); runCurrent()
+        assertEquals(SessionFinishUiState.Idle, vm.finishUi.value)
+        assertEquals("draft before confirmation", vm.draftContent)
+    }
+    @Test fun lifecycleFlushSavesDraftWhileConfirmationRemainsOpen() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent()
+        vm.changeContent("background draft")
+        vm.requestFinishConfirmation(); runCurrent()
+        vm.changeEndPage("45")
+        vm.flushDraft(); runCurrent()
+        assertEquals("background draft", f.saved.single().content)
+        assertEquals(SessionFinishUiState.Confirming("45"), vm.finishUi.value)
+        assertEquals(FocusCloseoutState.ACTIVE, f.state.value)
+        assertEquals(40, f.current.value!!.currentPage)
+        assertNull(f.snapshot); assertEquals(0, f.finishes); assertEquals(0, f.clockCalls)
+        advanceTimeBy(501); runCurrent()
+        assertEquals(1, f.saved.size)
     }
     @Test fun draftFlushFailureKeepsSessionActive() = closeoutTest {
         val f = Fixture(); val vm = f.vm(); runCurrent(); f.failNote = true
         vm.changeContent("unsaved"); vm.requestFinishConfirmation(); runCurrent()
-        assertEquals(SessionFinishUiState.Idle, vm.finishUi.value)
+        assertEquals(SessionFinishUiState.Confirming("40"), vm.finishUi.value)
+        assertNull(vm.error); assertTrue(f.saved.isEmpty())
+        vm.changeEndPage("45"); vm.confirmFinish {}; runCurrent()
+        assertEquals(SessionFinishUiState.Confirming("45"), vm.finishUi.value)
         assertNotNull(vm.error); assertEquals(FocusCloseoutState.ACTIVE, f.state.value)
+        assertEquals(40, f.current.value!!.currentPage); assertNull(f.current.value!!.endedAt)
+        assertNull(f.snapshot); assertTrue(f.pageAttempts.isEmpty()); assertEquals("unsaved", vm.draftContent)
         assertEquals(0, f.clockCalls); assertEquals(0, f.finishes)
+        f.failNote = false; vm.confirmFinish {}; runCurrent()
+        assertEquals(SessionFinishUiState.Completed("s"), vm.finishUi.value)
+        assertEquals(45, f.snapshot!!.requestedEndPage); assertEquals(1, f.finishes)
     }
     @Test fun failedPageWriteCannotBeMistakenForSuccessfulJobCompletion() = closeoutTest {
         val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40); f.failPage = true
         vm.updatePage("42"); runCurrent(); vm.requestFinishConfirmation(); runCurrent()
-        assertEquals(SessionFinishUiState.Idle, vm.finishUi.value)
+        assertEquals(SessionFinishUiState.Confirming("40"), vm.finishUi.value)
+        vm.changeEndPage("42"); vm.confirmFinish {}; runCurrent()
+        assertEquals(SessionFinishUiState.Confirming("42"), vm.finishUi.value)
         assertNotNull(vm.error); assertEquals(0, f.clockCalls)
+    }
+    @Test fun noteFailureDoesNotRetryUnpersistedCurrentPageDuringFinalConfirmation() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
+        f.failPage = true; vm.updatePage("42"); runCurrent()
+        vm.changeContent("unsaved final draft"); vm.requestFinishConfirmation(); runCurrent()
+        vm.changeEndPage("45"); vm.confirmFinish {}; runCurrent() // Surface the prior failed write.
+        f.failPage = false; f.failNote = true
+        vm.confirmFinish {}; runCurrent()
+        assertEquals(SessionFinishUiState.Confirming("45"), vm.finishUi.value)
+        assertEquals(listOf(42), f.pageAttempts)
+        assertEquals(40, f.current.value!!.currentPage)
+        assertEquals(FocusCloseoutState.ACTIVE, f.state.value)
+        assertEquals(0, f.finishes); assertEquals(0, f.clockCalls)
+    }
+    @Test fun finalConfirmationRevalidatesProgressThatAdvancedDuringDraftFlush() = closeoutTest {
+        val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
+        f.noteBarrier = CompletableDeferred()
+        vm.changeContent("last note"); vm.requestFinishConfirmation(); runCurrent()
+        vm.changeEndPage("42"); vm.confirmFinish {}; runCurrent()
+        f.current.value = f.current.value!!.copy(currentPage = 44)
+        f.noteBarrier!!.complete(Unit); runCurrent()
+        assertEquals(SessionFinishUiState.Confirming("42"), vm.finishUi.value)
+        assertEquals("不能低于已经记录的阅读位置", vm.error)
+        assertEquals(FocusCloseoutState.ACTIVE, f.state.value)
+        assertEquals(0, f.clockCalls); assertEquals(0, f.finishes)
     }
     @Test fun transientPageWriteFailureCanRetryFinishWithoutEditingPageAgain() = closeoutTest {
         val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
@@ -146,29 +218,31 @@ class SessionCloseoutViewModelTest {
         val draftId = f.saved.single().id
         f.failPage = true; vm.updatePage("42"); runCurrent()
         vm.requestFinishConfirmation(); runCurrent()
-        assertEquals(SessionFinishUiState.Idle, vm.finishUi.value)
+        vm.changeEndPage("42"); vm.confirmFinish {}; runCurrent()
+        assertEquals(SessionFinishUiState.Confirming("42"), vm.finishUi.value)
         assertEquals(40, f.current.value!!.currentPage); assertEquals("42", vm.currentPageText)
         assertNotNull(vm.error); assertEquals(0, f.finishes); assertEquals(0, f.clockCalls)
 
         f.failPage = false; f.pageBarrier = CompletableDeferred()
-        vm.requestFinishConfirmation(); runCurrent()
-        assertEquals(SessionFinishUiState.PreparingConfirmation, vm.finishUi.value)
+        vm.confirmFinish {}; runCurrent()
+        assertEquals(SessionFinishUiState.Saving, vm.finishUi.value)
         assertEquals(40, f.current.value!!.currentPage)
         f.pageBarrier!!.complete(Unit); runCurrent()
-        assertEquals(SessionFinishUiState.Confirming("42"), vm.finishUi.value)
+        assertEquals(SessionFinishUiState.Completed("s"), vm.finishUi.value)
         assertEquals(42, f.current.value!!.currentPage); assertNull(vm.error)
         assertEquals(listOf(42, 42), f.pageAttempts)
         assertEquals(setOf(draftId), f.saved.map { it.id }.toSet())
         assertTrue(f.saved.all { it.pageNumber == 35 && it.content == "old page note" })
-        assertEquals(0, f.finishes); assertEquals(0, f.clockCalls)
+        assertEquals(1, f.finishes); assertEquals(1, f.clockCalls)
     }
-    @Test fun repeatedPageWriteFailureStillBlocksConfirmation() = closeoutTest {
+    @Test fun repeatedPageWriteFailureStillBlocksFinalConfirmation() = closeoutTest {
         val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
         f.failPage = true; vm.updatePage("42"); runCurrent()
         vm.requestFinishConfirmation(); runCurrent()
-        assertEquals(SessionFinishUiState.Idle, vm.finishUi.value)
-        vm.requestFinishConfirmation(); runCurrent()
-        assertEquals(SessionFinishUiState.Idle, vm.finishUi.value)
+        vm.changeEndPage("42"); vm.confirmFinish {}; runCurrent()
+        assertEquals(SessionFinishUiState.Confirming("42"), vm.finishUi.value)
+        vm.confirmFinish {}; runCurrent()
+        assertEquals(SessionFinishUiState.Confirming("42"), vm.finishUi.value)
         assertEquals(listOf(42, 42), f.pageAttempts)
         assertEquals(40, f.current.value!!.currentPage); assertEquals("42", vm.currentPageText)
         assertNotNull(vm.error); assertEquals(FocusCloseoutState.ACTIVE, f.state.value)
@@ -178,31 +252,33 @@ class SessionCloseoutViewModelTest {
         val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
         f.failPage = true; vm.updatePage("42"); runCurrent()
         vm.requestFinishConfirmation(); runCurrent()
-        assertEquals(SessionFinishUiState.Idle, vm.finishUi.value)
-        f.current.value = f.current.value!!.copy(currentPage = 42); runCurrent()
-        vm.requestFinishConfirmation(); runCurrent()
+        vm.changeEndPage("42"); vm.confirmFinish {}; runCurrent()
         assertEquals(SessionFinishUiState.Confirming("42"), vm.finishUi.value)
+        f.current.value = f.current.value!!.copy(currentPage = 42); runCurrent()
+        vm.confirmFinish {}; runCurrent()
+        assertEquals(SessionFinishUiState.Completed("s"), vm.finishUi.value)
         assertNull(vm.error); assertEquals(listOf(42), f.pageAttempts)
-        assertEquals(0, f.finishes); assertEquals(0, f.clockCalls)
+        assertEquals(1, f.finishes); assertEquals(1, f.clockCalls)
     }
     @Test fun temporarySmallerPageInputClearsObsoleteFailureWithoutRegressingProgress() = closeoutTest {
         val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
         f.failPage = true; vm.updatePage("42"); runCurrent(); vm.updatePage("4")
         vm.requestFinishConfirmation(); runCurrent()
-        assertEquals(SessionFinishUiState.Idle, vm.finishUi.value)
-        assertNotNull(vm.error); assertEquals(40, f.current.value!!.currentPage)
-        vm.requestFinishConfirmation(); runCurrent()
+        vm.confirmFinish {}; runCurrent()
         assertEquals(SessionFinishUiState.Confirming("40"), vm.finishUi.value)
+        assertNotNull(vm.error); assertEquals(40, f.current.value!!.currentPage)
+        vm.confirmFinish {}; runCurrent()
+        assertEquals(SessionFinishUiState.Completed("s"), vm.finishUi.value)
         assertEquals(40, f.current.value!!.currentPage); assertEquals("4", vm.currentPageText)
         assertNull(vm.error); assertEquals(listOf(42), f.pageAttempts)
-        assertEquals(0, f.finishes); assertEquals(0, f.clockCalls)
+        assertEquals(1, f.finishes); assertEquals(1, f.clockCalls)
     }
     @Test fun invalidPageInputCannotHideRetainedPageWriteFailure() = closeoutTest {
         for (input in listOf("", "0", "2147483648")) {
             val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
             f.failPage = true; vm.updatePage("42"); runCurrent(); vm.updatePage(input)
-            vm.requestFinishConfirmation(); runCurrent(); vm.requestFinishConfirmation(); runCurrent()
-            assertEquals(SessionFinishUiState.Idle, vm.finishUi.value)
+            vm.requestFinishConfirmation(); runCurrent(); vm.confirmFinish {}; runCurrent(); vm.confirmFinish {}; runCurrent()
+            assertEquals(SessionFinishUiState.Confirming("40"), vm.finishUi.value)
             assertNotNull(vm.error); assertEquals(40, f.current.value!!.currentPage)
             assertEquals(listOf(42), f.pageAttempts); assertEquals(FocusCloseoutState.ACTIVE, f.state.value)
             assertEquals(0, f.finishes); assertEquals(0, f.clockCalls)
@@ -217,8 +293,10 @@ class SessionCloseoutViewModelTest {
         vm.updatePage("4"); vm.requestFinishConfirmation(); runCurrent()
         assertEquals(SessionFinishUiState.Confirming("42"), vm.finishUi.value)
         assertEquals(42, f.current.value!!.currentPage); assertEquals(listOf(42), f.pageAttempts)
+        assertTrue(f.saved.isEmpty())
+        vm.confirmFinish {}; runCurrent()
         assertEquals(35, f.saved.single().pageNumber)
-        assertEquals(0, f.finishes); assertEquals(0, f.clockCalls)
+        assertEquals(1, f.finishes); assertEquals(1, f.clockCalls)
     }
     @Test fun continueReadingDoesNotCaptureEndSampleOrFinishAndReopensEditing() = closeoutTest {
         val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
@@ -293,22 +371,24 @@ class SessionCloseoutViewModelTest {
         events.tryEmit(FocusCloseoutState.ACTIVE); f.closeoutFlow = events
         val vm = f.vm(); runCurrent(); f.noteBarrier = CompletableDeferred()
         vm.changeContent("last draft"); vm.requestFinishConfirmation(); runCurrent()
+        vm.confirmFinish {}; runCurrent()
         events.emit(FocusCloseoutState.ACTIVE); runCurrent()
-        assertEquals(SessionFinishUiState.PreparingConfirmation, vm.finishUi.value)
+        assertEquals(SessionFinishUiState.Saving, vm.finishUi.value)
         vm.changeContent("must not replace"); vm.requestFinishConfirmation(); runCurrent()
         assertEquals("last draft", vm.draftContent); assertEquals(0, f.finishes)
         f.noteBarrier!!.complete(Unit); runCurrent()
-        assertEquals(SessionFinishUiState.Confirming("40"), vm.finishUi.value)
+        assertEquals(SessionFinishUiState.Completed("s"), vm.finishUi.value)
     }
-    @Test fun nextDraftRotationCompletesBeforeConfirmationAndCompletionNavigatesOnlyOnce() = closeoutTest {
+    @Test fun nextDraftRotationCompletesBeforeCloseoutAndCompletionNavigatesOnlyOnce() = closeoutTest {
         val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
         f.noteBarrier = CompletableDeferred(); vm.changeContent("first draft"); vm.saveAndContinue(); runCurrent()
         vm.requestFinishConfirmation(); runCurrent()
-        assertEquals(SessionFinishUiState.PreparingConfirmation, vm.finishUi.value)
-        f.noteBarrier!!.complete(Unit); runCurrent()
-        assertEquals("", vm.draftContent); assertEquals(1, f.saved.size)
+        assertEquals(SessionFinishUiState.Confirming("40"), vm.finishUi.value)
         var completions = 0
         vm.confirmFinish { completions++ }; runCurrent()
+        assertEquals(SessionFinishUiState.Saving, vm.finishUi.value)
+        f.noteBarrier!!.complete(Unit); runCurrent()
+        assertEquals("", vm.draftContent); assertEquals(1, f.saved.size)
         vm.dispatchCompletion { completions++ }; vm.retryFinish { completions++ }
         vm.flushDraft(); vm.refreshFocusState(); runCurrent()
         assertEquals(1, completions); assertEquals(1, f.clockCalls); assertEquals(0, f.evidenceCalls)
@@ -325,7 +405,9 @@ class SessionCloseoutViewModelTest {
     @Test fun failedPageCanBeCorrectedBeforeNewConfirmationAttempt() = closeoutTest {
         val f = Fixture(); val vm = f.vm(); runCurrent(); vm.syncCurrentPage(40)
         f.failPage = true; vm.updatePage("42"); runCurrent(); vm.requestFinishConfirmation(); runCurrent()
-        assertEquals(SessionFinishUiState.Idle, vm.finishUi.value)
+        vm.changeEndPage("42"); vm.confirmFinish {}; runCurrent()
+        assertEquals(SessionFinishUiState.Confirming("42"), vm.finishUi.value)
+        vm.cancelFinishConfirmation()
         f.failPage = false; vm.updatePage("43"); runCurrent(); vm.requestFinishConfirmation(); runCurrent()
         assertEquals(SessionFinishUiState.Confirming("43"), vm.finishUi.value)
     }
@@ -333,10 +415,11 @@ class SessionCloseoutViewModelTest {
         val f = Fixture(); val vm = f.vm(); runCurrent(); f.cancelNote = true
         vm.changeContent("keep draft"); advanceTimeBy(501); runCurrent()
         vm.requestFinishConfirmation(); runCurrent()
-        assertEquals(SessionFinishUiState.Idle, vm.finishUi.value)
-        assertEquals("keep draft", vm.draftContent); assertNotNull(vm.error); assertEquals(0, f.clockCalls)
-        f.cancelNote = false; vm.requestFinishConfirmation(); runCurrent()
+        vm.confirmFinish {}; runCurrent()
         assertEquals(SessionFinishUiState.Confirming("40"), vm.finishUi.value)
+        assertEquals("keep draft", vm.draftContent); assertNotNull(vm.error); assertEquals(0, f.clockCalls)
+        f.cancelNote = false; vm.confirmFinish {}; runCurrent()
+        assertEquals(SessionFinishUiState.Completed("s"), vm.finishUi.value)
         assertEquals("keep draft", f.saved.last().content)
     }
     @Test fun recreationDuringCompleteUsesCurrentNavigationCallbackNotDisposedActivity() = closeoutTest {
