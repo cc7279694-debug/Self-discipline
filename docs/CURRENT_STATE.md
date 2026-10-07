@@ -2,6 +2,8 @@
 
 更新日期：2026-10-07
 
+Phase 4 planning / frozen / awaiting implementation authorization — [Delta Audit + Master Plan](plans/MIRRA_PHASE_4_MASTER_PLAN.md) 已完成审计、ChatGPT 审阅修订与用户授权的 Planning Freeze；仅冻结总计划及已批准产品决定，速度异常阈值仍 PROPOSED。Room v4 / schemas 1–4 / Migration 不变，未运行 Gradle / AVD；4A 尚未开始，等待单独明确授权。
+
 ## Current Stage
 
 Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH NOTES`，状态为 `accepted / frozen`；Accepted implementation HEAD 为 `085543ffd0b5d03859565577a8ee277036fc50f9`。本次仅冻结这份限定修订，不表述为整个 Phase 3D 本轮重新冻结。分支为 `codex/phase-3d-closeout-v2`，实际继承基线为 `c39f135e09d48e27573dbb331c0bf57a9e075499`（上一轮品牌本地提交）。只修订最终确认后的 Note flush 与 A / owned cleanup / B 顺序。既有 3D-2 / 3D-3 / 3D-4 实现全部继承，不重新开发；本次纯文档冻结不修改代码、不重跑 Gradle / AVD、不进入后续 Phase，不合并 main、不创建 release、不改新品牌资源或 Mirra Blue。
@@ -295,4 +297,4 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Next Recommended Task
 
-Phase 3D-1 Closeout Revision 已 `accepted / frozen`，完成纯文档冻结同步后停止；不重新运行或实现 3D-2 / 3D-3 / 3D-4，不进入 Phase 4，后续任务等待用户单独明确授权。历史 Phase 3D 正式结论仍见 `docs/checkpoints/2026-10-04-module-3d-final.md` 的 Independent Acceptance，不表述为本次重新冻结整个 Phase 3D。保留新品牌与 Mirra Blue、Room v4 / schemas 1–4、Phase 2 / 3A / 3B / 3C 及既有 3D-2 / 3D-3 / 3D-4 能力；发布级 `NOT RUN`、全部旧失败、未消费 marker 与缺图的历史证据不改写，旧 AVD 安装内 marker / 数据完整性本轮未验证。额外人工 smoke 的 AVD 系统 ANR / DEGRADED 记录不改写为 Mirra PASS 或确认的 Mirra Bug。
+Phase 4 Planning 已冻结，下一步为 Phase 4A｜Trends Foundation 的单独实施计划审阅与明确授权；4A 尚未开始，本轮文档提交/Push 后停止。Phase 3D-1 Closeout Revision 继续 `accepted / frozen`，不重新运行或实现 3D-2 / 3D-3 / 3D-4。历史 Phase 3D 正式结论仍见 `docs/checkpoints/2026-10-04-module-3d-final.md` 的 Independent Acceptance，不表述为本次重新冻结整个 Phase 3D。保留新品牌与 Mirra Blue、Room v4 / schemas 1–4、Phase 2 / 3A / 3B / 3C 及既有 3D-2 / 3D-3 / 3D-4 能力；发布级 `NOT RUN`、全部旧失败、未消费 marker 与缺图的历史证据不改写，旧 AVD 安装内 marker / 数据完整性本轮未验证。额外人工 smoke 的 AVD 系统 ANR / DEGRADED 记录不改写为 Mirra PASS 或确认的 Mirra Bug。
