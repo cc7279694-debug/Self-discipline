@@ -35,7 +35,7 @@ class ExternalInterventionSessionUiTest {
         try {
             rule.setContent { MirraTheme { SessionScreen(vm, {}, {}, {},
                 InterventionNavigationRequest(session.id, if (stale) "old" else "token", action)) } }
-            rule.waitUntil(5_000) { vm.session.value != null }
+            rule.waitUntil(5_000) { vm.session.value != null && vm.bookName.value == "外部入口测试书" }
             assertions(c, vm)
             assertEquals(SessionSegmentType.RECOVERY, actions.focusStatus.value.type)
             assertTrue(actions.calls.none { it.startsWith("grant") })

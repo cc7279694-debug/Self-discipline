@@ -50,10 +50,14 @@ class ModuleTwoAFlowTest {
         launchKnowledge()
         composeRule.onNodeWithText("生命周期").performClick()
 
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(hasText("状态：进行中")).fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNodeWithText("状态：进行中").assertExists()
         composeRule.onNodeWithText("暂停").performClick()
         composeRule.waitUntil(5_000) {
-            runBlocking { container.learningItemRepository.get(item.id)?.status } == LearningItemStatus.PAUSED
+            runBlocking { container.learningItemRepository.get(item.id)?.status } == LearningItemStatus.PAUSED &&
+                composeRule.onAllNodes(hasText("状态：已暂停")).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("状态：已暂停").assertExists()
         assertTextAbsent("开始阅读")
@@ -66,7 +70,8 @@ class ModuleTwoAFlowTest {
         composeRule.onNodeWithText("标记为已完成").performClick()
         composeRule.onNodeWithText("确认完成").performClick()
         composeRule.waitUntil(5_000) {
-            runBlocking { container.learningItemRepository.get(item.id)?.status } == LearningItemStatus.COMPLETED
+            runBlocking { container.learningItemRepository.get(item.id)?.status } == LearningItemStatus.COMPLETED &&
+                composeRule.onAllNodes(hasText("状态：已完成")).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("状态：已完成").assertExists()
         assertTextAbsent("恢复为进行中")
