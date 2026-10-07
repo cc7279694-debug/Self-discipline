@@ -28,3 +28,15 @@ The existing coroutine timeouts bound cooperative suspend operations; they canno
 Test-first expectations cover confirmation versus final flush, Note failure and unchanged temporary page, post-save clock, pending saves/page retries, latest-progress validation, duplicate confirmation, A/cleanup/B ordering, independent cleanup failure/timeout, cancellation, B retry, and real Room/controller late-writer protection.
 
 Run full JVM, full dedicated API37 connected, lintDebug and assembleDebug. Report assertion execution separately from opt-in or permission assumptions. No permission widening, physical-device operation, data reset, schema generation, main merge or Phase 4. Commit and push only the new feature branch; stop for independent 3D-1 review.
+
+## Independent Acceptance
+
+On 2026-10-07 the user completed independent review: **PASS WITH NOTES**. This **Phase 3D-1 Closeout Revision** is now **accepted / frozen**. Accepted implementation HEAD: `085543ffd0b5d03859565577a8ee277036fc50f9`, on `codex/phase-3d-closeout-v2`.
+
+The implementation steps and guardrails above are frozen, including Note-save failure retaining ACTIVE, the unique `closeoutStartedAt`, irreversible PENDING, complete/retry without resampling, PENDING-first normal startup settlement versus legacy ACTIVE abnormal recovery, no new learning facts after PENDING, and cleanup failure never undoing the ended fact. Room remains v4 with no new Schema/Migration.
+
+This accepts only the limited revision, not a new whole-Phase-3D freeze. Historical overall freeze `096af8e5e943b8efbca8aa47b10ab2b7d2f53e18` remains preserved; existing 3D-2/3/4 implementations are inherited, not rerun or reimplemented.
+
+Evidence retains JVM 327/327 PASS; connected 294 discovered / 285 actual PASS / 9 unmet assumptions / 0 actual business assertion failures, **not 294/294 PASS**; lint/build PASS. Manual AVD smoke remains DEGRADED under Launcher/SystemUI ANR. Old installed-data preservation is unverified after framework package removal; later 17 unchanged hashes only prove current-file preservation for that cover install. physical/OEM, API23–36, TalkBack and release/Play remain NOT RUN. Full limitations and failure history are preserved in the [revision checkpoint](../checkpoints/2026-10-07-phase-3d-1-closeout-revision.md#independent-acceptance-and-limited-freeze).
+
+The verification/handoff instructions above describe the completed implementation round, not a request to rerun it during this documentation freeze. No Gradle/AVD rerun or production/test change is part of this acceptance synchronization. Stop here; do not re-enter 3D-2/3/4 or Phase 4.

@@ -4,7 +4,7 @@
 
 ## Current Stage
 
-用户新授权的 Phase 3D-1 Closeout 限定修订已完成实现与必要自动化，状态为 `complete / awaiting review`；本轮 Phase 3D revision overall 仍为 `IN PROGRESS`，不新宣布整体冻结。分支为 `codex/phase-3d-closeout-v2`，实际继承基线为 `c39f135e09d48e27573dbb331c0bf57a9e075499`（上一轮品牌本地提交）。只修订最终确认后的 Note flush 与 A / owned cleanup / B 顺序。既有 3D-2 / 3D-3 / 3D-4 实现全部继承，不重新开发；本轮不进入后续 Phase，不合并 main、不创建 release、不改新品牌资源或 Mirra Blue。
+Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH NOTES`，状态为 `accepted / frozen`；Accepted implementation HEAD 为 `085543ffd0b5d03859565577a8ee277036fc50f9`。本次仅冻结这份限定修订，不表述为整个 Phase 3D 本轮重新冻结。分支为 `codex/phase-3d-closeout-v2`，实际继承基线为 `c39f135e09d48e27573dbb331c0bf57a9e075499`（上一轮品牌本地提交）。只修订最终确认后的 Note flush 与 A / owned cleanup / B 顺序。既有 3D-2 / 3D-3 / 3D-4 实现全部继承，不重新开发；本次纯文档冻结不修改代码、不重跑 Gradle / AVD、不进入后续 Phase，不合并 main、不创建 release、不改新品牌资源或 Mirra Blue。
 
 历史 Phase 3D 已正式完成并冻结，继续作为本轮继承基线。Phase 3D-4 已通过用户独立验收，Accepted validation HEAD 为 `bf1082983859c1f24d096e3bb49d4bcb92afc34e`；最终 test-only durable flush correction 为 `768127951c57e01aa09ed16de4c2e5e9ee929b4c`，精确生产父 / Phase 3D-3 Freeze 为 `80ece95cf24918627e57a57bb6a6d94c253528b0`。3D-4 没有 production fix。历史 Phase 3D Formal Freeze 为 `096af8e5e943b8efbca8aa47b10ab2b7d2f53e18`，不将本轮限定修订冒称新的整个 Phase 3D 冻结。
 
@@ -16,12 +16,14 @@
 
 历史 Phase 3D-1 已独立验收并正式冻结，Accepted implementation HEAD 为 `c07fbabf050d6d5ac3aeae0677d5e5abf14f4465`，包括 Clock Rollback Correction、Tasks 1–6 与 Acceptance Patch；本轮仅在新授权范围内修订顺序。Phase 2、Module 3A、Mirra Blue / Visual Parity 与整个 Module 3C 保持原冻结语义。Module 3B 是个人试用开发基线，不等于发布级设备能力验收完成。Room v4 / schemas 1–4 不变。API 23–36 full matrix、OEM / 实体设备完整矩阵、TalkBack、release / Play、真实硬件断电与真实系统时钟人工修改继续 `NOT RUN`，API 37 AVD 结果不外推；一加 13T 反馈仍仅为个人试用。
 
-## Phase 3D-1 Closeout Revision — Complete / Awaiting Review
+## Phase 3D-1 Closeout Revision — Accepted / Frozen
 
+- 用户独立验收结论：`PASS WITH NOTES`；冻结实现为 `085543ffd0b5d03859565577a8ee277036fc50f9`。历史 Phase 3D 整体冻结记录继续保留；本次只同步该限定修订的正式接受状态。
 - 首击只打开可编辑、可取消的结束确认，不强制保存、重试页码或采样结束时间；普通 500ms autosave 与 Confirming 时的生命周期 flush 必须继续。
 - 最终确认先防止重复操作，再等待真实保存结果并 flush 最新 Note；失败保持 ACTIVE、草稿和临时结束页，结束页不得提前落库。成功 flush 并复核最新持久进度 / totalPages 后才唯一采时。
-- 沿用既有串行边界，在锁内 settle → A → 仅本场内存失效；锁外有限尝试 owned intervention / monitoring / DND cleanup，再执行 B。PENDING 不可恢复，cleanup 失败不得撤销结束事实或阻止 NORMAL / COMPLETED。
-- 本轮实际执行：完整 JVM 327/327；一次未过滤 connected 294 项，285 PASS / 9 unmet assumptions / 0 实际业务断言失败，Gradle exit 0；lint 0 errors / 9 existing warnings / 1 hint，assembleDebug PASS。9 项为 4 opt-in fixture + 5 permission platform cases，不能计作业务 PASS；HTML 原始 failures=9、skipped=0，均为 assumption body，与 runner 的 0 failed / 0 ignored 表现分开记录。范围和完整失败历史见 [revision contract](plans/MIRRA_PHASE_3D_1_CLOSEOUT_REVISION.md) 和 [本轮 checkpoint](checkpoints/2026-10-07-phase-3d-1-closeout-revision.md)。
+- 冻结顺序：首次点击结束 → 只打开可编辑确认层 → 最终确认 → 保存最新 Note → 保存成功后复核页码 → 唯一采样结束时间 → Stage A：ACTIVE → PENDING，并关闭最后 Segment → 本 Session 内存行为立即失效 → 锁外 best-effort 清理 owned intervention / monitoring / DND → Stage B：NORMAL + COMPLETED → 后续结果页。沿用既有串行边界，锁内先 settle，再执行 A 与本场内存失效；不将 Android 清理放入事实锁。
+- PENDING 在业务上已结束，不可恢复阅读；`closeoutStartedAt` 是唯一结束边界，complete / retry 不得重新采时。PENDING 冷启动继续正常结算，不得改成 ABNORMAL；未进入 PENDING 的遗留 ACTIVE 仍按既有 ABNORMAL recovery。PENDING 后禁止新 Break / Allowance / Recovery / Segment / 学习事实；cleanup 失败不得撤销 Session 已结束事实。
+- 已提交的实现轮次执行证据：完整 JVM 327/327；一次未过滤 connected 294 discovered，285 实际 PASS / 9 unmet assumptions / 0 实际业务断言失败，Gradle exit 0；不是 294/294 PASS。lint 0 errors / 9 existing warnings / 1 hint，assembleDebug PASS。9 项为 4 opt-in fixture + 5 permission platform cases，不能计作业务 PASS；HTML 原始 failures=9、skipped=0，均为 assumption body，与 runner 的 0 failed / 0 ignored 表现分开记录。本次文档冻结没有重新运行 Gradle / AVD。范围和完整失败历史见 [revision contract](plans/MIRRA_PHASE_3D_1_CLOSEOUT_REVISION.md) 和 [本轮 checkpoint](checkpoints/2026-10-07-phase-3d-1-closeout-revision.md)。
 - API37 AVD 覆盖安装成功，安装前后当前 17 个数据库/本地文件 hash 完全一致；只能证明当前文件，不能证明首次框架移除安装前的旧数据。冷启动命令返回 COLD / ok、Start 可见，但 Launcher / SystemUI ANR 弹窗阻碍额外人工烟测，因此该人工可操作性检查为 DEGRADED，不写完全 PASS。未发现该日志中的 Mirra fatal / Mirra ANR；未据此修生产代码，也不宣称所有历史 UI 失败根因已确认。
 - 执行风险：本轮首次 connected 漏传保留安装参数，测试框架收尾移除了专用 AVD 的目标安装，旧 AVD 数据/marker 不得宣称保留；后续运行明确传保留参数。不自动用旧备份回填，不操作实体设备；原历史证据仍保留。
 
@@ -251,7 +253,7 @@
 
 ## Pending
 
-- 本轮 Phase 3D-1 限定修订已实现并完成必要自动化，等待独立 review；没有新冻结整体 Phase 3D，历史 Formal Freeze 仅作为继承记录。独立 Brand Refresh v1 已完成并保留，仍不冒称品牌独立冻结；后续修改及 Phase 4 仍等待用户单独明确授权。旧 v4 精确恢复偏好/risk、STOPPED_FULL_FAILURE / UNCONSUMED / SEEDED，以及 v2 FAILED_PREFERENCES_RESTORED、v3 INTERRUPTED / UNCONSUMED、旧缺图等历史证据与失败记录继续保留；不将这些历史记录等同于本轮框架移除安装后，旧 AVD 内 marker 或数据仍完整的证明。
+- Phase 3D-1 Closeout Revision 已独立验收并正式冻结，不再等待 review；没有新冻结整体 Phase 3D，历史 Formal Freeze 继续保留。独立 Brand Refresh v1 已完成并保留，仍不冒称品牌独立冻结；后续修改及 Phase 4 仍等待用户单独明确授权，不重新进入 3D-2 / 3D-3 / 3D-4。旧 v4 精确恢复偏好/risk、STOPPED_FULL_FAILURE / UNCONSUMED / SEEDED，以及 v2 FAILED_PREFERENCES_RESTORED、v3 INTERRUPTED / UNCONSUMED、旧缺图等历史证据与失败记录继续保留；不将这些历史记录等同于本轮框架移除安装后，旧 AVD 内 marker 或数据仍完整的证明。
 - Phase 3｜Module 3B Task 6 仍待最终独立验收。Task Manager Stop、reboot、完整 risk/lock/revocation 矩阵、API 23/29/33/34/35 与实体/OEM 设备继续为 `NOT RUN`，不用 API 37 AVD 结果代替。
 
 ## Known Risks / Unknowns
@@ -273,7 +275,7 @@
 
 ## Git
 
-- Current branch: `codex/phase-3d-closeout-v2`；本轮实际起点为品牌本地提交 `c39f135e09d48e27573dbb331c0bf57a9e075499`，继承历史 Phase 3D Formal Freeze `096af8e5e943b8efbca8aa47b10ab2b7d2f53e18` 及其全部后续合法实现。本轮必要自动化已完成，提交仅包含限定修订及测试/文档；最终 commit、Push、local/remote SHA 与工作区状态以本轮交付报告及 Git 为准，不合并 main、不发布。
+- Current branch: `codex/phase-3d-closeout-v2`；本轮实际起点为品牌本地提交 `c39f135e09d48e27573dbb331c0bf57a9e075499`，继承历史 Phase 3D Formal Freeze `096af8e5e943b8efbca8aa47b10ab2b7d2f53e18` 及其全部后续合法实现。Closeout Revision Accepted implementation HEAD 为 `085543ffd0b5d03859565577a8ee277036fc50f9`，已正式接受并冻结；本次新增提交仅为冻结文档，不替代该实现 SHA。文档 freeze commit、Push、local/remote SHA 与工作区状态以本次交付报告及 Git 为准，不合并 main、不发布。
 - Phase 3D-4 Accepted validation HEAD: `bf1082983859c1f24d096e3bb49d4bcb92afc34e`。其纯文档 Formal Freeze 为 `096af8e5e943b8efbca8aa47b10ab2b7d2f53e18`，不替代该验收 HEAD；上一轮品牌提交不改变历史 Phase 3D 冻结结论，本轮不重新开发 3D-4。
 - Latest fresh-gate build/test HEAD: `768127951c57e01aa09ed16de4c2e5e9ee929b4c`（`test(session): verify draft flush at durable closeout boundary`），仅PhaseOneCorrectionTest.kt；GREEN19/19后独立Push。后续仅验证文档/受控截图提交，无production fix、未合并main或发布；最终local/remote SHA见交付报告。
 - Earlier same-userdata source HEAD: `b3b4c89d6ced6011babce93cd73bf49e2967115d`；原286完整节点/281PASS/1timeout/4assumptions与旧ANR保留为失败历史，不混写为当前fresh PASS。旧v4已获授权精确恢复prefs/risk但未consume。
@@ -293,4 +295,4 @@
 
 ## Next Recommended Task
 
-等待本轮 Phase 3D-1 限定修订的独立验收，然后暂停；本轮 overall revision 仍为 IN PROGRESS，不进入后续 Phase。历史 Phase 3D 正式结论仍见 `docs/checkpoints/2026-10-04-module-3d-final.md` 的 Independent Acceptance。保留新品牌与 Mirra Blue、Room v4 / schemas 1–4、Phase 2 / 3A / 3B / 3C 及既有 3D-2 / 3D-3 / 3D-4 能力；发布级 `NOT RUN`、全部旧失败、未消费 marker 与缺图的历史证据不改写，旧 AVD 安装内 marker / 数据完整性本轮未验证。额外人工 smoke 的 AVD 系统 ANR / DEGRADED 记录不改写为 Mirra PASS 或确认的 Mirra Bug。
+Phase 3D-1 Closeout Revision 已 `accepted / frozen`，完成纯文档冻结同步后停止；不重新运行或实现 3D-2 / 3D-3 / 3D-4，不进入 Phase 4，后续任务等待用户单独明确授权。历史 Phase 3D 正式结论仍见 `docs/checkpoints/2026-10-04-module-3d-final.md` 的 Independent Acceptance，不表述为本次重新冻结整个 Phase 3D。保留新品牌与 Mirra Blue、Room v4 / schemas 1–4、Phase 2 / 3A / 3B / 3C 及既有 3D-2 / 3D-3 / 3D-4 能力；发布级 `NOT RUN`、全部旧失败、未消费 marker 与缺图的历史证据不改写，旧 AVD 安装内 marker / 数据完整性本轮未验证。额外人工 smoke 的 AVD 系统 ANR / DEGRADED 记录不改写为 Mirra PASS 或确认的 Mirra Bug。

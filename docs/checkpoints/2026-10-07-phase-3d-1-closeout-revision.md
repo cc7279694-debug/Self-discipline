@@ -80,4 +80,31 @@ The five permission-blocked platform cases and four opt-in fixture cases are NOT
 
 Coroutines timeouts bound cooperative suspend operations, not synchronous Binder preemption. Existing cleanup owners retain release-failure metadata and startup reconciliation; no promise of an absolute Android shutdown latency.
 
-Current revision awaits independent user review. Do not newly freeze all Phase 3D or implement 3D-2/3/4/Phase4 without separate authorization.
+This Phase 3D-1 Closeout Revision is now `accepted / frozen` following the user's independent review, `PASS WITH NOTES`. Do not newly freeze all Phase 3D or implement 3D-2/3/4/Phase4 without separate authorization.
+
+## Independent Acceptance and Limited Freeze
+
+Date: 2026-10-07. The user completed independent review and formally accepted this limited revision with **PASS WITH NOTES**. Accepted implementation HEAD: `085543ffd0b5d03859565577a8ee277036fc50f9`; branch: `codex/phase-3d-closeout-v2`.
+
+Only **Phase 3D-1 Closeout Revision** is `accepted / frozen`. The historical overall Phase 3D formal freeze `096af8e5e943b8efbca8aa47b10ab2b7d2f53e18` and all earlier evidence remain intact; this is not a new freeze of the whole Phase 3D.
+
+### Frozen closeout order and rules
+
+First end tap → open editable confirmation only → final confirmation → save latest Note → revalidate page after successful save → sample the unique end time → Stage A: ACTIVE → PENDING and close the final Segment → immediately invalidate this Session's in-memory behavior → outside the facts lock, best-effort owned intervention / monitoring / DND cleanup → Stage B: NORMAL + COMPLETED → result page.
+
+- A Note save failure leaves the Session ACTIVE, retaining the draft and temporary confirmation page; no end boundary is accepted.
+- PENDING means the Session has already ended in business terms and can never resume reading. `closeoutStartedAt` is the sole end boundary; complete / retry use the original snapshot without resampling.
+- PENDING cold-start recovery continues normal settlement, never ABNORMAL. A leftover ACTIVE that never reached PENDING still follows the existing ABNORMAL recovery.
+- Cleanup failure cannot undo the ended Session fact. PENDING blocks new Break / Allowance / Recovery / Segment / learning facts.
+- Room stays v4 with schemas 1–4 unchanged; no new Schema or Migration. Phase 2 analytics, 3A/3B/3C frozen semantics, DND ownership and existing 3D-2/3/4 implementations remain unchanged.
+
+### Accepted evidence and retained notes
+
+- Previously committed implementation execution: JVM **327/327 PASS**; connected **294 discovered / 285 actual PASS / 9 unmet assumptions / 0 actual business assertion failures**. This is not 294/294 PASS. The nine remain four opt-in fixtures plus five permission prerequisites; the raw HTML/runner accounting above is retained without rewriting assumptions as executed assertions.
+- lintDebug / assembleDebug PASS are previously committed execution evidence. This documentation-only freeze did **not** rerun Gradle or AVD, perform device operations, or produce new business-test results.
+- Additional manual emulator smoke remains **DEGRADED**, due to Launcher/SystemUI ANR obstruction; neither the accepted review nor this freeze converts it into a full manual PASS.
+- The first connected execution omitted the keep-installed parameter and the framework removed the target package. Old installed-data preservation remains unverified. The subsequent 17 unchanged current-file hashes prove only current-file preservation during that specific cover install, not preservation of the earlier installed dataset.
+- physical/OEM compatibility, API23–36 full matrix, TalkBack, release/Play, real hardware power loss and manual real system-clock changes remain **NOT RUN**. API37 AVD evidence cannot be extrapolated to those environments; OnePlus 13T feedback remains personal smoke only.
+- All prior RED results, actual failed assertions, unmet assumptions, environment interruptions and unresolved root causes above remain historical evidence; none is deleted or relabeled by this acceptance.
+
+The existing [revision contract](../plans/MIRRA_PHASE_3D_1_CLOSEOUT_REVISION.md#independent-acceptance) receives the same acceptance status, not a second specification. This task ends with a separate documentation commit and push; no production/test code changes and no re-entry into 3D-2/3/4 or Phase 4.

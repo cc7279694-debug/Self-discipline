@@ -902,6 +902,8 @@ Controller 使用既有串行边界 settle → A → 纯内存失效 → B，之
 
 ## 2026-10-07 — 3D-1 最终确认后的保存与清理顺序
 
+状态：`accepted / frozen`。用户独立 review 结论为 `PASS WITH NOTES`，Accepted implementation HEAD 为 `085543ffd0b5d03859565577a8ee277036fc50f9`。只冻结 Phase 3D-1 Closeout Revision；历史整个 Phase 3D 的 Formal Freeze 保留，不作为本次重新冻结。
+
 ### Decision
 
 首击结束仅打开可编辑确认，正常 autosave 独立保留。最终确认后等待真实保存结果并保存最新 Note；失败保留 ACTIVE/草稿/临时结束页，不生成结束时刻。Note 成功后才修复普通未保存页码、重新验证最新持久进度/总页数并采唯一 ClockSample。确认框结束页不预写进度。
@@ -922,4 +924,8 @@ Controller 使用既有串行边界 settle → A → 纯内存失效 → B，之
 
 ### Consequences
 
-只修订 3D-1 接线/UI 与测试。原 Phase 3D Freeze 仍作为历史基线；本次新方案待单独 review，不自动改变 3D-2/3 的公式/历史 UI。Phase 2、3A/B/C、DND ownership、READY、coverage、schema 不变。超时只保证可取消操作，不承诺抢占同步 Binder 阻塞。
+限定修订只改变 3D-1 接线/UI 与相关测试，现已独立接受并冻结；本次冻结提交只更新文档，不再修改或运行代码。原 Phase 3D Freeze 仍作为历史基线，不自动改变或重新实现 3D-2/3/4。Phase 2、3A/B/C、DND ownership、READY、coverage、Room v4 / schemas 1–4 / Migration 不变。超时只保证可取消操作，不承诺抢占同步 Binder 阻塞。
+
+已冻结的恢复与边界规则：Note 保存失败保持 ACTIVE；PENDING 在业务上已经结束，不可恢复阅读，也不接受新的 Break / Allowance / Recovery / Segment / 学习事实。`closeoutStartedAt` 是唯一结束边界，complete / retry 只使用原快照，不重新采时。PENDING 冷启动继续正常结算，未进入 PENDING 的遗留 ACTIVE 仍按既有 ABNORMAL recovery。cleanup 失败不能撤销已经结束的事实。
+
+验证限制不因接受而升级：JVM 327/327；connected 294 discovered / 285 实际 PASS / 9 unmet assumptions / 0 实际业务断言失败，不写 294/294 PASS；lint / assembleDebug PASS 均为已提交执行证据，本次文档冻结没有重跑 Gradle / AVD。额外人工 smoke 为 Launcher/SystemUI ANR 遮挡导致的 DEGRADED；首次测试框架移除安装不能证明旧安装数据保留，后续 17 个文件 hash 不变只证明该次覆盖安装当前文件保留。physical/OEM、API23–36、TalkBack、release/Play 等未测范围继续 NOT RUN。完整历史与独立接受记录见 [revision checkpoint](checkpoints/2026-10-07-phase-3d-1-closeout-revision.md#independent-acceptance-and-limited-freeze)，不复制第二套规格。
