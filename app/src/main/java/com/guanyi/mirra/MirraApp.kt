@@ -69,6 +69,7 @@ import com.guanyi.mirra.navigation.TopicDetailRoute
 import com.guanyi.mirra.navigation.SearchRoute
 import com.guanyi.mirra.navigation.SessionSearchDetailRoute
 import com.guanyi.mirra.navigation.GlobalReadingHistoryRoute
+import com.guanyi.mirra.navigation.TrendsRoute
 import com.guanyi.mirra.navigation.CreateTopicRoute
 import com.guanyi.mirra.data.search.SearchDocumentType
 import com.guanyi.mirra.ui.viewModelFactory
@@ -202,6 +203,7 @@ fun MirraApp(
                             riskRepository = container.focusRepository,
                             crossAppActions = container.crossAppInterventionActions,
                             onOpenReadingHistory = { open(GlobalReadingHistoryRoute) },
+                            onOpenTrends = { open(TrendsRoute) },
                         )
                     }
                 }
@@ -212,6 +214,15 @@ fun MirraApp(
                                 container.globalReadingHistoryRepository, container.analyticsTimeProvider)
                         }),
                         onSessionSelected = { open(SessionSearchDetailRoute(it)) },
+                        onBack = ::back,
+                    )
+                }
+                entry<TrendsRoute> {
+                    com.guanyi.mirra.feature.profile.TrendsScreen(
+                        viewModel = viewModel(factory = viewModelFactory {
+                            com.guanyi.mirra.feature.profile.TrendsViewModel(
+                                container.trendsRepository, container.analyticsTimeProvider)
+                        }),
                         onBack = ::back,
                     )
                 }

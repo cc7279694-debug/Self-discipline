@@ -33,6 +33,13 @@ Implementation and verification are in progress. See [execution contract](../pla
 
 ## Known limitations inherited
 
+## Task 4 — flat trends experience
+
+- Trends VM6/6 GREEN. Installed runner Trends Compose19 + navigation2 =21/21 PASS,0failure/skip. Includes explicit cohort labels, 7/30/90/ALL, true0/unavailable/accumulating, open Intent, independent Stable, known local Recovery, load/retry/refresh and ALL without comparison.
+- Six320/360/411dp ×font1/2 viewports verify48dp range/refresh/return actions and long values. Mine retains its frozen recent7summary, then two light entries. No chart/card wall/new top tab or Start change.
+- Internal read-only final review: Critical0/Important0/Minor0 after two conservative domain fixes and cohort-copy fix. This is not user/ChatGPT independent acceptance.
+- Task5 remains pending: full unfiltered regression, current-file cover preservation, actual offline/cold-start paths, schema/frozen scope, screenshots and final Push.
+
 Historical RED/ANR/recovery/data-preservation limitations remain in their original records. API23–36/OEM/full physical matrix/TalkBack/release-Play/real power loss/manual system-clock modification: NOT RUN. OnePlus13T personal feedback is not compatibility acceptance.
 
 ## Stop point

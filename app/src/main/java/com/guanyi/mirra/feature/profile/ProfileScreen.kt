@@ -50,7 +50,7 @@ import kotlinx.coroutines.withContext
 fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier,
     debugMonitoring: MonitoringPlatformRuntime? = null, riskRepository: FocusRepository? = null,
     crossAppActions: CrossAppInterventionUserActions? = null,
-    onOpenReadingHistory: () -> Unit = {}) {
+    onOpenReadingHistory: () -> Unit = {}, onOpenTrends: () -> Unit = {}) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val dndState = viewModel.dndState?.collectAsStateWithLifecycle()?.value
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -98,6 +98,8 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier,
             color = MirraTheme.colors.textSecondary,
         )
         ProfileSummaryContent(state, Modifier.padding(top = 28.dp))
+        com.guanyi.mirra.ui.components.MirraTextAction(onOpenTrends,
+            Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("查看趋势") }
         com.guanyi.mirra.ui.components.MirraTextAction(onOpenReadingHistory,
             Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("阅读记录") }
         dndState?.let { dnd ->
