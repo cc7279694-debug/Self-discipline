@@ -85,6 +85,7 @@ class TestAppContainer(
     override val searchRepository: SearchRepository = DefaultSearchRepository(database, searchEngine, searchIndexRebuilder)
     override val readingAnalyticsRepository: ReadingAnalyticsRepository = DefaultReadingAnalyticsRepository(database)
     override val readingRecordRepository = com.guanyi.mirra.data.repository.DefaultReadingRecordRepository(database)
+    override val globalReadingHistoryRepository = com.guanyi.mirra.data.repository.DefaultGlobalReadingHistoryRepository(database)
     override val focusRepository: FocusRepository = DefaultFocusRepository(database)
     override val focusSessionActions = FakeFocusSessionActions()
     override val dndUserActions: DndUserActions = NoopDndUserActions()

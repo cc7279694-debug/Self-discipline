@@ -68,6 +68,7 @@ import com.guanyi.mirra.navigation.TopicListRoute
 import com.guanyi.mirra.navigation.TopicDetailRoute
 import com.guanyi.mirra.navigation.SearchRoute
 import com.guanyi.mirra.navigation.SessionSearchDetailRoute
+import com.guanyi.mirra.navigation.GlobalReadingHistoryRoute
 import com.guanyi.mirra.navigation.CreateTopicRoute
 import com.guanyi.mirra.data.search.SearchDocumentType
 import com.guanyi.mirra.ui.viewModelFactory
@@ -200,8 +201,19 @@ fun MirraApp(
                             debugMonitoring = debugMonitoring,
                             riskRepository = container.focusRepository,
                             crossAppActions = container.crossAppInterventionActions,
+                            onOpenReadingHistory = { open(GlobalReadingHistoryRoute) },
                         )
                     }
+                }
+                entry<GlobalReadingHistoryRoute> {
+                    com.guanyi.mirra.feature.profile.GlobalReadingHistoryScreen(
+                        viewModel = viewModel(factory = viewModelFactory {
+                            com.guanyi.mirra.feature.profile.GlobalReadingHistoryViewModel(
+                                container.globalReadingHistoryRepository, container.analyticsTimeProvider)
+                        }),
+                        onSessionSelected = { open(SessionSearchDetailRoute(it)) },
+                        onBack = ::back,
+                    )
                 }
                 entry<CreateLearningItemRoute> {
                     CreateLearningItemScreen(

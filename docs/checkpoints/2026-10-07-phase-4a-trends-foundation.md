@@ -16,8 +16,6 @@ Implementation and verification are in progress. See [execution contract](../pla
 - ViewModel targeted GREEN12/12. Empty repository produced Room RED4/4. Separate installed test runner produced history Room4 + Compose10 + navigation2 expected failures16/16. The initial combined Gradle class filter only executed TrendsRepositoryTest; other classes are not claimed as executed by that invocation.
 - Dedicated existing API37 AVD identified and booted without wipe/clear/uninstall; no physical commands. A pre-existing Launcher input-dispatch ANR was observed in local system diagnostics, not attributed to Mirra. Retain it as environment evidence.
 
-## Known limitations inherited
-
 ## Task 2 — bounded data sources
 
 - Room targeted GREEN 4/4, 0failure/error/skipped. Actual SELECT budgets at0/1/800/801/1601 facts match2/5/5/10/15. One transaction per trends load; batches <=800,801lookahead, cursor at the last consumed fact. Shared history JOIN/projection included in this DAO-foundation commit so each commit compiles independently.
@@ -25,6 +23,15 @@ Implementation and verification are in progress. See [execution contract](../pla
 - First benchmark hit runTest's default one-minute total timeout while seeding and reading. Preserve this failure; benchmark-only timeout explicitly3minutes and seed/read measurements separated. No business assertion, production timeout or schema was changed.
 - EXPLAIN: Intent/Session cohort pages scan and temporary sort; Intent→Session uses the existing intentId index; Context uses its PK; Segment/Event batches use existing(sessionId,time)indexes plus partial temporary ordering. Measured10k reads are bounded on IO; no demonstrated need for a new index at this scope. Larger histories remain a performance risk requiring measurement/review, not an unapproved index.
 - UI integration initial run33cases/3failures: test incorrectly expected start-date time instead of endedAt, and offscreen LazyColumn actions used non-keyset-aware scroll selection. Test corrections will be verified, not counted as PASS yet.
+
+## Task 3 — global reading history
+
+- History VM6/6 GREEN. Corrected installed runner History Room4 + Compose10 + History→existing ReadingRecord navigation1 =15/15 PASS, no failure/skip. No production fix was needed for the prior test date/scroll failures.
+- One business SELECT per page,51lookahead/50returned, cursor at50;121identical-endedAt rows traverse3pages without omissions/duplicates. Legacy/NONE/PARTIAL/ABNORMAL retained; Active/future/not-ended excluded.
+- Pagination uses a fixed time cutoff, not a database snapshot lasting across user navigation. A later StageB commit with older endedAt may appear below an existing cursor; the ViewModel deduplicates displayed IDs. No claim of frozen multi-page database contents.
+- 320/360/411dp ×font1/2: row/load-more/return reachable with>=48dp actions. Existing detail is reused, returns to global history and then Mine; before/after learning-fact tables unchanged.
+
+## Known limitations inherited
 
 Historical RED/ANR/recovery/data-preservation limitations remain in their original records. API23–36/OEM/full physical matrix/TalkBack/release-Play/real power loss/manual system-clock modification: NOT RUN. OnePlus13T personal feedback is not compatibility acceptance.
 
