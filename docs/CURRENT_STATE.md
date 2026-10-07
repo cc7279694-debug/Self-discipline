@@ -2,19 +2,34 @@
 
 更新日期：2026-10-07
 
-Phase 4A complete / awaiting independent review — 用户授权的 Trends Foundation 五个 Task 已实施和验证，尚未独立验收，不自称 accepted / frozen。Planning Freeze 为 `cc5180762d9f735754ce3a5b0759089aefe6dcc9`，功能分支为 `codex/phase-4a-trends-foundation`。4B–4E 未开始；4B 速度异常阈值仍为 PROPOSED。
+Phase 4A — accepted / frozen — PASS WITH NOTES。用户已确认 ChatGPT 独立代码与证据审查完成，正式结论为 `REVIEW_COMPLETE — PASS WITH NOTES`。Planning Freeze 为 `cc5180762d9f735754ce3a5b0759089aefe6dcc9`，功能分支为 `codex/phase-4a-trends-foundation`。4B–4E 未开始；4B 速度异常阈值仍为 PROPOSED。
+
+- Accepted production HEAD：`e799997002d7c8d4dbb833c7452d194e8bad5d9f`。
+- Accepted validation HEAD：`614c61b89fb3cb0d7aa3bac491e5cb80f4aa1693`。Task 5 是验证提交，不代替最后一个生产代码 SHA。
+- 本次仅做 Acceptance Freeze 文档同步，不修改实现、不重新运行 JVM / connected / Gradle / AVD / 真机，不产生新的测试 PASS 数字。
 
 ## Current Stage
 
-Phase 4A｜Trends Foundation 已完成：Mine 保持原最近 7 天摘要，增加“查看趋势”和“阅读记录”轻入口；Start 页面、顶层导航、Mirra Blue 和品牌不变。Start 按 Intent.createdAt 统计 C/(C+A+T)，开放 Intent 排除，后续 Session 结果不反向修改已开始事实；开始/Stable 耗时使用中位数。Maintain 按 Session.endedAt 并复用冻结 Validator；Recover 区分分心来源、明确结果及 UNKNOWN，不把 Break/Allowance 返回混入主要恢复分母。支持 7/30/90 本地自然日与全部，全部无前期比较；没有 Score、图表、Insights、主观状态、Backup 或 Export。
+Phase 4A｜Trends Foundation 已正式冻结：Mine 保持原最近 7 天摘要，增加“查看趋势”和“阅读记录”轻入口；Start 页面、顶层导航、Mirra Blue 和品牌不变。Start 按 Intent.createdAt 统计 CONVERTED/(CONVERTED+ABANDONED+TIMEOUT)，开放 Intent 排除，后续 Session 结果不反向修改已开始事实；Intent→Session latency 与 Stable Start 独立，`stableStartedAt == null` 只表示未确认，不提供 Stable success score/rate。Maintain 按 Session.endedAt 并复用冻结 Validator，仅 COMPLETE_TRUSTED 聚合 effective focus、实际 Deep Focus、分心次数及时长，可信 0 与 unavailable 分开。Recover 同样按 Session.endedAt，Primary 仅 DISTRACTION 来源，区分 SUCCESS / INTERRUPTED / UNKNOWN，UNKNOWN 不进入失败分母；Break/Allowance 返回不混入，局部已证实的恢复不被后续失监抹掉。支持 7/30/90 本地自然日与 ALL，ALL 无前期比较；没有 Dashboard、chart、Score、ranking、streak、AI judgement、Insights、主观状态、Backup 或 Export。
 
-全局阅读记录使用 50/51 keyset 单 JOIN，复用既有 ReadingRecord 详情。趋势每批最多 800 个 Session，批量 Context/Segment/Event，无 per-session N+1。10,001 Intent + 10,001 ended Session 的最终读取为 1,770/1,737/1,746ms、每轮 65 business SELECT；DAO 非主线程断言通过。当前证据不要求新增索引；精确中位数保留标量样本，不能宣称恒定内存或全历史查询在任意规模均快速。
+全局阅读记录使用 pageSize 50、`(endedAt DESC, id DESC)` keyset 单 JOIN（51 条 lookahead），复用既有 ReadingRecord 详情，不建立第二套 Session Detail；保留 NORMAL / ABNORMAL / PARTIAL / NONE / legacy ended Session。趋势每批最多 800 个 Session IDs，批量 Context/Segment/Event，无 per-session N+1；不是每批 Segment/Event 最多 800 行。10,001 Intent + 10,001 ended Session 的最终读取为 1,770/1,737/1,746ms、每轮 65 business SELECT；DAO 非主线程断言通过。当前证据不要求新增索引；精确中位数保留 O(N) 标量样本，不能宣称 constant-space 或全历史查询在任意规模均快速。
 
-本轮实际执行全量 JVM 374/374；完整未过滤 connected 333 discovered / 324 actual PASS / 9 unmet assumptions / 0 actual business assertion failures，新增 4A 39 项全部实际 PASS。9 项是 4 opt-in fixture（本轮 NOT RUN）与 5 未获权限的平台用例（本轮 NOT RUN），不是 333/333 PASS。原始 XML 将这 9 项记为 failures=9、errors=0、skipped=0；runner 为 0 failed / 0 ignored，计数口径分开记录。lint 0 errors / 9 existing warnings / 1 hint；assembleDebug 与 assembleDebugAndroidTest PASS。
+已接受的实现/验证轮次执行证据：全量 JVM 374/374 PASS；完整未过滤 connected 333 discovered / 324 actual PASS / 9 unmet assumptions / 0 actual business assertion failures，新增 4A 39 项全部实际 PASS。9 项是 4 opt-in fixture（该验证轮次 NOT RUN）与 5 未获权限的平台用例（该验证轮次 NOT RUN），不是 333/333 PASS。原始 XML 将这 9 项记为 failures=9、errors=0、skipped=0；runner 为 0 failed / 0 ignored，计数口径分开记录。lint 0 errors / 9 existing warnings / 1 hint；assembleDebug 与 assembleDebugAndroidTest PASS。本次文档冻结没有重新执行这些检查。
 
 专用 API37 AVD 实际覆盖安装、首次启动前 18 个当前文件 hash 不变、普通/断网冷启动、Start/Knowledge/Mine/Trends/空 History 以及两条系统 Back 返回 Mine 已确认。离线时 active default network=none；网络恢复原 0/1/1（airplane/Wi-Fi/mobile data），未授权新权限、未操作实体机。非空 History→既有详情→History→Mine 由真实内存 Room + Compose 验证；额外 ADB 手工建记录未完成，已取消，不能冒称人工非空闭环 PASS。
 
-Room v4 / Schema 1–4 / Migration 1→2→3→4 未变化；Phase 2 / 3A–3D / Closeout Revision / DND / Monitoring / READY / FGS / Recovery / Stable / Deep / Effective / Validator 冻结语义未修改。完整证据、APK、截图分类、失败历史与未测边界见 [4A checkpoint](checkpoints/2026-10-07-phase-4a-trends-foundation.md) 和 [evidence index](evidence/phase4a/README.md)。
+Room v4 / Schema 1–4 / Migration 1→2→3→4 未变化；没有 Entity / Column / Index migration，没有 Schema v5。v4 Schema 文件 SHA-256 为 `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`，不是 Room identityHash。Phase 2 / 3A–3D / Closeout Revision / DND / Monitoring / READY / FGS / Recovery / Stable / Deep / Effective / Validator 冻结语义未修改。完整证据、APK、截图分类、失败历史与未测边界见 [4A checkpoint](checkpoints/2026-10-07-phase-4a-trends-foundation.md) 和 [evidence index](evidence/phase4a/README.md)。evidence index 保留 Task 5 当时的执行快照；正式状态以本次 Acceptance Freeze 为准。
+
+### PASS WITH NOTES — retained, not resolved
+
+- ALL 精确 median 保留 O(N) scalar samples；raw Session/Context/Segment/Event 按最多 800 个 Session IDs 分批处理，当前 10k evidence 可接受，不宣称 constant-space。
+- History 固定 `snapshotNow` 不是跨多页长期 SQLite snapshot。迟到的旧 endedAt durable fact 可能需要重新进入页面才完整可见，不宣称 immutable multi-page snapshot。
+- EXPLAIN 仍有 cohort scan / temporary sort；10,001+10,001 实测未证明需新增 index，更大规模需重新 measure，不默认修改 Room v4。
+- 累计 AVD gfxinfo 有明显 jank observation，不是隔离 Trends benchmark；不归因于数据库或 4A，不宣称 zero-jank。
+- 额外人工 nonempty installed journey 仍 NOT RUN；真实 in-memory Room + Compose 的 nonempty History→existing ReadingRecord detail 证据保留。
+- 320/360/411dp + fontScale 1/2 有 semantic Compose 验证，但没有 clean 320/font2 pixel screenshot，不冒称有。
+- API23–36 / full OEM / physical matrix / TalkBack / release-Play / real power loss / manual clock change 继续 NOT RUN，API37 AVD 不外推。
+- 历史 Launcher/SystemUI ANR、Recovery >120s observation 和数据保留限制原样保留，不改写为已解决。
 
 ## Inherited Frozen Baseline
 
@@ -267,7 +282,7 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Pending
 
-- Phase 4A 已完成，等待用户/ChatGPT 独立验收；Phase 4B–4E 仍等待单独明确授权。Phase 3D-1 Closeout Revision 已独立验收并正式冻结；历史 Phase 3D Formal Freeze 保留，独立 Brand Refresh v1 已完成但不冒称品牌独立冻结。不重新进入 3D-2 / 3D-3 / 3D-4。旧 v4 精确恢复偏好/risk、STOPPED_FULL_FAILURE / UNCONSUMED / SEEDED，以及 v2 FAILED_PREFERENCES_RESTORED、v3 INTERRUPTED / UNCONSUMED、旧缺图等历史证据与失败记录继续保留；不将这些历史记录等同于旧安装数据当前仍完整的证明。
+- Phase 4A 已独立验收并正式冻结，结论为 PASS WITH NOTES；Phase 4B–4E 尚未开始，仍等待单独明确授权。Phase 3D-1 Closeout Revision 已独立验收并正式冻结；历史 Phase 3D Formal Freeze 保留，独立 Brand Refresh v1 已完成但不冒称品牌独立冻结。不重新进入 3D-2 / 3D-3 / 3D-4。旧 v4 精确恢复偏好/risk、STOPPED_FULL_FAILURE / UNCONSUMED / SEEDED，以及 v2 FAILED_PREFERENCES_RESTORED、v3 INTERRUPTED / UNCONSUMED、旧缺图等历史证据与失败记录继续保留；不将这些历史记录等同于旧安装数据当前仍完整的证明。
 - Phase 3｜Module 3B Task 6 仍待最终独立验收。Task Manager Stop、reboot、完整 risk/lock/revocation 矩阵、API 23/29/33/34/35 与实体/OEM 设备继续为 `NOT RUN`，不用 API 37 AVD 结果代替。
 
 ## Known Risks / Unknowns
@@ -290,7 +305,7 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Git
 
-- Current branch: `codex/phase-4a-trends-foundation`；父 Planning Freeze 为 `cc5180762d9f735754ce3a5b0759089aefe6dcc9`。Task 1–4 分别为 `e533c04e3562087b7ab58270d83cf4bddea6a5d8` / `76a53540c0365dba4106d81a7c3fd2f41c4a55b8` / `8e692354506e0caaa306fed0229f709f775a2eb8` / `e799997002d7c8d4dbb833c7452d194e8bad5d9f`。Task 5 为独立验证提交；最终 SHA、Push、local/remote 一致和工作区状态以交付报告与 Git 为准。不合并 main、不发布、不进入 4B。
+- Current branch: `codex/phase-4a-trends-foundation`；父 Planning Freeze 为 `cc5180762d9f735754ce3a5b0759089aefe6dcc9`。Task 1–4 分别为 `e533c04e3562087b7ab58270d83cf4bddea6a5d8` / `76a53540c0365dba4106d81a7c3fd2f41c4a55b8` / `8e692354506e0caaa306fed0229f709f775a2eb8` / `e799997002d7c8d4dbb833c7452d194e8bad5d9f`。Accepted production HEAD 为 Task 4 `e799997002d7c8d4dbb833c7452d194e8bad5d9f`；Accepted validation HEAD 为 Task 5 `614c61b89fb3cb0d7aa3bac491e5cb80f4aa1693`，两者职责分开。本次独立纯文档 Freeze 的 SHA、Push、local/remote 一致和工作区状态以完成报告与 Git 为准，不替代这两个 accepted SHA。不合并 main、不发布、不进入 4B。
 - Historical Closeout Revision branch: `codex/phase-3d-closeout-v2`；实际起点为品牌本地提交 `c39f135e09d48e27573dbb331c0bf57a9e075499`，继承历史 Phase 3D Formal Freeze `096af8e5e943b8efbca8aa47b10ab2b7d2f53e18` 及其后续合法实现。Accepted implementation HEAD 为 `085543ffd0b5d03859565577a8ee277036fc50f9`，保持正式冻结；不由本次 4A 重新冻结。
 - Phase 3D-4 Accepted validation HEAD: `bf1082983859c1f24d096e3bb49d4bcb92afc34e`。其纯文档 Formal Freeze 为 `096af8e5e943b8efbca8aa47b10ab2b7d2f53e18`，不替代该验收 HEAD；上一轮品牌提交不改变历史 Phase 3D 冻结结论，本轮不重新开发 3D-4。
 - Latest fresh-gate build/test HEAD: `768127951c57e01aa09ed16de4c2e5e9ee929b4c`（`test(session): verify draft flush at durable closeout boundary`），仅PhaseOneCorrectionTest.kt；GREEN19/19后独立Push。后续仅验证文档/受控截图提交，无production fix、未合并main或发布；最终local/remote SHA见交付报告。
@@ -311,4 +326,4 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Next Recommended Task
 
-等待 Phase 4A 独立 review。当前状态为 `complete / awaiting independent review`，不是 accepted / frozen；停止实施，不进入 4B。既有 Phase 3D / Closeout Revision / Phase 2 / 3A–3C、新品牌、Mirra Blue、Room v4 / schemas 1–4 保持。历史失败、未消费 marker、缺图、ANR、Recovery 和本轮 ADB/截图限制保留；API23–36 / OEM / full physical matrix / TalkBack / release-Play / 真实断电 / 人工系统时钟修改继续 NOT RUN，API37 AVD 不外推。一加 13T 反馈仍只是个人试用。
+Phase 4A — accepted / frozen — PASS WITH NOTES；本轮冻结同步完成后停止。下一阶段是 Phase 4B｜Descriptive Insights，但尚未开始，仍等待单独明确授权，不创建 4B branch 或实现代码。既有 Phase 3D / Closeout Revision / Phase 2 / 3A–3C、新品牌、Mirra Blue、Room v4 / schemas 1–4 保持。历史失败、未消费 marker、缺图、ANR、Recovery 和 4A ADB/截图限制保留；API23–36 / OEM / full physical matrix / TalkBack / release-Play / 真实断电 / 人工系统时钟修改继续 NOT RUN，API37 AVD 不外推。一加 13T 反馈仍只是个人试用。
