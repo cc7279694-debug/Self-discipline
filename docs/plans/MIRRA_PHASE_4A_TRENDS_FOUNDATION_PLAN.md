@@ -1,6 +1,6 @@
 # Phase 4A — Trends Foundation execution contract
 
-Status: in progress. Implementation authorization: 2026-10-07. Parent: `cc5180762d9f735754ce3a5b0759089aefe6dcc9`. Branch: `codex/phase-4a-trends-foundation`.
+Status: complete / awaiting independent review. Implementation authorization: 2026-10-07. Parent: `cc5180762d9f735754ce3a5b0759089aefe6dcc9`. Branch: `codex/phase-4a-trends-foundation`. Not accepted/frozen; stop before 4B.
 
 This records the user's approved implementation contract and its code mapping; it is not a new product plan or independent acceptance.
 
@@ -40,4 +40,4 @@ Historical Phase3 evidence remains unchanged. API23–36/OEM/full physical matri
 - Task2: bounded repository Room RED4/4→GREEN4/4; measured10,001-fact reads1,582/1,217/1,162ms with65 SELECTs. Shared history JOIN/projection belongs to this compile-safe DAO foundation. No new index required by current evidence; larger-scale scans remain a measured follow-up risk.
 - Task3: VM6/6 GREEN; History Room4/Compose10/history-navigation1 GREEN15/15 after date/scroll test corrections. Reuses existing detail; fixed cutoff is not a long-lived multi-page DB snapshot.
 - Task4: Trends VM6/6 GREEN; final Compose19 + navigation2 GREEN21/21. Explicit cohort labels, all ranges, unknown/empty/errors, narrow/double-font accessibility and own-origin Back verified.
-- Task5: pending. No final completion claims before fresh full regression and integration evidence.
+- Task5: completed execution. Full JVM 374/374; one complete unfiltered connected run: 333 discovered / 324 actual PASS / 9 unmet assumptions / 0 business failures, including all 39 new 4A cases actually PASS. lint/build, frozen schema checks, 18-current-file cover-install preservation, ordinary/offline cold start and actual empty navigation/back paths verified. Controlled nonempty detail navigation uses real in-memory Room; extra manual fixture creation did not complete and is not claimed PASS. See checkpoint/evidence for ANR/frame/bridge failures and all NOT RUN boundaries. Final validation commit is separate from Tasks 1–4; no 4B.

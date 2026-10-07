@@ -2,6 +2,7 @@ package com.guanyi.mirra.data
 
 import android.content.Context
 import android.os.SystemClock
+import android.os.Looper
 import androidx.room.Room
 import androidx.room.withTransaction
 import androidx.sqlite.db.SimpleSQLiteQuery
@@ -28,7 +29,7 @@ import kotlin.time.Duration.Companion.minutes
 class TrendsRepositoryTest {
     private lateinit var database: MirraDatabase
     private lateinit var repository: DefaultTrendsRepository
-    private data class Query(val sql: String, val args: List<Any?>)
+    private data class Query(val sql: String, val args: List<Any?>, val onMainThread: Boolean)
     private val queries = Collections.synchronizedList(mutableListOf<Query>())
     private val time = AnalyticsTimeContext(Instant.ofEpochMilli(1_000_000), ZoneId.of("UTC"))
 
@@ -38,7 +39,7 @@ class TrendsRepositoryTest {
                 val normalized = sql.trim().replace(Regex("\\s+"), " ").lowercase()
                 if (normalized.startsWith("select") && listOf("study_intents", "study_sessions",
                     "session_focus_contexts", "session_segments", "focus_events").any { "from $it" in normalized }) {
-                    queries.add(Query(sql, args.toList()))
+                    queries.add(Query(sql, args.toList(), Looper.myLooper() == Looper.getMainLooper()))
                 }
             }, Executor { it.run() }).build()
         repository = DefaultTrendsRepository(database)
@@ -84,7 +85,12 @@ class TrendsRepositoryTest {
             }
             seed(count)
             queries.clear()
+            val runtime = Runtime.getRuntime()
+            val memoryBefore = runtime.totalMemory() - runtime.freeMemory()
+            val started = SystemClock.elapsedRealtime()
             val actual = repository.load(TrendsRange.ALL, time)
+            val elapsed = SystemClock.elapsedRealtime() - started
+            val memoryAfter = runtime.totalMemory() - runtime.freeMemory()
             assertEquals(count.toLong(), actual.current.start.convertedCount)
             assertEquals(count.toLong(), actual.current.maintain.trustedSessionCount)
             val pages = (count + 799) / 800
@@ -96,6 +102,8 @@ class TrendsRepositoryTest {
                 assertTrue(batches.all { it.args.size <= 800 })
             }
             assertEquals(if (count == 0) 2 else 5 * pages, queries.size)
+            assertTrue("DAO reads must not execute on the UI thread", queries.none { it.onMainThread })
+            println("PHASE4A_BOUNDARY facts=$count selects=${queries.size} elapsedMs=$elapsed heapDeltaBytes=${memoryAfter - memoryBefore}")
         }
     }
 
@@ -116,6 +124,7 @@ class TrendsRepositoryTest {
             assertEquals(10_001L, actual.current.maintain.trustedSessionCount)
             assertEquals(10_001_000L, actual.current.maintain.effectiveFocusMillis)
             assertEquals(65, queries.size)
+            assertTrue("10k DAO reads must not execute on the UI thread", queries.none { it.onMainThread })
             assertTrue(queries.filter { " IN (" in it.sql }.all { it.args.size <= 800 })
             println("PHASE4A_BENCH run=${repetition + 1} facts=10001 selects=${queries.size} elapsedMs=$elapsed heapDeltaBytes=${memoryAfter - memoryBefore}")
             if (repetition == 0) {
