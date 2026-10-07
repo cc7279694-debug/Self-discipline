@@ -42,6 +42,7 @@ import com.guanyi.mirra.data.local.model.ReadingSessionProjection
 import com.guanyi.mirra.data.local.model.EffectiveReadingSource
 import com.guanyi.mirra.data.repository.LearningItemRepository
 import com.guanyi.mirra.data.repository.ReadingAnalyticsRepository
+import com.guanyi.mirra.data.repository.ReadingInsightRepository
 import com.guanyi.mirra.data.repository.StudyWorkflowRepository
 import com.guanyi.mirra.domain.AnalyticsTimeContext
 import com.guanyi.mirra.domain.AnalyticsTimeProvider
@@ -54,6 +55,7 @@ import com.guanyi.mirra.domain.EffectiveEstimateUnavailableReason
 import com.guanyi.mirra.domain.PredictionConfidence
 import com.guanyi.mirra.domain.PredictionUnavailableReason
 import com.guanyi.mirra.domain.ReadingAnalyticsService
+import com.guanyi.mirra.domain.insights.ReadingPaceInsight
 import com.guanyi.mirra.ui.components.MirraPrimaryButton
 import com.guanyi.mirra.ui.components.MirraProgress
 import com.guanyi.mirra.ui.components.MirraSecondaryButton
@@ -146,11 +148,13 @@ fun CreateLearningItemScreen(
 
 private data class ReadingTimeGeneration(val generation: Long, val time: AnalyticsTimeContext)
 private data class TimedReadingSources(
+    val generation: Long,
     val time: AnalyticsTimeContext,
     val recent: Result<List<ReadingSessionProjection>>,
     val history: Result<List<ReadingSessionProjection>>,
     val effective: Result<EffectiveReadingSource>,
 )
+private data class TimedReadingInsight(val generation: Long, val insight: ReadingPaceInsight?)
 
 private fun <T> readingResult(read: () -> Flow<T>): Flow<Result<T>> = flow { emitAll(read()) }
     .map { Result.success(it) }.catch {
@@ -168,6 +172,7 @@ class LearningItemDetailViewModel(
     private val predictionService: CompletionPredictionService,
     private val timeProvider: AnalyticsTimeProvider,
     private val effectiveService: EffectiveReadingService,
+    private val readingInsights: ReadingInsightRepository? = null,
 ) : ViewModel() {
     var error by mutableStateOf<String?>(null)
         private set
@@ -183,14 +188,31 @@ class LearningItemDetailViewModel(
             readingResult { readingAnalytics.observeRecentForItem(itemId, from, time.now.toEpochMilli()) },
             readingResult { readingAnalytics.observeHistory(itemId) },
             readingResult { readingAnalytics.observeEffectiveRecentForItem(itemId, from, time.now.toEpochMilli()) },
-        ) { recent, history, effective -> TimedReadingSources(time, recent, history, effective) }
+        ) { recent, history, effective -> TimedReadingSources(generation.generation, time, recent, history, effective) }
+    }
+
+    // An immediate empty emission keeps optional insight loading independent of the existing detail.
+    // Generation identity also clears stale insight on same-clock refresh and during source handoff.
+    private val insights = timeContext.flatMapLatest { generation ->
+        flow {
+            emit(TimedReadingInsight(generation.generation, null))
+            readingInsights?.let { repository ->
+                emitAll(flow { emitAll(repository.observeForItem(itemId, generation.time)) }
+                    .map { TimedReadingInsight(generation.generation, it.insight) }
+                    .catch {
+                        if (it is CancellationException) throw it
+                        emit(TimedReadingInsight(generation.generation, null))
+                    })
+            }
+        }
     }
 
     val uiState = combine(
         learningItems.observe(itemId),
         workflow.observeLatestSummaryForItem(itemId),
         sources,
-    ) { item, session, source ->
+        insights,
+    ) { item, session, source, insight ->
         val time = source.time
         val allHistory = source.history.getOrDefault(emptyList())
         val window = source.recent.getOrNull()?.let { analyticsService.selectAnalyticsWindow(it, time) }
@@ -211,6 +233,7 @@ class LearningItemDetailViewModel(
             history = buildHistoryUi(allHistory, time),
             isAnalyticsLoading = false,
             analyticsError = sourceError,
+            insight = insight.insight.takeIf { insight.generation == source.generation },
         )
     }.stateIn(
         viewModelScope,
@@ -341,6 +364,7 @@ data class LearningItemDetailUiState(
     val history: List<SessionHistoryUi> = emptyList(),
     val isAnalyticsLoading: Boolean = true,
     val analyticsError: String? = null,
+    val insight: ReadingPaceInsight? = null,
 )
 
 @Composable
@@ -423,6 +447,9 @@ fun LearningItemDetailScreen(
         }
         item {
             LearningItemAnalyticsSummary(state.analytics, Modifier.padding(top = 12.dp))
+        }
+        state.insight?.let { insight ->
+            item { LearningItemInsightSection(insight, Modifier.padding(top = 12.dp)) }
         }
         if (state.history.isNotEmpty()) {
             item {

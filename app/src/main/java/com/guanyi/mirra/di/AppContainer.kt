@@ -125,6 +125,7 @@ interface AppContainer {
     val topicRepository: TopicRepository
     val searchRepository: SearchRepository
     val readingAnalyticsRepository: ReadingAnalyticsRepository
+    val readingInsightRepository: com.guanyi.mirra.data.repository.ReadingInsightRepository
     val readingRecordRepository: com.guanyi.mirra.data.repository.ReadingRecordRepository
     val globalReadingHistoryRepository: com.guanyi.mirra.data.repository.GlobalReadingHistoryRepository
     val trendsRepository: com.guanyi.mirra.data.repository.TrendsRepository
@@ -168,6 +169,7 @@ class DefaultAppContainer(context: Context, private val monitoringRuntime: Monit
     override val topicRepository: TopicRepository = DefaultTopicRepository(database, searchIndexWriter)
     override val searchRepository: SearchRepository = DefaultSearchRepository(database, searchEngine, searchIndexRebuilder)
     override val readingAnalyticsRepository: ReadingAnalyticsRepository = DefaultReadingAnalyticsRepository(database)
+    override val readingInsightRepository = com.guanyi.mirra.data.repository.DefaultReadingInsightRepository(readingAnalyticsRepository)
     override val readingRecordRepository = com.guanyi.mirra.data.repository.DefaultReadingRecordRepository(database)
     override val globalReadingHistoryRepository = com.guanyi.mirra.data.repository.DefaultGlobalReadingHistoryRepository(database)
     override val trendsRepository = com.guanyi.mirra.data.repository.DefaultTrendsRepository(database)

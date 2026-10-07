@@ -84,6 +84,7 @@ class TestAppContainer(
     override val topicRepository: TopicRepository = DefaultTopicRepository(database, searchIndexWriter)
     override val searchRepository: SearchRepository = DefaultSearchRepository(database, searchEngine, searchIndexRebuilder)
     override val readingAnalyticsRepository: ReadingAnalyticsRepository = DefaultReadingAnalyticsRepository(database)
+    override val readingInsightRepository = com.guanyi.mirra.data.repository.DefaultReadingInsightRepository(readingAnalyticsRepository)
     override val readingRecordRepository = com.guanyi.mirra.data.repository.DefaultReadingRecordRepository(database)
     override val globalReadingHistoryRepository = com.guanyi.mirra.data.repository.DefaultGlobalReadingHistoryRepository(database)
     override val trendsRepository = com.guanyi.mirra.data.repository.DefaultTrendsRepository(database)
