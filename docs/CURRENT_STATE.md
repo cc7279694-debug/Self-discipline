@@ -6,7 +6,11 @@
 
 Phase 4C-0 — **accepted safety audit / PASS WITH NOTES**。ChatGPT 独立源码与安全合同审阅已完成；审计文档 HEAD 为 `7499ba50cc775d801711eecae38801099f6c66f9`，继承 Phase 4B Freeze `cd13953cb3ac132ee64493fe688a3ac0f3cf8e74`。这只是安全审计接受，不是 Backup / Restore 功能接受。SB1–SB5 五类 `ARCHITECTURE_SAFETY_BLOCKER` 尚未解除；新增 FileProvider 早于 Application.onCreate 初始化的启动门禁审阅提示。详见 [安全合同](plans/MIRRA_PHASE_4C_BACKUP_SAFETY_CONTRACT.md)。
 
-当前分支 `codex/phase-4c-full-backup`。Phase 4C-1A 已单独获授权：仅建立内存维护许可/排空协议与严格偏好快照，不接入全 App writer、不生成备份、不替换数据、不实施 Restore/Journal。Room v4 / Schema 1–4 / Migration 和 Phase 1–3、4A、4B 冻结语义继续保持。本次审计接受状态同步未运行测试或 Gradle / AVD。
+当前分支 `codex/phase-4c-full-backup`。Phase 4C-1A — **foundation implemented / awaiting independent review**：独立内存 MaintenanceCoordinator（OPEN/DRAINING/EXCLUSIVE/BLOCKED、scoped permit、嵌套登记、排空、取消、generation）及同一 DataStore 的 Strict Preferences Snapshot 已完成。原 UI fallback / setter 保持不变；没有生产 UI EXCLUSIVE 入口，没有任何全 App Writer 接线、备份生成、资源替换或 Restore/Journal。生产 HEAD `8e50545417f8854caee366b70426b9cf56058ae0`；4C-0 acceptance docs `a14c073c2febc239dfce55e8c4a556550653e0a9`。
+
+本轮新增定向 JVM 44/44（Maintenance 25 + Strict Preferences 19）；最终完整未过滤 JVM 475/475、0 failure/error/skipped。lintDebug PASS：0 errors / 9 existing warnings / 1 hint；assembleDebug PASS。此前 TDD RED（22 coordination failures、17 preferences / 16 failures）及中间 472/472 full GREEN 保留，最终数字不拼接定向运行。connected / AVD / ADB / 真机 / 覆盖安装 / 运行态 smoke 均 NOT RUN；fake/受控协程测试不是 Android 文件耐久性、多线程压力或完整全局屏障证明。完整证据和未接线清单见 [4C-1A checkpoint](checkpoints/2026-10-08-phase-4c-1a-maintenance-foundation.md)。
+
+Room v4 / Schema 1–4 / Migration 和 Phase 1–3、4A、4B 冻结语义继续保持。SB1–SB5 仍未解除：1A 仅补协议核心及严格读取/模型，未完成写链、偏好原子导入回滚、实例生命周期/Provider 启动门禁、Journal/多资源持久化、owned cleanup 证明。4C-1B 未开始，等待独立审阅及单独授权；不会生成或恢复任何用户数据。
 
 以下 4B / 4A 内容保留为历史冻结基线，过去“4C 未开始”描述指对应历史轮次，不覆盖上面的当前授权状态。
 
@@ -307,7 +311,7 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Pending
 
-- Phase 4A 与 Phase 4B 均已独立验收并正式冻结，结论均为 PASS WITH NOTES；4B 的最终验证分类 `VALIDATION_RECOVERED` 与历史失败继续保留。Phase 4C–4E 尚未开始，仍等待单独明确授权。Phase 3D-1 Closeout Revision 已独立验收并正式冻结；历史 Phase 3D Formal Freeze 保留，独立 Brand Refresh v1 已完成但不冒称品牌独立冻结。不重新进入 3D-2 / 3D-3 / 3D-4。旧 v4 精确恢复偏好/risk、STOPPED_FULL_FAILURE / UNCONSUMED / SEEDED，以及 v2 FAILED_PREFERENCES_RESTORED、v3 INTERRUPTED / UNCONSUMED、旧缺图等历史证据与失败记录继续保留；不将这些历史记录等同于旧安装数据当前仍完整的证明。
+- Phase 4A 与 Phase 4B 均已独立验收并正式冻结，结论均为 PASS WITH NOTES；4B 的最终验证分类 `VALIDATION_RECOVERED` 与历史失败继续保留。Phase 4C-0 audit 已接受，4C-1A foundation 等待独立审阅；4C-1B / Backup / Restore / 4D / 4E 尚未开始，等待单独明确授权。Phase 3D-1 Closeout Revision 已独立验收并正式冻结；历史 Phase 3D Formal Freeze 保留，独立 Brand Refresh v1 已完成但不冒称品牌独立冻结。不重新进入 3D-2 / 3D-3 / 3D-4。旧 v4 精确恢复偏好/risk、STOPPED_FULL_FAILURE / UNCONSUMED / SEEDED，以及 v2 FAILED_PREFERENCES_RESTORED、v3 INTERRUPTED / UNCONSUMED、旧缺图等历史证据与失败记录继续保留；不将这些历史记录等同于旧安装数据当前仍完整的证明。
 - Phase 3｜Module 3B Task 6 仍待最终独立验收。Task Manager Stop、reboot、完整 risk/lock/revocation 矩阵、API 23/29/33/34/35 与实体/OEM 设备继续为 `NOT RUN`，不用 API 37 AVD 结果代替。
 
 ## Known Risks / Unknowns
@@ -331,7 +335,8 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Git
 
-- Current branch: `codex/phase-4b-descriptive-insights`；父 Phase 4A Freeze 为 `a57a7807b7acd0e1d7b8e49f29ef84d639a471b1`。Task 1 / 2 / 3 提交为 `f46b5a7679e52c084a55e72739f27af3343639cf` / `fd7b86d93a2d22fa90de646536540ba1f39c87fe` / `5cbff38853c069b02772b6062d5a7e96a1f9fb13`；Accepted production HEAD 为 Task 3。Accepted test-only stabilization SHA 为 `f000ca03d5eb03646d76f199fe2cb899979dfe68`，Accepted validation SHA 为 `2f1b271e6b958e0cc9b21153e168c91a970ac500`，两者已独立 Push，不代替 production SHA。Phase4B accepted/frozen — PASS WITH NOTES；本次仅 `docs(insights): freeze phase 4b` 文档提交，精确 Freeze SHA/local-remote 核对以交付报告与 Git 为准。不合并 main、不发布、不进入 4C。
+- Current branch: `codex/phase-4c-full-backup`；4B Freeze `cd13953cb3ac132ee64493fe688a3ac0f3cf8e74` → 4C-0 audit `7499ba50cc775d801711eecae38801099f6c66f9` → audit acceptance docs `a14c073c2febc239dfce55e8c4a556550653e0a9` → 4C-1A production/tests `8e50545417f8854caee366b70426b9cf56058ae0`。随后本检查点/安全合同/当前状态形成独立 validation documentation commit；其 SHA 以最终报告和 Git 为准，不代替 production SHA。不 merge main、不 force push、不 release。
+- Historical Phase 4B branch: `codex/phase-4b-descriptive-insights`；父 Phase 4A Freeze 为 `a57a7807b7acd0e1d7b8e49f29ef84d639a471b1`。Task 1 / 2 / 3 提交为 `f46b5a7679e52c084a55e72739f27af3343639cf` / `fd7b86d93a2d22fa90de646536540ba1f39c87fe` / `5cbff38853c069b02772b6062d5a7e96a1f9fb13`；Accepted production HEAD 为 Task 3。Accepted test-only stabilization SHA 为 `f000ca03d5eb03646d76f199fe2cb899979dfe68`，Accepted validation SHA 为 `2f1b271e6b958e0cc9b21153e168c91a970ac500`，两者已独立 Push，不代替 production SHA。Phase4B accepted/frozen — PASS WITH NOTES；当时仅 `docs(insights): freeze phase 4b` 文档提交，精确 Freeze SHA/local-remote 核对以交付报告与 Git 为准。当时不合并 main、不发布、不进入 4C。
 - Historical Phase 4A branch: `codex/phase-4a-trends-foundation`；父 Planning Freeze 为 `cc5180762d9f735754ce3a5b0759089aefe6dcc9`。Task 1–4 分别为 `e533c04e3562087b7ab58270d83cf4bddea6a5d8` / `76a53540c0365dba4106d81a7c3fd2f41c4a55b8` / `8e692354506e0caaa306fed0229f709f775a2eb8` / `e799997002d7c8d4dbb833c7452d194e8bad5d9f`。Accepted production HEAD 为 Task 4 `e799997002d7c8d4dbb833c7452d194e8bad5d9f`；Accepted validation HEAD 为 Task 5 `614c61b89fb3cb0d7aa3bac491e5cb80f4aa1693`，两者职责分开。4A Freeze 为 `a57a7807b7acd0e1d7b8e49f29ef84d639a471b1`；当时没有进入 4B，其后本轮独立授权不改写当时事实。
 - Historical Closeout Revision branch: `codex/phase-3d-closeout-v2`；实际起点为品牌本地提交 `c39f135e09d48e27573dbb331c0bf57a9e075499`，继承历史 Phase 3D Formal Freeze `096af8e5e943b8efbca8aa47b10ab2b7d2f53e18` 及其后续合法实现。Accepted implementation HEAD 为 `085543ffd0b5d03859565577a8ee277036fc50f9`，保持正式冻结；不由本次 4A 重新冻结。
 - Phase 3D-4 Accepted validation HEAD: `bf1082983859c1f24d096e3bb49d4bcb92afc34e`。其纯文档 Formal Freeze 为 `096af8e5e943b8efbca8aa47b10ab2b7d2f53e18`，不替代该验收 HEAD；上一轮品牌提交不改变历史 Phase 3D 冻结结论，本轮不重新开发 3D-4。
@@ -353,4 +358,4 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Next Recommended Task
 
-Phase 4B 已独立验收并正式冻结，PASS WITH NOTES；下一阶段为 Phase 4C｜Full Backup & Restore，但尚未开始，等待单独明确授权。本次文档 Freeze 后停止，不创建 4C 分支、不实施 4C、不重跑测试。既有 4A / Phase 3D / Closeout Revision / Phase 2 / 3A–3C、新品牌、Mirra Blue、Room v4 / schemas 1–4 保持。历史失败、未消费 marker、缺图、ANR、Recovery 和 4A ADB/截图限制保留；API23–36 / OEM / full physical matrix / TalkBack / release-Play / 真实断电 / 人工系统时钟修改继续 NOT RUN，API37 AVD 不外推。一加 13T 反馈仍只是个人试用。
+等待 Phase 4C-1A Maintenance / Strict Preferences Foundation 独立审阅。4C-1B 未开始，仍需单独明确授权；不自动接线52入口，不生成备份、不替换/恢复用户数据、不进入4D。既有 4A / 4B / Phase 3D / Closeout Revision / Phase 2 / 3A–3C、新品牌、Mirra Blue、Room v4 / schemas 1–4 保持。历史失败、未消费 marker、缺图、ANR、Recovery 和 4A ADB/截图限制保留；API23–36 / OEM / full physical matrix / TalkBack / release-Play / 真实断电 / 人工系统时钟修改继续 NOT RUN，历史 API37 AVD 不外推，一加 13T 反馈仍只是个人试用。本轮未运行 AVD/connected/真机。

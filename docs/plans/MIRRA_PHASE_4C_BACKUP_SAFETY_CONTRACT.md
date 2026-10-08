@@ -11,7 +11,7 @@
 
 **结论：存储事实和接入点已确定，但现有代码没有完整维护屏障、严格偏好快照、可关闭/重新绑定的存储生命周期或 Restore Journal。不能把目标架构写成已实现能力。**
 
-当前直接覆盖 live Room / DataStore / images 的方案属于 `ARCHITECTURE_SAFETY_BLOCKER`，不得进入数据切换。第 11 节列出必须先解除的安全门槛；未发现必须升级 Room v5 或改写冻结业务语义才能解决的已证实矛盾，但本轮也没有以运行证据证明后续方案安全。4C-1 仍须单独授权。
+当前直接覆盖 live Room / DataStore / images 的方案属于 `ARCHITECTURE_SAFETY_BLOCKER`，不得进入数据切换。第 11 节列出必须先解除的安全门槛；未发现必须升级 Room v5 或改写冻结业务语义才能解决的已证实矛盾，但本轮也没有以运行证据证明后续方案安全。此处是固定 4C-0 基线的审计快照；后续局部 4C-1A 授权与实现增量见第 1.2 / 13 节，不代表全部 4C-1 已授权或完成。
 
 本文件中的“要求”来自用户本轮合同和已批准 Master Plan；“建议”是接入方案，尚非生产实现或新的产品冻结。
 
@@ -332,6 +332,8 @@ SAF允许用户选择本地或云provider；Mirra不主动上传不代表用户�
 
 ### 11.1 当前实施门槛
 
+下表保留 4C-0 的源码证据。4C-1A 只局部补齐 SB1 的内存协议和 SB2 的严格读取/不可变模型；截至第 13 节，五类安全门槛仍未整体解除。
+
 | ID | 状态 / 代码证据 | 必须解除的条件 |
 |---|---|---|
 | SB1 | `ARCHITECTURE_SAFETY_BLOCKER`：没有global admission/drain；E05/E06/E08/E10–E13 | 覆盖52入口、helpers、Service/外部相机/异步退出flush及完整补偿链；证明无TOCTOU和late-generation写 |
@@ -365,3 +367,25 @@ SAF允许用户选择本地或云provider；Mirra不主动上传不代表用户�
 - 只提交本文件，不修改CURRENT_STATE、DECISIONS、PRODUCT_SPEC、旧checkpoint、生产/测试/Schema/Migration/Manifest/Gradle/resources，不进入4C-1/4D。
 
 审计交付状态：`PHASE_4C_0_READY_FOR_INDEPENDENT_REVIEW`。
+
+## 13. Phase 4C-1A implementation delta — awaiting independent review
+
+2026-10-08：4C-0 已接受（第 1.2 节），1A 按单独授权完成安全基础；production/tests HEAD `8e50545417f8854caee366b70426b9cf56058ae0`。不回写固定基线 E01–E15 行号，也不把原审计轮次改写成运行过测试。
+
+- `domain/maintenance/MaintenanceCoordinator.kt`：内存 OPEN/DRAINING/EXCLUSIVE/BLOCKED 协议。`withOperation(generation, block)` 在同一 mutex 校验状态/token 并登记；`withNestedOperation(permit, block)` 显式复用同一次操作许可，DRAINING 不阻断已登记操作内的必要工作。新准入被拒绝。结构化子任务及补偿结束后才在 NonCancellable finally 释放登记；显式登记 detached 工作也计数，捕获许可不等于登记。
+- `OperationPermit.release()` 是幂等封口：禁止新增嵌套登记，但仍执行中的 scope/子登记继续计数，不会因提前/重复 release 伪造静止。没有自动继承许可的 CoroutineContext；迟到 callback 必须显式携带并校验原 permit/generation，不能省略代际合同，未来 writer 接线必须落实这一点。
+- `withExclusive(timeoutMillis, block)` 拒绝第二 owner，锁外等待登记归零再进入 EXCLUSIVE；超时/取消抛出，不宣布成功。未进入 EXCLUSIVE 的失败可因资源从未切换而回 OPEN（原在途工作继续被计数，generation 不变）。无资源效果的 EXCLUSIVE 退出更新内存 generation，旧 token（包括另一 coordinator 的同号 token）不能重新准入。
+- `ExclusivePermit.markUncertain(reason)` 必须在未来不确定资源效果之前锁定 BLOCKED；不能自动重开。**当前 withExclusive 是 unchanged-resource 测试协议，不是资源切换/回滚 API**。未登记外部效果、文件落盘和跨进程恢复无法由这个内存类证明，未来切换必须另外审阅 Journal、owner 和 durability 协议。本轮无生产 UI 入口/DI 门禁接线。
+- `data/preferences/StrictAppPreferencesSnapshot.kt` 与 `DefaultAppPreferencesRepository.readStrictSnapshot()`：同一既有 DataStore、一次 `data.first()`，无 IOException fallback，IO/corruption/cancellation 传播；非法已存在 enum/type 失败。portable 仅四项正式偏好，各保留 value+present；成功读取的缺失 key 才解释正式默认。original 保存全部原 key 及八类值（Boolean/Float/Double/Int/Long/String/StringSet/ByteArray），不存在的 key 不被补造。Map/Set 防御复制并只读、byte array 输入/输出复制；未知 key 不删。原 UI Flow/fallback/setter 不变，没有导入、protobuf 替换或第二活动实例。
+
+| 阻塞项 | 1A 后仍未解除的部分 |
+|---|---|
+| SB1 | 52公共入口 / 49 DAO、Note debounce/flush、Image/补偿/Camera、FTS repair、factsScope/watchdog、DND/intervention 尚未接线；0 个现有 writer 被本轮门禁保护。无真实全 App drain 或 TOCTOU 证明 |
+| SB2 | strict-read/模型已实现，但整组原子导入、全 key 回滚、DataStore singleton teardown/rebind 和耐久性未实现/未验证 |
+| SB3 | early Restore bootstrap、所有 reader/owner close/rebind、FileProvider 初始化/URI 路径门禁未实现/未证明 |
+| SB4 | 三资源快照、Journal、durable intent/effect/marker、fsync/rollback/跨进程故障恢复未实现 |
+| SB5 | owned cleanup 的可确认静止结果、外部系统所有权证明未实现；原冻结 best-effort cleanup 语义保持 |
+
+新增定向 JVM 44/44（25+19）、最终完整未过滤 JVM 475/475（0 failure/error/skipped）、lintDebug 0 errors/9既有warnings/1hint、assembleDebug PASS。确定性协程和 fake DataStore 测试不证明 OS 多线程压力、Android protobuf 文件耐久性或实体设备行为。connected / AVD / ADB / 真机及实际备份恢复均 NOT RUN。本轮 Room v4、Schema 1–4、Migration 未变，未新增权限/依赖。RED/GREEN 历史与完整接线边界见 [1A checkpoint](../checkpoints/2026-10-08-phase-4c-1a-maintenance-foundation.md)。不进入 4C-1B。
+
+交付状态：`PHASE_4C_1A_FOUNDATION_AWAITING_REVIEW`；这不是整个 Backup/Restore 接受或独立验收通过。
