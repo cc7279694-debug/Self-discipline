@@ -26,7 +26,7 @@ interface AppPreferencesRepository {
 
 class DefaultAppPreferencesRepository(
     private val dataStore: DataStore<Preferences>,
-) : AppPreferencesRepository {
+) : AppPreferencesRepository, StrictAppPreferencesReader {
     override val lastDestination: Flow<TopLevelDestination> =
         dataStore.data
             .catch { throwable ->
@@ -66,6 +66,9 @@ class DefaultAppPreferencesRepository(
     override suspend fun setCrossAppInterventionEnabled(enabled: Boolean) {
         dataStore.edit { preferences -> preferences[CROSS_APP_INTERVENTION_ENABLED] = enabled }
     }
+
+    override suspend fun readStrictSnapshot(): StrictAppPreferencesSnapshot =
+        readStrictAppPreferencesSnapshot(dataStore)
 
     private companion object {
         val LAST_DESTINATION = stringPreferencesKey("last_destination")
