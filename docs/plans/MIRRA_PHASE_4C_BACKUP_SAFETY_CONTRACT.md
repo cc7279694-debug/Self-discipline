@@ -368,9 +368,9 @@ SAF允许用户选择本地或云provider；Mirra不主动上传不代表用户�
 
 审计交付状态：`PHASE_4C_0_READY_FOR_INDEPENDENT_REVIEW`。
 
-## 13. Phase 4C-1A implementation delta — awaiting independent review
+## 13. Phase 4C-1A implementation delta — accepted / frozen — PASS WITH NOTES
 
-2026-10-08：4C-0 已接受（第 1.2 节），1A 按单独授权完成安全基础；production/tests HEAD `8e50545417f8854caee366b70426b9cf56058ae0`。不回写固定基线 E01–E15 行号，也不把原审计轮次改写成运行过测试。
+2026-10-08：4C-0 已接受（第 1.2 节）；用户确认 ChatGPT 已完成 4C-1A 独立代码与证据审阅，结论为 `REVIEW_COMPLETE — PASS WITH NOTES`，基础协议正式冻结。Accepted Implementation + Tests `8e50545417f8854caee366b70426b9cf56058ae0`；Accepted Validation Documentation `bf5e423536b93623eaec1e8cf03261879c3154a1`，两者不混写。不回写固定基线 E01–E15 行号，也不把原审计轮次改写成运行过测试。
 
 - `domain/maintenance/MaintenanceCoordinator.kt`：内存 OPEN/DRAINING/EXCLUSIVE/BLOCKED 协议。`withOperation(generation, block)` 在同一 mutex 校验状态/token 并登记；`withNestedOperation(permit, block)` 显式复用同一次操作许可，DRAINING 不阻断已登记操作内的必要工作。新准入被拒绝。结构化子任务及补偿结束后才在 NonCancellable finally 释放登记；显式登记 detached 工作也计数，捕获许可不等于登记。
 - `OperationPermit.release()` 是幂等封口：禁止新增嵌套登记，但仍执行中的 scope/子登记继续计数，不会因提前/重复 release 伪造静止。没有自动继承许可的 CoroutineContext；迟到 callback 必须显式携带并校验原 permit/generation，不能省略代际合同，未来 writer 接线必须落实这一点。
@@ -386,6 +386,8 @@ SAF允许用户选择本地或云provider；Mirra不主动上传不代表用户�
 | SB4 | 三资源快照、Journal、durable intent/effect/marker、fsync/rollback/跨进程故障恢复未实现 |
 | SB5 | owned cleanup 的可确认静止结果、外部系统所有权证明未实现；原冻结 best-effort cleanup 语义保持 |
 
-新增定向 JVM 44/44（25+19）、最终完整未过滤 JVM 475/475（0 failure/error/skipped）、lintDebug 0 errors/9既有warnings/1hint、assembleDebug PASS。确定性协程和 fake DataStore 测试不证明 OS 多线程压力、Android protobuf 文件耐久性或实体设备行为。connected / AVD / ADB / 真机及实际备份恢复均 NOT RUN。本轮 Room v4、Schema 1–4、Migration 未变，未新增权限/依赖。RED/GREEN 历史与完整接线边界见 [1A checkpoint](../checkpoints/2026-10-08-phase-4c-1a-maintenance-foundation.md)。不进入 4C-1B。
+已接受的实现/验证执行证据：新增定向 JVM 44/44（25+19）、最终完整未过滤 JVM 475/475（0 failure/error/skipped）、lintDebug 0 errors/9既有warnings/1hint、assembleDebug PASS。本次 Acceptance Freeze 只同步文档，没有重跑测试、Gradle / AVD / 设备，不产生新 PASS 数字。确定性协程和 fake DataStore 测试不证明 OS 多线程压力、Android protobuf 文件耐久性、系统服务静止或真实断电安全。connected / AVD / ADB / 真机及实际备份恢复均 NOT RUN。Room v4、Schema 1–4、Migration 1→2→3→4 未变，v4 Schema 文件 SHA-256 为 `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`（不是 Room identityHash）；未新增权限/依赖。RED/GREEN 历史与完整接线边界见 [1A checkpoint](../checkpoints/2026-10-08-phase-4c-1a-maintenance-foundation.md)。
 
-交付状态：`PHASE_4C_1A_FOUNDATION_AWAITING_REVIEW`；这不是整个 Backup/Restore 接受或独立验收通过。
+正式保留 PASS WITH NOTES：现有 52 个公共 Writer **0 接线**，不是 App-wide Maintenance Barrier；异步 callback 必须携带原 generation/有效 permit，不能默认读取最新 generation 绕过隔离；当前 EXCLUSIVE 仅有 unchanged-resource 基础合同，真实切换前必须另建持久化 Journal 和安全切换协议；DataStore 整组原子导入、完整原始偏好回滚及实例生命周期证明仍未完成；SB1–SB5 均未完全解除；JVM/Fake 不证明文件持久性、系统服务静止或真实断电安全；connected/AVD/真机继续 NOT RUN。
+
+正式状态：`PHASE_4C_1A_ACCEPTED_FROZEN`。冻结对象仅为上述 MaintenanceCoordinator 与 Strict Preferences Foundation，不是整个 Backup/Restore 功能接受。**4C-1B 未开始，未实现完整备份或恢复**；仍等待单独明确授权。

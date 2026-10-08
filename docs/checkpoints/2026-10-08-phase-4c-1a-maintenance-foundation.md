@@ -5,9 +5,9 @@
 - 日期：2026-10-08；Repository `cc7279694-debug/Self-discipline`。
 - Branch `codex/phase-4c-full-backup`；授权 base `7499ba50cc775d801711eecae38801099f6c66f9`，继承 4B Freeze `cd13953cb3ac132ee64493fe688a3ac0f3cf8e74`。
 - 先独立提交 `a14c073c2febc239dfce55e8c4a556550653e0a9`（`docs(backup): accept phase 4c0 audit`）：4C-0 accepted safety audit / PASS WITH NOTES；不是 Backup/Restore 验收。新增 FileProvider 可能早于 Application.onCreate 的门禁审阅提示。
-- Production + corresponding JVM tests HEAD `8e50545417f8854caee366b70426b9cf56058ae0`（`feat(backup): add maintenance foundation`）。验证文档 commit 是本检查点/当前状态/安全合同所在提交，其最终 SHA 由交付报告/Git 标识，不替代 production HEAD。
+- Production + corresponding JVM tests HEAD `8e50545417f8854caee366b70426b9cf56058ae0`（`feat(backup): add maintenance foundation`）。原实现交付时的验证文档提交为 `bf5e423536b93623eaec1e8cf03261879c3154a1`，包含当时的本检查点/当前状态/安全合同；本次 Freeze 另作纯文档提交，两者均不替代 production HEAD。
 - 目标：仅建立可测试的内存许可/排空协议与严格偏好快照模型。不生成备份、不替换数据、不实施 Restore/Journal。
-- 状态：**foundation implemented / awaiting independent review**。内部只读复核未发现 Critical/Important 实现缺陷，不等同 ChatGPT 独立验收；不宣布 4C-1A 正式冻结，不进入 4C-1B。
+- 原实现交付状态：**foundation implemented / awaiting independent review**。当时内部只读复核未发现 Critical/Important 实现缺陷，不等同 ChatGPT 独立验收，未宣布正式冻结。当前正式状态：**accepted / frozen — PASS WITH NOTES**；独立验收及范围见末尾追加记录，不进入 4C-1B。
 
 ## Actual maintenance API and contract
 
@@ -99,6 +99,33 @@ connected / AVD / ADB / 实体机 / 覆盖安装 / 冷启动运行态 smoke：**
 
 API23–36 full matrix、full OEM/physical compatibility、TalkBack、release/Play、真实断电、人工系统时钟修改继续 NOT RUN；不外推历史 API37结果，一加13T日常反馈不是发布兼容性PASS。真实 Backup/Restore、Journal/crash rollback、Android 文件 durability、OS多线程压力/长时间 soak 均 NOT RUN。
 
-下一步只等待独立审阅和单独授权。不自动进入 4C-1B，不生成/恢复任何用户数据。
+原实现交付时下一步为等待独立审阅和单独授权；独立审阅现已完成，4C-1B 仍需单独明确授权。不自动进入 4C-1B，不生成/恢复任何用户数据。
 
-`PHASE_4C_1A_FOUNDATION_AWAITING_REVIEW`
+原实现交付标记：`PHASE_4C_1A_FOUNDATION_AWAITING_REVIEW`。
+
+## Independent Acceptance and Formal Freeze
+
+2026-10-08：用户确认 ChatGPT 已完成 Phase 4C-1A 独立代码与证据审阅，正式结论为 `REVIEW_COMPLETE — PASS WITH NOTES`。Phase 4C-1A — **accepted / frozen — PASS WITH NOTES**。
+
+- Accepted Implementation + Tests：`8e50545417f8854caee366b70426b9cf56058ae0`。
+- Accepted Validation Documentation：`bf5e423536b93623eaec1e8cf03261879c3154a1`。validation SHA 不代替 implementation SHA；本次 Freeze 为独立纯文档提交。
+- 冻结对象仅为 MaintenanceCoordinator 基础协议：OPEN / DRAINING / EXCLUSIVE / BLOCKED、Operation Permit、显式 Nested Operation、同一同步边界准入与排空、结构化子任务完成后释放登记、重复 release 不提前结束登记、Cancellation / Exception、Generation identity 隔离、不确定保持 BLOCKED。
+- Strict Preferences Foundation：同一 DataStore 实例、单次严格读取、四项 Portable Preferences 的 Value + Presence、完整 Original Preferences、未知 Key 与类型保留、防御性复制、读取失败直接传播、原 UI fallback 不变。
+
+### PASS WITH NOTES — retained, not resolved
+
+1. 52 个现有公共 Writer 接线数量仍为 **0**；不能称 App-wide Maintenance Barrier 已实现。
+2. 异步回调必须携带原 Generation 或有效 Permit，不能通过默认读取最新 Generation 绕过代际隔离。
+3. 当前 EXCLUSIVE 仅适用于尚未执行资源切换的基础协议；实际切换前必须建立持久化 Journal 与安全切换协议。
+4. DataStore 尚未实现整组原子导入、完整原始偏好回滚及实例生命周期证明。
+5. SB1–SB5 均未完全解除；上文未接线清单与阻塞表继续保留。
+6. JVM / Fake 测试不证明 Android 文件持久性、系统服务静止或真实断电安全。
+7. connected、AVD、真机均为 NOT RUN；其余未执行项目和历史失败继续保留，不外推为 PASS。
+
+只引用已接受的实现/验证执行证据：新增 targeted JVM **44/44 PASS**，完整 JVM **475/475 PASS**，0 failure/error/skipped；lintDebug **0 errors / 9 existing warnings / 1 hint**；assembleDebug **PASS**。本次纯文档冻结没有重新运行测试、Gradle / AVD / 设备，也没有新增 PASS 数字。
+
+Room 仍为 **v4**；Schema 1–4 与 Migration 1→2→3→4 不变。v4 Schema **文件 SHA-256** 为 `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`，不得与 Room identityHash 混淆。
+
+Phase 4C-1A 正式冻结；**4C-1B 未开始，未实现完整备份或恢复**。本次不修改生产代码、Tests、Schema、Migration、Manifest、Gradle、依赖、资源或其他冻结业务。
+
+`PHASE_4C_1A_ACCEPTED_FROZEN`
