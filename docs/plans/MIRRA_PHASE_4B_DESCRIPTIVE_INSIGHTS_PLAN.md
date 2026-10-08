@@ -1,14 +1,19 @@
 # Phase 4B — Descriptive Insights implementation contract
 
-Status: Phase4B complete / awaiting independent review; Task4 Fresh AVD final classification **VALIDATION_RECOVERED**. Not accepted or frozen. No Phase4C authorization or implementation.
+Status: Phase4B **accepted / frozen — PASS WITH NOTES**, following the user's confirmed independent ChatGPT review on 2026-10-08. Task4's historical execution classification **VALIDATION_RECOVERED** remains. No Phase4C authorization or implementation.
 Parent freeze: `a57a7807b7acd0e1d7b8e49f29ef84d639a471b1`.
 Branch: `codex/phase-4b-descriptive-insights`.
+
+- Accepted production HEAD: `5cbff38853c069b02772b6062d5a7e96a1f9fb13`.
+- Accepted test-only stabilization HEAD: `f000ca03d5eb03646d76f199fe2cb899979dfe68`.
+- Accepted validation HEAD: `2f1b271e6b958e0cc9b21153e168c91a970ac500`. Neither test-only, validation nor documentation Freeze replaces the production HEAD.
 
 This records the approved execution contract, not a new Phase 4 plan.
 
 ## Global constraints
 
 - Read-only, same-book effective reading pace comparison. No causes, subjective state, scores, ranking, notifications, persistence, dismissal, backup/export or Phase 4C.
+- Subjective User State / emotion / fatigue / energy / environment collection and correlation remain **DEFERRED BY PRODUCT DECISION / Post-V1 candidate**, not DONE. No UserStateSnapshot or Schema v5.
 - Reuse frozen `EffectiveReadingService.qualify()` and `SessionTimelineValidator`; neither algorithm may change.
 - Qualified samples: current book, NORMAL, non-future ended Session, COMPLETE_TRUSTED, positive pages and effective focus.
 - One immutable `AnalyticsTimeContext`: latest 90 **local natural days**, inclusive today; never 90×24 hours.
@@ -58,7 +63,7 @@ Commit: `test(insights): validate phase 4b`; push current branch only. Keep prod
 
 Recovered Gate (2026-10-07): fresh `Mirra_API_37_Phase4B_Final`, Android17/API37 Google APIs x86_64, build `CE2A.260420.019`; four initial health rounds span72.102s. Three specified methods each3/3 independent actualPASS; focused4B JVM57/57, Room8/8, Compose10/10. Full JVM431/431,0failure/error/skip; lint0errors/9existingwarnings/1hint; both APK builds PASS. Unique actual unfiltered connected:351discovered/342actualPASS/9unmet assumptions/0businessfailure/0error/0unfinished, Gradleexit0,1046.447hostseconds. 351unique runner start/finish records plus final run-finished match the fresh XML. Four opt-in and five permission-prerequisite cases remain NOT RUN. Raw XML stores9assumptions as failure nodes,0errors/0skipped; not351/351PASS. Full pre/post health is normal, no system_server restart, ANR, DeadSystem or transport abort observed.
 
-Historical Gate failures remain separate: first complete351-entry FAIL,72-entry incomplete retry/DeadSystem, later27-start Forensics Fresh Full stale-title failure, old AVD/QEMU disappearance and collector misclassification. Approved test-only stabilization `f000ca03d5eb03646d76f199fe2cb899979dfe68` changes only async test readiness; production stays `5cbff38853c069b02772b6062d5a7e96a1f9fb13`. This authorization changed neither production nor tests. One preceding host Gradle invocation failed at task selection due an unquoted dotted property, with0Androidtests started; quoting the property launched the sole actual full execution, not rerun-until-green. Stale copied outputs from the host failure are excluded. No old AVD repair/data import, permission grant, wipe/clear/uninstall or physical-device operation. Validation publication contains documents and sanitized evidence only; independent acceptance remains pending. See checkpoint for complete history and limitations.
+Historical Gate failures remain separate: first complete351-entry FAIL,72-entry incomplete retry/DeadSystem, later27-start Forensics Fresh Full stale-title failure, old AVD/QEMU disappearance and collector misclassification. Approved test-only stabilization `f000ca03d5eb03646d76f199fe2cb899979dfe68` changes only async test readiness; production stays `5cbff38853c069b02772b6062d5a7e96a1f9fb13`. That validation authorization changed neither production nor tests. One preceding host Gradle invocation failed at task selection due an unquoted dotted property, with0Androidtests started; quoting the property launched the sole actual full execution, not rerun-until-green. Stale copied outputs from the host failure are excluded. No old AVD repair/data import, permission grant, wipe/clear/uninstall or physical-device operation. Validation publication contained documents and sanitized evidence only; independent acceptance was pending at that publication boundary and is now recorded below. See checkpoint for complete history and limitations.
 
 ## Code mapping and evidence
 
@@ -73,3 +78,9 @@ Existing source: `data/repository/ReadingAnalyticsRepository.kt` (Session query 
 | Existing application and test container wiring | `di/AppContainer.kt`, `MirraApp.kt`, androidTest `TestAppContainer.kt`; existing navigation is reused |
 
 Source/test names above resolve under `app/src/main/java/com/guanyi/mirra`, `app/src/test/java/com/guanyi/mirra`, or `app/src/androidTest/java/com/guanyi/mirra` as appropriate. Production HEAD: `5cbff38853c069b02772b6062d5a7e96a1f9fb13`. Per-task TDD, query/performance measurements, failure history and final Gate are recorded in [checkpoint](../checkpoints/2026-10-07-phase-4b-descriptive-insights.md). Internal reviews do not replace independent acceptance.
+
+## Independent Acceptance — 2026-10-08
+
+The user confirmed **REVIEW_COMPLETE — PASS WITH NOTES** after independent ChatGPT code, failure-history, fresh-AVD and submitted-evidence review. Phase4B is formally **accepted / frozen**. This documentation Freeze and the independent review did not rerun Gradle / AVD; the results above are previously submitted execution evidence, not new PASS results.
+
+Preserve all checkpoint notes: the effective source materializes O(N) matching facts in the 90-day window, not constant-space or only13rows; the controlled10,001-sample AVD measurement is not an arbitrary-scale/OEM/production SLA. The fresh clean Gate does not establish that all historical lifecycle/UI/system root causes are solved. Installed manual/pixel journeys and old-installation private-file preservation remain unproven; the4opt-in and5permission cases, API23–36/full OEM/physical/TalkBack/release-Play/real power loss/manual clock-change matrix remain NOT RUN. OnePlus daily feedback is not compatibility PASS. Room v4, Schema1–4 and migrations remain unchanged. No Phase4C begins without separate explicit authorization.

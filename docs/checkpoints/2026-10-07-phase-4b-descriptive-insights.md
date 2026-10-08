@@ -1,6 +1,6 @@
 # Phase 4B — Descriptive Insights
 
-Status: Phase4B **complete / awaiting independent review**. Task4 Fresh AVD classification: **VALIDATION_RECOVERED**. Not accepted/frozen; no Phase4C. Date: 2026-10-07. Earlier failed Gates below are retained historical records, not overwritten.
+Status: Phase4B **accepted / frozen — PASS WITH NOTES**, following the user's confirmed independent ChatGPT review on 2026-10-08. Task4 Fresh AVD execution classification: **VALIDATION_RECOVERED**. Execution date: 2026-10-07. No Phase4C. Earlier failed Gates and their original stop states below remain historical records, not overwritten; see the final Independent Acceptance section for the current freeze.
 
 ## Goal and inherited baseline
 
@@ -126,7 +126,7 @@ Canonical execution records remain in ignored `.gradle/phase4b-validation/`, not
 - `task4-lint-results-debug.xml`, `task4-*-schema-hashes.log`, `task4-*-frozen-diff.log`: actual lint issues, hashes and complete frozen-path gates. Raw per-test/device logs stay private/local.
 - `task4-final-*-diff.log`, `task4-final-schema-hashes.log`, `task4-final-apk-hashes.log`: historical post-retry164-path/source/hash checks, all unchanged at that boundary. Both APK byte lengths and hashes matched the earlier artifact table then; the later test-only stabilization APK is recorded separately below.
 
-Internal Task1/2/3 reviews approved their actual diffs. Whole production range `a57a780..5cbff38` source review found no blocking or minor finding, but kept runtime validation as a separate Gate. These are Codex internal checks, **not** the user's independent ChatGPT review; no accepted/frozen declaration is made. Root independently parsed first/focused/retry XML nodes and retained assumptions, actual failures and interruption separately.
+Internal Task1/2/3 reviews approved their actual diffs. Whole production range `a57a780..5cbff38` source review found no blocking or minor finding, but kept runtime validation as a separate Gate. These are Codex internal checks, **not** the user's independent ChatGPT review; no accepted/frozen declaration was made at that historical implementation boundary. Root independently parsed first/focused/retry XML nodes and retained assumptions, actual failures and interruption separately.
 
 ## Original Git and blocked stop point (historical)
 
@@ -142,7 +142,7 @@ Internal Task1/2/3 reviews approved their actual diffs. Whole production range `
 - Historical Launcher/SystemUI ANR, Recovery >120s observation, earlier installation-framework removal and limited cover-install preservation evidence remain in inherited checkpoints; not silently erased or resolved here.
 - 4A O(N) scalar median, fixed-cutoff history pagination (not a long-lived SQLite snapshot), cohort scans/temp sorts and non-isolated cumulative jank notes remain unchanged.
 - New installed-data before/after hash chain, installed/nonempty manual 4B journey and inspected 4B pixel screenshots: NOT RUN. Preservation installation flags are configuration, not evidence that private files were hash-verified. The controlled in-memory Room/Compose route and six semantic viewport cases do not establish an installed manual or pixel journey.
-- Internal task review is not the user's independent ChatGPT acceptance. The original full connected Gate was blocked; the separately authorized recovered Gate below permits complete / awaiting independent review, not accepted/frozen. No Phase4C starts here.
+- Internal task review is not the user's independent ChatGPT acceptance. The original full connected Gate was blocked; the separately authorized recovered Gate below permitted complete / awaiting independent review, not self-acceptance/freeze at that validation boundary. The later user-confirmed independent acceptance is recorded at the end. No Phase4C starts here.
 
 ## Later forensics and test-only stabilization — retained history
 
@@ -228,10 +228,66 @@ Room remains4; all four schema file SHA-256 values exactly match the Data gate t
 
 APKs remain local, not committed. Cover-install flags/package presence on fresh userdata do not prove old installed data preservation. Installed/nonempty manual insight journey, pixel screenshot inspection and private-file before/after hash chain remain NOT RUN.
 
-### Current publication and stop
+### Validation publication and stop — 2026-10-07 (historical)
 
 Classification: **VALIDATION_RECOVERED**. Phase4B **complete / awaiting independent review**, not accepted/frozen. Production candidate `5cbff38853c069b02772b6062d5a7e96a1f9fb13`, test stabilization `f000ca03d5eb03646d76f199fe2cb899979dfe68`, and this validation-document commit are separate facts. Only CURRENT_STATE, this checkpoint, the4B execution plan and sanitized evidence index are included in `test(insights): validate phase 4b`; exact validation SHA/local-remote equality is reported after publication rather than embedding a circular self-SHA here.
 
 Private canonical fresh records remain `.gradle/phase4b-validation/fresh-avd-20261007/`: identity/health/targeted summaries, isolated full JVM XML, lint XML, host error record, actual-full guard/result, fresh connected XML, epoch-filtered runner and case classification. Public [evidence index](../evidence/phase4b/README.md) contains only sanitized metadata/counters. No device serial, full dumpsys/logcat or private user data is uploaded. An internal read-only evidence audit is not ChatGPT independent acceptance.
 
 API23–36 full matrix, full OEM/physical compatibility, TalkBack, release/Play, real power loss/manual real clock change remain NOT RUN. OnePlus13T was not operated; daily-use feedback is not compatibility PASS. All inherited ANR, Recovery>120s, data-preservation/marker,4A performance and screenshot limits remain. No Phase4C, merge/main, release or self-freeze.
+
+## Independent Acceptance and Phase 4B Freeze — 2026-10-08
+
+The user confirmed completion of independent ChatGPT code, failure-history, fresh-AVD and submitted-evidence review. Formal conclusion: **REVIEW_COMPLETE — PASS WITH NOTES**. Phase4B is now **accepted / frozen — PASS WITH NOTES**. This freezes Phase4B only; it does not reopen Phase4A or Phase2/3 frozen implementations and does not authorize Phase4C.
+
+### Accepted source boundaries
+
+- Accepted production HEAD: `5cbff38853c069b02772b6062d5a7e96a1f9fb13`.
+- Accepted test-only stabilization HEAD: `f000ca03d5eb03646d76f199fe2cb899979dfe68`.
+- Accepted validation HEAD: `2f1b271e6b958e0cc9b21153e168c91a970ac500`.
+- The test-only, validation and documentation Freeze commits are separate from the last production HEAD and must not be presented as production changes.
+
+### Frozen capability
+
+- Current-book window: latest90 local natural days under a single time/zone snapshot. Qualified samples are NORMAL, COMPLETE_TRUSTED, positive pages and positive effective focus; no cross-book comparison.
+- Recent: newest3 qualified samples, all within latest30 local natural days, total effective focus≥30min. Baseline: the next at most10 qualified samples, ≥5samples and≥60min, within90days and without overlap.
+- Weighted reading pace is sum-pages / sum-effective-focus, not an average of session speeds. Ratio≤0.70 and all3 individual speeds strictly below baseline → SLOWER; ratio≥1.30 and all3 strictly above baseline → FASTER. Every other result remains hidden.
+- Only Knowledge → existing Learning Item Detail presents the neutral “近期阅读节奏变慢/变快” description. No causes, subjective ability, reading quality, emotion or fatigue inference; no notification, Overlay, badge, push, AI, score, ranking, streak, persistence or dismissal state.
+- Subjective User State / emotion / fatigue / energy / environment collection and correlation remain **DEFERRED BY PRODUCT DECISION / Post-V1 candidate**, not DONE. No UserStateSnapshot and no Schema v5.
+
+### Previously executed and accepted evidence — not rerun at Freeze
+
+| Evidence | Accepted recorded result |
+| --- | --- |
+| Fresh AVD | `Mirra_API_37_Phase4B_Final`, Android17/API37/google_apis/x86_64, build `CE2A.260420.019`; four healthy observations span72.102s |
+| Full pre/post platform health | No observed ANR, DeadSystem, system_server restart or ADB transport collapse |
+| ModuleTwoA exact method | 3/3 actual PASS |
+| External stale-request exact method | 3/3 actual PASS |
+| Unchanged Closeout exact method including teardown | 3/3 actual PASS |
+| Focused4B JVM / Room / Compose | 57/57 / 8/8 / 10/10 actual PASS |
+| Full unfiltered JVM | 431/431 PASS |
+| Full unfiltered connected | 351 discovered / 342 actual PASS / 9 unmet assumptions / 0 actual business assertion failures / 0 unfinished; Gradleexit0,1046.447hostseconds |
+| LintDebug | 0errors / 9existingwarnings / 1hint |
+| assembleDebug / assembleDebugAndroidTest | PASS |
+
+The9assumptions are4opt-in cases and5permission-prerequisite cases, all **NOT RUN**, not PASS. Raw XML reports failures=9/errors=0/skipped=0; all9failure bodies are `AssumptionViolatedException`. Runner0failed/0ignored and9assumptions are recorded separately. This is **not351/351PASS**. Neither the independent review nor this pure documentation Freeze reran Gradle / AVD / JVM / connected / ADB / lint / build / physical tests; no new PASS numbers are generated here.
+
+### PASS WITH NOTES — retained, not resolved
+
+1. Existing effective source materializes O(N) matching facts inside the window; it is not constant-space and does not read only13rows.
+2. Controlled10,001-sample AVD timings are not proof of arbitrary-scale/OEM/production SLA performance.
+3. Original lifecycle, UI, system and transport failure records above remain. RunA's Closeout teardown failure, RunB's ModuleTwoA UI assertion, the later stale-title failure, old AVD/QEMU disappearance and collector correction are not erased. The accepted review confirms the stale-title test waited only for Session readiness while its assertion depended on the independent bookName Flow; `f000ca03...` adds asynchronous test readiness only, not a production fix. RunB's later DeadSystem occurred after its assertion and cannot explain away that earlier failure. The old AVD/QEMU exit cause remains unconfirmed.
+4. The fresh clean Gate does not prove every old root cause is solved or justify attributing all prior business assertions to environment instability. Test-only readiness changes retain original assertions and waits.
+5. API23–36 full matrix remains **NOT RUN**.
+6. Full OEM/physical-device compatibility matrix remains **NOT RUN**.
+7. TalkBack remains **NOT RUN**.
+8. release/Play remains **NOT RUN**.
+9. OnePlus13T daily-use feedback is personal smoke feedback, not compatibility PASS; no OnePlus operation is claimed here.
+
+New installed/nonempty manual4B journey, pixel screenshot inspection and old-installed private-file preservation hash chain remain NOT RUN/unproven. The preserved4opt-in/5permission cases, inherited Launcher/SystemUI ANR, Recovery>120s observation, installation-framework removal and limited cover-install preservation evidence remain unchanged. Real power loss and manual real-system-clock changes remain NOT RUN. Fresh AVD PASS is not extrapolated to other platforms.
+
+### Data and stop boundary
+
+Room remains **v4**; Entities/Columns/Indexes, Schema1–4 and Migration1→2→3→4 are unchanged. Manifest and dependencies are unchanged. No Schema v5. v4 schema **file SHA-256** (not Room identityHash): `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`. Phase2, 3A/3B/3C, 3D/Closeout and4A frozen semantics remain unchanged.
+
+This user-authorized Acceptance Freeze changes necessary documentation only. **Phase4B is formally frozen. Phase4C has not started and awaits separate explicit authorization.** No source/test/config change, new test execution, main merge or release accompanies this Freeze.
