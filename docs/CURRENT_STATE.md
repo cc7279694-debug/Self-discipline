@@ -2,6 +2,16 @@
 
 更新日期：2026-10-08
 
+## Current Stage — Phase 4C
+
+Phase 4C-0 — **accepted safety audit / PASS WITH NOTES**。ChatGPT 独立源码与安全合同审阅已完成；审计文档 HEAD 为 `7499ba50cc775d801711eecae38801099f6c66f9`，继承 Phase 4B Freeze `cd13953cb3ac132ee64493fe688a3ac0f3cf8e74`。这只是安全审计接受，不是 Backup / Restore 功能接受。SB1–SB5 五类 `ARCHITECTURE_SAFETY_BLOCKER` 尚未解除；新增 FileProvider 早于 Application.onCreate 初始化的启动门禁审阅提示。详见 [安全合同](plans/MIRRA_PHASE_4C_BACKUP_SAFETY_CONTRACT.md)。
+
+当前分支 `codex/phase-4c-full-backup`。Phase 4C-1A 已单独获授权：仅建立内存维护许可/排空协议与严格偏好快照，不接入全 App writer、不生成备份、不替换数据、不实施 Restore/Journal。Room v4 / Schema 1–4 / Migration 和 Phase 1–3、4A、4B 冻结语义继续保持。本次审计接受状态同步未运行测试或 Gradle / AVD。
+
+以下 4B / 4A 内容保留为历史冻结基线，过去“4C 未开始”描述指对应历史轮次，不覆盖上面的当前授权状态。
+
+## Inherited Phase 4B Freeze
+
 Phase 4B — accepted / frozen — PASS WITH NOTES。用户已确认 ChatGPT 独立代码、失败历史、fresh AVD 与最终执行证据审查完成，结论为 `REVIEW_COMPLETE — PASS WITH NOTES`；2026-10-07 的执行分类 `VALIDATION_RECOVERED` 保留，不替代独立验收结论。Task 1–3 的只读、同书有效阅读节奏变化提示保持不变。分支 `codex/phase-4b-descriptive-insights`，父冻结 `a57a7807b7acd0e1d7b8e49f29ef84d639a471b1`。执行合同见 [4B plan](plans/MIRRA_PHASE_4B_DESCRIPTIVE_INSIGHTS_PLAN.md)，包括失败历史与冻结备注的证据见 [4B checkpoint](checkpoints/2026-10-07-phase-4b-descriptive-insights.md)。Room v4，4A/Phase 2/3D 冻结语义保持；Phase 4C 尚未开始，等待单独明确授权。下文 4A 的证据与 PASS WITH NOTES 继续保留为历史冻结基线。
 
 - Phase 4B Accepted production HEAD：`5cbff38853c069b02772b6062d5a7e96a1f9fb13`。
@@ -15,7 +25,7 @@ Phase 4A — accepted / frozen — PASS WITH NOTES。用户已确认 ChatGPT 独
 - Accepted validation HEAD：`614c61b89fb3cb0d7aa3bac491e5cb80f4aa1693`。Task 5 是验证提交，不代替最后一个生产代码 SHA。
 - 该历史 4A Acceptance Freeze 只同步文档，不修改实现、不重新运行 JVM / connected / Gradle / AVD / 真机，不产生新的测试 PASS 数字；本轮 4B 的实际执行证据单独记录。
 
-## Current Stage
+## Inherited Phase 4B Execution Evidence
 
 Phase 4B｜Descriptive Insights 已独立验收并正式冻结，状态为 accepted / frozen — PASS WITH NOTES。唯一新增能力为同一本书的有效阅读节奏持续变化描述，放在既有 Knowledge → Learning Item Detail；不新增页面、不改变 Start/Mine、不推断原因、主观能力或阅读质量。冻结的样本、加权速度及 0.70/1.30 三场同向规则见 4B plan 与 checkpoint；不新增通知、Overlay、badge、push、AI、评分、排名、streak、持久化或 dismissal 状态。主观 User State / 情绪 / 疲劳 / 精力 / 环境采集与相关性仍为 `DEFERRED BY PRODUCT DECISION / Post-V1 candidate`，不是 DONE；没有 UserStateSnapshot 或 Schema v5。本轮依据用户已完成的独立审查做纯文档冻结，不修改 production / tests / config。
 

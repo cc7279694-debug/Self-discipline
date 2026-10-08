@@ -15,6 +15,14 @@
 
 本文件中的“要求”来自用户本轮合同和已批准 Master Plan；“建议”是接入方案，尚非生产实现或新的产品冻结。
 
+### 1.2 Independent audit acceptance — 2026-10-08
+
+Phase 4C-0 — **accepted safety audit / PASS WITH NOTES**。用户已完成 ChatGPT 独立源码与安全合同审阅，接受对象是基于 `cd13953cb3ac132ee64493fe688a3ac0f3cf8e74` 的审计（审计文档 HEAD `7499ba50cc775d801711eecae38801099f6c66f9`），不是 Backup / Restore 功能验收。第 11 节 SB1–SB5 五类 `ARCHITECTURE_SAFETY_BLOCKER` 尚未解除，不能执行正式资源切换。
+
+新增审阅提示：`FileProvider` 可能早于 `Application.onCreate` 初始化。现有 Manifest 使用 AndroidX FileProvider，`res/xml/file_paths.xml` 只暴露 `image-work/camera/`；这不证明未来 Restore bootstrap 门禁已覆盖 Provider 初始化或已授予 URI 的读取路径。后续启动门禁必须核实该路径不会绕过恢复隔离，在证明前仍属于 SB3 的未解除部分。本次不修改 Provider、Manifest 或冻结业务。
+
+Phase 4C-1A 仅获授权建立内存 Maintenance Protocol 与 Strict Preferences Foundation；本次审计接受不授权完整写链接线、快照、Journal、备份或恢复。此文档状态同步没有重新运行 Gradle / AVD。
+
 ### 1.1 不变产品合同
 
 - 正式首版 `backupFormatVersion = 1`、`roomSchemaVersion = 4`；只接受 Mirra 正式格式且通过完整校验的包，不接受裸 `.db`、任意安装数据库或 v1/v2/v3 备份。
