@@ -2,11 +2,25 @@
 
 更新日期：2026-10-09
 
-## Current Stage — Phase 4C
+## Current Stage — Phase 4D
 
-**Phase 4C — complete / awaiting independent review.** Implementation and tests: `1c1648c7ce98aae4d1e45ca343fde26b8dc0798f`, from freeze `3579cb74f327b6e243771285d901f639452bcd07`. The user authorized the complete usable Full Backup & Restore feature and all internal engineering steps. There is no longer a separate 4C-1B/1C/2 authorization gate. This is delivery, not accepted/frozen; do not start 4D, merge main or release.
+**Phase 4D — complete / awaiting independent review.** Branch `codex/phase-4d-export-android-backup`, parent `62ce659029fb2269902a07145c8cdc87379016f5`. User authorized one complete JSON/CSV export and conservative Android system-backup delivery; no internal acceptance gates. Do not enter 4E, merge main or release. Mine → 数据管理 exposes working JSON and CSV ZIP export with private-data confirmation and SAF. This delivery is not independent acceptance/freeze.
 
-**Current Module:** Phase 4C Full Backup & Restore — delivered for independent review. Final corrected-APK bootstrap, installed offline round-trip, full regression, cover-install, smoke and quiescence checks are complete. The [single delivery checkpoint](checkpoints/2026-10-08-phase-4c-full-backup.md) and [evidence index](evidence/phase4c/README.md) retain the detailed implementation, RED history and evidence boundaries. Final validation-document commit / remote HEAD are reported in the delivery response and current branch, not substituted for the implementation SHA.
+Implementation + tests HEAD: `5a5cbde268791d828f70a4126a872aaead455aca` (`feat(data): add readable exports and safe android backup policy`). Validation documentation is a separate subsequent commit; its SHA and verified local/remote equality are reported in the delivery report, not substituted for implementation HEAD.
+
+- Readable exports reuse the frozen 4C consistent/validated snapshot, project the 12 authoritative tables through explicit field whitelists, exclude JPEG bytes/private paths/runtime ownership, and stream rows. JSON preserves original text/null/zero; CSV documents its spreadsheet-safe text prefix and null convention. Neither is a restore input.
+- Automatic raw-data extraction is disabled with `allowBackup=false`, literal legacy `fullBackupContent=false`, and whole-domain cloud/D2D/cross-platform exclusions. No BackupAgent, permission, dependency or cloud service is added. Actual transports/OEM behavior are not claimed from rule parsing.
+- Current actual 4D evidence: post-review full JVM **607/607**, zero failure/error/skipped; single unfiltered connected **418 discovered / 404 actual PASS / 14 unmet assumptions / 0 actual assertion failures or errors**. All 21 new Android cases actually passed, including 3 compiled-policy checks. XML encodes the 14 assumptions in raw failure text nodes, not business failures or 418/418 PASS. Lint **0 errors / 17 warnings / 1 hint**, debug/test APK builds PASS. Dedicated API37 offline official JSON/CSV SAF save/cancel and prior-process export cleanup passed; 12 tables / 105 exported fields / 13 links compared, source facts/JPEG/preferences unchanged. Official 4C backup/restore and exact original baseline recovery passed with five actual opt-in fixture invocations. Post-suite cold start / three main pages / empty baseline / no active learning or journal/service passed; see the [4D checkpoint](checkpoints/2026-10-09-phase-4d-export-android-backup.md) and [evidence index](evidence/phase4d/README.md).
+- Delivered Debug APK: `build/deliveries/phase4d/Mirra-phase4d-debug-20261009.apk`, 17,473,097 bytes, SHA-256 `82E27709B45D9AC4FD4E76FE8F9046A9A110BF2893B90C6E1251DAD0F50A375B`; not committed or released. Cover installation preserved 19 current files, not historical retention. Network restored, physical devices untouched.
+- Room **v4**, schemas 1–4/migrations unchanged; v4 schema file hash remains `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`. API23–36/OEM/physical/TalkBack/release/real power loss/manual clock and system transport remain NOT RUN.
+
+## Inherited Phase 4C delivery and independent review
+
+The user reports ChatGPT independent review of Phase 4C as **REVIEW_COMPLETE — PASS WITH NOTES**, authorizing 4D from final validation `62ce659029fb2269902a07145c8cdc87379016f5`. The following delivery/execution record is retained as its historical evidence, not re-executed 4D evidence.
+
+**Phase 4C — delivered / independent review PASS WITH NOTES (user reported).** Implementation and tests: `1c1648c7ce98aae4d1e45ca343fde26b8dc0798f`, from freeze `3579cb74f327b6e243771285d901f639452bcd07`; final validation `62ce659029fb2269902a07145c8cdc87379016f5`. No 4C safety flow is reopened by Phase 4D.
+
+**Inherited Module:** Phase 4C Full Backup & Restore. Final corrected-APK bootstrap, installed offline round-trip, full regression, cover-install, smoke and quiescence checks were complete. The [single delivery checkpoint](checkpoints/2026-10-08-phase-4c-full-backup.md) and [evidence index](evidence/phase4c/README.md) retain the implementation, RED history and evidence boundaries. Validation SHA is not substituted for implementation SHA.
 
 ### Current implemented capabilities
 
@@ -202,7 +216,7 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Verified Completed
 
-- 当前 Phase 4C 的已实现用户功能：Mine 平面数据管理入口、正式 SAF 创建/保存/验证、完整替换确认、staging / Journal / 回滚 / early bootstrap / fail-closed UI；实际合成数据 SAF 往返与原 baseline 还原已有执行证据。完整交付仍处于 final validation，未 independently accepted/frozen；最终回归/APK/Git 不以中间结果代替。
+- 继承 Phase 4C 已交付用户功能：Mine 平面数据管理入口、正式 SAF 创建/保存/验证、完整替换确认、staging / Journal / 回滚 / early bootstrap / fail-closed UI；实际合成数据 SAF 往返与原 baseline 还原已有执行证据。用户报告独立审阅 PASS WITH NOTES；4D 不重开其安全流程，也不把本轮内部复核写成新的独立验收。
 - GitHub 仓库已创建，远程 main 原始状态仅包含 README。
 - V1 产品定位、功能边界、技术架构、数据模型、阶段计划与验收原则已保存到 docs/PRODUCT_SPEC.md。
 - 稳定项目身份与边界已提炼到 PROJECT.md。
@@ -353,7 +367,7 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Pending
 
-- Phase 4C 完整功能已完成并交付待独立审阅。最终 JVM/build、完整 connected、安装/bootstrap/离线完整恢复、APK 和末次静止检查已验证；不是等待 4C-1B 授权，也不是未开始 Backup/Restore。4D / 4E 尚未授权实施，不自动进入。
+- Phase 4D 整包功能与验证已交付，等待 ChatGPT 独立审阅；不自行 accepted/frozen。4C 已由用户报告独立审阅 PASS WITH NOTES，其安全流程保持不变。4E 尚未授权，不自动进入。
 - Phase 4A / 4B、4C-0 audit / 1A foundation、Phase 3D / Closeout Revision 保持既有独立接受状态与 PASS WITH NOTES；Brand Refresh v1 不冒称独立冻结。旧 v4 精确恢复偏好/risk、STOPPED_FULL_FAILURE / UNCONSUMED / SEEDED、v2 FAILED_PREFERENCES_RESTORED、v3 INTERRUPTED / UNCONSUMED 和缺图历史继续保留，不等同于旧安装数据现在仍完整，也不被本轮安全恢复测试删除或重新分类。
 - Phase 3｜Module 3B Task 6 仍待最终独立验收。Task Manager Stop、reboot、完整 risk/lock/revocation 矩阵、API 23/29/33/34/35 与实体/OEM 设备继续为 `NOT RUN`，不用 API 37 AVD 结果代替。
 
@@ -379,7 +393,8 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Git
 
-- Current branch: `codex/phase-4c-full-backup`；完整功能授权父 HEAD `3579cb74f327b6e243771285d901f639452bcd07` → implementation/tests `1c1648c7ce98aae4d1e45ca343fde26b8dc0798f` → this validation-document delivery commit。本轮包含实现、测试、UI、平台接线及交付证据，**不是 Acceptance Freeze**。最终 remote SHA/local equality/clean tree 以本轮交付报告与 Git 分支为准，不将文档 SHA 冒充生产实现 SHA。不 merge main、不 force push、不 release。
+- Current branch: `codex/phase-4d-export-android-backup`；4C 最终验证父 HEAD `62ce659029fb2269902a07145c8cdc87379016f5`。本轮是 JSON/CSV 与系统备份策略实现/验证交付，**不是 Acceptance Freeze**；implementation / validation SHA 和最终 remote/local equality/clean tree 在交付报告中分别列示。不 merge main、不 force push、不 release。
+- Historical 4C delivery branch: `codex/phase-4c-full-backup`；父 `3579cb74f327b6e243771285d901f639452bcd07` → implementation/tests `1c1648c7ce98aae4d1e45ca343fde26b8dc0798f` → validation `62ce659029fb2269902a07145c8cdc87379016f5`。
 - Historical 4C foundation chain: 4B Freeze `cd13953cb3ac132ee64493fe688a3ac0f3cf8e74` → 4C-0 audit `7499ba50cc775d801711eecae38801099f6c66f9` → audit acceptance docs `a14c073c2febc239dfce55e8c4a556550653e0a9` → 4C-1A Accepted Implementation + Tests `8e50545417f8854caee366b70426b9cf56058ae0` → Accepted Validation Documentation `bf5e423536b93623eaec1e8cf03261879c3154a1` → inherited 1A freeze `3579cb74f327b6e243771285d901f639452bcd07`。这些 SHA 保留各自历史职责，不代替本轮 Full Backup/Restore。
 - Historical Phase 4B branch: `codex/phase-4b-descriptive-insights`；父 Phase 4A Freeze 为 `a57a7807b7acd0e1d7b8e49f29ef84d639a471b1`。Task 1 / 2 / 3 提交为 `f46b5a7679e52c084a55e72739f27af3343639cf` / `fd7b86d93a2d22fa90de646536540ba1f39c87fe` / `5cbff38853c069b02772b6062d5a7e96a1f9fb13`；Accepted production HEAD 为 Task 3。Accepted test-only stabilization SHA 为 `f000ca03d5eb03646d76f199fe2cb899979dfe68`，Accepted validation SHA 为 `2f1b271e6b958e0cc9b21153e168c91a970ac500`，两者已独立 Push，不代替 production SHA。Phase4B accepted/frozen — PASS WITH NOTES；当时仅 `docs(insights): freeze phase 4b` 文档提交，精确 Freeze SHA/local-remote 核对以交付报告与 Git 为准。当时不合并 main、不发布、不进入 4C。
 - Historical Phase 4A branch: `codex/phase-4a-trends-foundation`；父 Planning Freeze 为 `cc5180762d9f735754ce3a5b0759089aefe6dcc9`。Task 1–4 分别为 `e533c04e3562087b7ab58270d83cf4bddea6a5d8` / `76a53540c0365dba4106d81a7c3fd2f41c4a55b8` / `8e692354506e0caaa306fed0229f709f775a2eb8` / `e799997002d7c8d4dbb833c7452d194e8bad5d9f`。Accepted production HEAD 为 Task 4 `e799997002d7c8d4dbb833c7452d194e8bad5d9f`；Accepted validation HEAD 为 Task 5 `614c61b89fb3cb0d7aa3bac491e5cb80f4aa1693`，两者职责分开。4A Freeze 为 `a57a7807b7acd0e1d7b8e49f29ef84d639a471b1`；当时没有进入 4B，其后本轮独立授权不改写当时事实。
@@ -403,4 +418,4 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Next Recommended Task
 
-停在 **`PHASE_4C_COMPLETE_AWAITING_REVIEW`**，等待对完整可用 Full Backup/Restore 的独立审阅与个人试用反馈，不自行 accepted/frozen，不进入 4D。最终 JVM/build、完整 connected、覆盖安装/离线三入口、真实恢复、末次静止检查和 APK checksum 均已完成，不无意义重复，不重新拆成基础子包停等授权。冻结业务、Room v4 / schemas 1–4 与历史失败保留；API23–36 / OEM / physical / TalkBack / release-Play / 真实断电 / 手动时钟修改继续 NOT RUN，一加反馈仍只属个人试用。
+停在 **`PHASE_4D_COMPLETE_AWAITING_REVIEW`**，下一步仅为 ChatGPT 独立审阅本轮实现与实际证据；不自行 accepted/frozen，不进入 4E。冻结业务、Room v4 / schemas 1–4 与历史失败保留；API23–36 / OEM / physical / TalkBack / release-Play / 真实断电 / 手动时钟修改和系统 transport 继续 NOT RUN，一加反馈仍只属个人试用。
