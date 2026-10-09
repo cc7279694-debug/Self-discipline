@@ -56,7 +56,7 @@ class ModuleThreeBMonitoredStartRepositoryTest {
     @After fun tearDown() = db.close()
 
     @Test fun fullStartAtomicallyUsesReadyTimestampAndSnapshots() = runTest {
-        val item = items.create("书", 100, 10)
+        val item = items.create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val intent = workflow.createIntent(item.id)
         now = 1_005_100
         val session = monitored(intent.id, 10).session
@@ -76,7 +76,7 @@ class ModuleThreeBMonitoredStartRepositoryTest {
     }
 
     @Test fun failedConversionRollsBackAllMonitoredFacts() = runTest {
-        val intent = workflow.createIntent(items.create("书", 100, 10).id)
+        val intent = workflow.createIntent(items.create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").id)
         db.openHelper.writableDatabase.execSQL("""
             CREATE TRIGGER reject_conversion BEFORE UPDATE OF outcome ON study_intents
             WHEN NEW.outcome = 'CONVERTED' BEGIN SELECT RAISE(ABORT, 'forced rollback'); END
@@ -90,7 +90,7 @@ class ModuleThreeBMonitoredStartRepositoryTest {
     }
 
     @Test fun duplicateMonitoredStartReturnsSameActiveSession() = runTest {
-        val intent = workflow.createIntent(items.create("书", 100, 10).id)
+        val intent = workflow.createIntent(items.create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").id)
         now = 1_005_100
         val first = monitored(intent.id, 10)
         val second = monitored(intent.id, 10)
@@ -102,10 +102,10 @@ class ModuleThreeBMonitoredStartRepositoryTest {
     }
 
     @Test fun anotherActiveSessionRejectsMonitoredStartWithoutPartialFacts() = runTest {
-        val firstIntent = workflow.createIntent(items.create("第一本", 100, 10).id)
+        val firstIntent = workflow.createIntent(items.create("第一本", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").id)
         now = 1_005_100
         val active = monitored(firstIntent.id, 10).session
-        val secondItem = items.create("第二本", 100, 1)
+        val secondItem = items.create("第二本", 100, 1, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val secondIntent = StudyIntentEntity("conflict-intent", secondItem.id, now, null, null,
             null, null, 1).also { db.intentDao().insert(it) }
         assertAnyFailure { monitored(secondIntent.id, 1, lease().copy(readyAtWall = now)) }
@@ -116,7 +116,7 @@ class ModuleThreeBMonitoredStartRepositoryTest {
 
     @Test fun riskAppSnapshotAndBindFailureCompensationRetainCommittedSession() = runTest {
         db.focusDao().upsertRiskApp(RiskAppEntity("example.risk", "Risk", now, now))
-        val intent = workflow.createIntent(items.create("书", 100, 10).id)
+        val intent = workflow.createIntent(items.create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").id)
         now = 1_005_100
         val session = monitored(intent.id, 10).session
         assertEquals("example.risk", db.focusDao().listRiskApps().single().packageName)
@@ -133,7 +133,7 @@ class ModuleThreeBMonitoredStartRepositoryTest {
     }
 
     @Test fun timeoutItemStateAndInvalidPageRejectMonitoredStartWithoutPartialSession() = runTest {
-        val item = items.create("书", 100, 10)
+        val item = items.create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val intent = workflow.createIntent(item.id)
         now = 1_005_100
         assertAnyFailure { monitored(intent.id, 101) }
@@ -143,7 +143,7 @@ class ModuleThreeBMonitoredStartRepositoryTest {
         assertAnyFailure { monitored(intent.id, 10) }
         assertTrue(db.sessionDao().listAll().isEmpty())
 
-        val other = items.create("另一本", 100, 10)
+        val other = items.create("另一本", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置")
         workflow.abandonIntent(intent.id)
         val expired = workflow.createIntent(other.id)
         now = 2_900_000
@@ -153,7 +153,7 @@ class ModuleThreeBMonitoredStartRepositoryTest {
     }
 
     @Test fun finishingCommittedSessionReleasesOnlyItsMonitoringBinding() = runTest {
-        val intent = workflow.createIntent(items.create("书", 100, 10).id)
+        val intent = workflow.createIntent(items.create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").id)
         now = 1_005_100
         val session = monitored(intent.id, 10).session
         var released: String? = null
@@ -167,7 +167,7 @@ class ModuleThreeBMonitoredStartRepositoryTest {
     }
 
     @Test fun dndReleaseHookRunsAfterDurableBeginBeforeSettlementAndPreservesCoverage() = runTest {
-        val intent = workflow.createIntent(items.create("书", 100, 10).id)
+        val intent = workflow.createIntent(items.create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").id)
         now = 1_005_100
         val session = monitored(intent.id, 10).session
         val boundary = 1_010_000L
@@ -210,7 +210,7 @@ class ModuleThreeBMonitoredStartRepositoryTest {
     }
 
     @Test fun boundUserStopPersistsLossBeforeNormalFinishAndDuplicateDestroyDoesNotAddFacts() = runTest {
-        val intent = workflow.createIntent(items.create("书", 100, 10).id)
+        val intent = workflow.createIntent(items.create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").id)
         now = 1_005_100
         val session = monitored(intent.id, 10).session
         val controller = BoundSessionMonitoringController(DefaultFocusRepository(db, clock = { now }))
@@ -231,7 +231,7 @@ class ModuleThreeBMonitoredStartRepositoryTest {
     }
 
     @Test fun normalFinishAndReleaseBeforeDestroyDoNotCreateUnmonitoredSegment() = runTest {
-        val intent = workflow.createIntent(items.create("书", 100, 10).id)
+        val intent = workflow.createIntent(items.create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").id)
         now = 1_005_100
         val session = monitored(intent.id, 10).session
         val controller = BoundSessionMonitoringController(DefaultFocusRepository(db, clock = { now }))
@@ -247,7 +247,7 @@ class ModuleThreeBMonitoredStartRepositoryTest {
     }
 
     @Test fun revokedUsageAccessPersistsLossBeforeControlledServiceStop() = runTest {
-        val intent = workflow.createIntent(items.create("书", 100, 10).id)
+        val intent = workflow.createIntent(items.create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").id)
         now = 1_005_100
         val session = monitored(intent.id, 10).session
         val controller = BoundSessionMonitoringController(DefaultFocusRepository(db, clock = { now }))
@@ -262,7 +262,7 @@ class ModuleThreeBMonitoredStartRepositoryTest {
     }
 
     @Test fun finishCannotCommitFullWhileEarlierBoundStopIsWaitingForDurableLoss() = runBlocking {
-        val intent = workflow.createIntent(items.create("书", 100, 10).id)
+        val intent = workflow.createIntent(items.create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").id)
         now = 1_005_100
         val session = monitored(intent.id, 10).session
         val focus = DefaultFocusRepository(db, clock = { now })
@@ -297,7 +297,7 @@ class ModuleThreeBMonitoredStartRepositoryTest {
 
     @Test fun riskConfirmationUsesFrozenSnapshotAndSameOpenFocusSegment() = runTest {
         db.focusDao().upsertRiskApp(RiskAppEntity("example.risk", "Risk", now, now))
-        val intent = workflow.createIntent(items.create("书", 100, 10).id)
+        val intent = workflow.createIntent(items.create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").id)
         now = 1_005_100
         val session = monitored(intent.id, 10).session
         val focus = DefaultFocusRepository(db, clock = { now })
@@ -322,7 +322,7 @@ class ModuleThreeBMonitoredStartRepositoryTest {
 
     @Test fun changedSegmentAndUnknownRiskCannotConfirmAndBriefIsIdempotent() = runTest {
         db.focusDao().upsertRiskApp(RiskAppEntity("example.risk", "Risk", now, now))
-        val intent = workflow.createIntent(items.create("书", 100, 10).id)
+        val intent = workflow.createIntent(items.create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").id)
         now = 1_005_100
         val session = monitored(intent.id, 10).session
         val focus = DefaultFocusRepository(db, clock = { now })
@@ -342,7 +342,7 @@ class ModuleThreeBMonitoredStartRepositoryTest {
 
     @Test fun candidateAtSessionStartReclassifiesOpenSegmentWithoutZeroLengthRow() = runTest {
         db.focusDao().upsertRiskApp(RiskAppEntity("example.risk", "Risk", now, now))
-        val intent = workflow.createIntent(items.create("书", 100, 10).id)
+        val intent = workflow.createIntent(items.create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").id)
         now = 1_005_100
         val session = monitored(intent.id, 10).session
         val source = db.focusDao().getActiveSegment(session.id)!!

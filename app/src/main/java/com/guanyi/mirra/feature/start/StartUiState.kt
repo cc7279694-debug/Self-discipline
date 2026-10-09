@@ -12,6 +12,13 @@ data class StartUiState(
     val isLoading: Boolean = true,
     val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
+    val firstActionEditor: StartFirstActionEditor? = null,
+)
+
+data class StartFirstActionEditor(
+    val item: StartLearningItem,
+    val beginAfterSaving: Boolean,
+    val setAsMainline: Boolean = false,
 )
 
 sealed interface StartContentState {
@@ -102,7 +109,7 @@ internal fun resolveStartContent(
                 intentId = activeIntent.id,
                 learningItemId = item.id,
                 learningItemName = item.name,
-                firstAction = FirstActionResolver.resolve(item),
+                firstAction = FirstActionResolver.forActiveIntent(item),
             ),
         )
     }

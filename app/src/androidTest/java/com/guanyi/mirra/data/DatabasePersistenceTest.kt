@@ -19,7 +19,7 @@ class DatabasePersistenceTest {
         val databaseName = "persistence-test.db"
         context.deleteDatabase(databaseName)
         var database = Room.databaseBuilder(context, MirraDatabase::class.java, databaseName).build()
-        val created = DefaultLearningItemRepository(database).create("持久化测试", 120, 33)
+        val created = DefaultLearningItemRepository(database).create("持久化测试", 120, 33, firstAction = "把书放到桌上，翻到上次阅读的位置")
         database.close()
 
         database = Room.databaseBuilder(context, MirraDatabase::class.java, databaseName).build()

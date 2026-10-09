@@ -3,6 +3,7 @@ package com.guanyi.mirra
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import com.guanyi.mirra.domain.PredictionConfidence
 import com.guanyi.mirra.feature.knowledge.LearningItemAnalyticsUi
 import com.guanyi.mirra.feature.knowledge.LearningItemAnalyticsSummary
@@ -104,8 +105,9 @@ class ModuleTwoDFlowTest {
         }
 
         composeRule.onNodeWithText("最近 7 天").assertIsDisplayed()
-        composeRule.onNodeWithText("4 次").assertIsDisplayed()
         composeRule.onNodeWithText("2 小时 15 分钟").assertIsDisplayed()
+        composeRule.onNodeWithText("更多阅读数据").performClick()
+        composeRule.onNodeWithText("4 次").assertIsDisplayed()
         composeRule.onNodeWithText("63 页").assertIsDisplayed()
         composeRule.onNodeWithText("7 条").assertIsDisplayed()
         composeRule.onNodeWithText("阅读时间比前 7 天多 35 分钟").assertIsDisplayed()

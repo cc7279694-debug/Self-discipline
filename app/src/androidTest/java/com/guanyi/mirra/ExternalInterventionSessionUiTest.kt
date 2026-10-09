@@ -22,7 +22,7 @@ class ExternalInterventionSessionUiTest {
         assertions: (TestAppContainer, SessionViewModel) -> Unit) {
         val c = TestAppContainer(ApplicationProvider.getApplicationContext())
         val session = runBlocking {
-            val item = c.learningItemRepository.create("外部入口测试书", 100)
+            val item = c.learningItemRepository.create("外部入口测试书", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
             val intent = c.studyWorkflowRepository.createIntent(item.id)
             c.studyWorkflowRepository.startSession(intent.id, 1)
         }

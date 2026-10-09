@@ -47,7 +47,7 @@ class ModuleTwoBFlowTest {
     @Test
     fun globalImageListOpensPreviewAndSwitchesWithinNote() {
         val noteId = runBlocking {
-            val item = container.learningItemRepository.create("图片所属书", 200)
+            val item = container.learningItemRepository.create("图片所属书", 200, firstAction = "把书放到桌上，翻到上次阅读的位置")
             val note = container.noteRepository.createStandalone(item.id, "双图笔记", pageNumber = 18)
             addImage(note.id, "第一张")
             delay(5)
@@ -78,7 +78,7 @@ class ModuleTwoBFlowTest {
     @Test
     fun captionCanBeEditedAndNoteDeleteRemovesPhysicalImage() {
         val data = runBlocking {
-            val item = container.learningItemRepository.create("删除图片书", 100)
+            val item = container.learningItemRepository.create("删除图片书", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
             val note = container.noteRepository.createStandalone(item.id, "有图笔记")
             val image = addImage(note.id, "旧 Caption")
             note.id to image.localPath

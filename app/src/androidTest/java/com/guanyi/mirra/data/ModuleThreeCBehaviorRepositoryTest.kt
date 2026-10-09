@@ -29,7 +29,7 @@ class ModuleThreeCBehaviorRepositoryTest {
     }
     @After fun close() = db.close()
     private suspend fun start(monitored: Boolean = true): String {
-        val item = DefaultLearningItemRepository(db, clock = { now }).create("测试书", 100, 10)
+        val item = DefaultLearningItemRepository(db, clock = { now }).create("测试书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置")
         focus.replaceRiskApp("risk.a", "A"); focus.replaceRiskApp("risk.b", "B")
         val intent = workflow.createIntent(item.id)
         return if (!monitored) workflow.startSession(intent.id, 10).id else {

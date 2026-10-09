@@ -43,7 +43,7 @@ class StorageImageEpochTest {
         try {
             writeJpeg(image, AndroidColor.RED)
             runBlocking {
-                val book = source.learningItemRepository.create("图片代际测试", 100)
+                val book = source.learningItemRepository.create("图片代际测试", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
                 val note = source.noteRepository.createStandalone(book.id, "代际图片笔记")
                 source.database.imageAssetDao().insert(ImageAssetEntity(
                     "epoch-image", note.id, "images/epoch-image.jpg", CAPTION, 96, 96,

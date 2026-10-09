@@ -42,7 +42,7 @@ class LearningItemInsightUiTest {
     @Test fun detailReachable411Normal() = reachable(411, 1f)
     @Test fun detailReachable411Double() = reachable(411, 2f)
     @Test fun fasterAppearsWithoutSlowerDescription() {
-        val item = runBlocking { container.learningItemRepository.create("较快节奏测试", 320) }
+        val item = runBlocking { container.learningItemRepository.create("较快节奏测试", 320, firstAction = "把书放到桌上，翻到上次阅读的位置") }
         val vm = detail(item.id) { flowOf(result(ReadingPaceInsightDirection.FASTER)) }
         rule.setContent { MirraTheme { LearningItemDetailScreen(vm, {}, {}, {}, {}) } }
         awaitItem(vm)
@@ -53,7 +53,8 @@ class LearningItemInsightUiTest {
     private fun reachable(width: Int, fontScale: Float) {
         val results = MutableStateFlow(result())
         val item = runBlocking { container.learningItemRepository.create(
-            "一本名字很长的受控测试书，用于验证近期阅读节奏描述在大字模式下完整换行以及书籍详情操作可达性", 320) }
+            "一本名字很长的受控测试书，用于验证近期阅读节奏描述在大字模式下完整换行以及书籍详情操作可达性", 320,
+            firstAction = "把书放到桌上，翻到上次阅读的位置") }
         val vm = detail(item.id) { results }
         var backs = 0
         var notes = 0
@@ -65,8 +66,8 @@ class LearningItemInsightUiTest {
         } } }
         awaitItem(vm)
         assertEquals(width.toFloat(), rule.onNodeWithTag("insight-detail-viewport").fetchSemanticsNode().boundsInRoot.width / density, 0.5f)
-        scroll("开始阅读")
-        val start = rule.onNode(hasText("开始阅读") and hasClickAction())
+        scroll("开始准备")
+        val start = rule.onNode(hasText("开始准备") and hasClickAction())
         start.assertIsDisplayed(); assertTrue(start.fetchSemanticsNode().boundsInRoot.height / density >= 47.9f)
         scroll("查看这本书的笔记")
         val notesAction = rule.onNode(hasText("查看这本书的笔记") and hasClickAction())
@@ -86,7 +87,7 @@ class LearningItemInsightUiTest {
 
     @Test fun loadingUnavailableAndFailureKeepExistingDetailAndNotesWorking() {
         val gate = CompletableDeferred<Unit>()
-        val item = runBlocking { container.learningItemRepository.create("读取隔离测试", 320) }
+        val item = runBlocking { container.learningItemRepository.create("读取隔离测试", 320, firstAction = "把书放到桌上，翻到上次阅读的位置") }
         var attempts = 0
         val vm = detail(item.id) { ++attempts; flow {
             gate.await(); emit(ReadingPaceInsightResult(null, ReadingPaceInsightUnavailableReason.INSUFFICIENT_BASELINE))
@@ -109,7 +110,7 @@ class LearningItemInsightUiTest {
     }
 
     @Test fun greaterThan100PercentIsReadableWithoutFalsePrecision() {
-        val item = runBlocking { container.learningItemRepository.create("变化幅度测试", 320) }
+        val item = runBlocking { container.learningItemRepository.create("变化幅度测试", 320, firstAction = "把书放到桌上，翻到上次阅读的位置") }
         val result = result(ReadingPaceInsightDirection.FASTER).let { it.copy(insight = it.insight!!.copy(
             ratio = 2.47, roundedChangePercent = 145, changeExceeds100Percent = true)) }
         val vm = detail(item.id) { flowOf(result) }

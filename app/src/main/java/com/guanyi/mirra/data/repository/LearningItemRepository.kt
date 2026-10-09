@@ -6,6 +6,7 @@ import com.guanyi.mirra.data.local.entity.LearningItemEntity
 import com.guanyi.mirra.data.local.entity.LearningItemStatus
 import com.guanyi.mirra.data.search.SearchIndexWriter
 import com.guanyi.mirra.domain.DefaultSearchEngine
+import com.guanyi.mirra.domain.FirstActionResolver
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 
@@ -54,6 +55,7 @@ class DefaultLearningItemRepository(
         require(cleanName.isNotEmpty()) { "名称不能为空" }
         require(totalPages > 0) { "总页数必须大于 0" }
         require(currentPage in 1..totalPages) { "当前页必须在书籍范围内" }
+        val chosenAction = FirstActionResolver.requireChosen(firstAction)
         val now = clock()
         if (setAsMainline) dao.clearMainline(now)
         LearningItemEntity(
@@ -63,7 +65,7 @@ class DefaultLearningItemRepository(
             totalPages = totalPages,
             currentPage = currentPage,
             mainlineSlot = if (setAsMainline) 1 else null,
-            firstAction = firstAction?.trim().orEmpty(),
+            firstAction = chosenAction,
             createdAt = now,
             updatedAt = now,
             completedAt = null,
@@ -77,7 +79,8 @@ class DefaultLearningItemRepository(
         database.withTransaction {
             checkNotNull(dao.get(id)) { "Learning Item 不存在" }
             ensureNoActiveWorkflow(id)
-            check(dao.updateFirstAction(id, firstAction.trim(), clock()) == 1) { "更新起步动作失败" }
+            val chosenAction = FirstActionResolver.requireChosen(firstAction)
+            check(dao.updateFirstAction(id, chosenAction, clock()) == 1) { "更新起步动作失败" }
             checkNotNull(dao.get(id))
         }
 

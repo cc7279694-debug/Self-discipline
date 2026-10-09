@@ -80,7 +80,7 @@ class ModuleTwoBImageRepositoryTest {
 
     @Test
     fun captionAndGlobalListComeFromImageNoteAndLearningItemJoin() = runTest {
-        val item = learningItems.create("来源书", 100)
+        val item = learningItems.create("来源书", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val note = notes.createStandalone(item.id, "来源笔记", pageNumber = 23)
         val image = images.importFromGallery(note.id, listOf(Uri.parse("content://picker/1"))).added.single()
 
@@ -186,7 +186,7 @@ class ModuleTwoBImageRepositoryTest {
     }
 
     private suspend fun createNote(): String {
-        val item = learningItems.create("图片书", 100)
+        val item = learningItems.create("图片书", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
         return notes.createStandalone(item.id, "图片笔记").id
     }
 }

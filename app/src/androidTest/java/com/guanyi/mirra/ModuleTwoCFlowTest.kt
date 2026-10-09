@@ -32,7 +32,7 @@ class ModuleTwoCFlowTest {
 
     @Test fun knowledgeCanSearchAndOpenTypedResults() {
         runBlocking {
-            val item = container.learningItemRepository.create("认知训练", 100)
+            val item = container.learningItemRepository.create("认知训练", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
             container.noteRepository.createStandalone(item.id, "心理账户会影响选择", pageNumber = 12)
             container.topicRepository.create("行为经济学")
         }
@@ -57,7 +57,7 @@ class ModuleTwoCFlowTest {
 
     @Test fun noteCanLinkAndUnlinkTopicWithConfirmation() {
         val noteId = runBlocking {
-            val item = container.learningItemRepository.create("关联书", 100)
+            val item = container.learningItemRepository.create("关联书", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
             container.topicRepository.create("心理")
             container.noteRepository.createStandalone(item.id, "心理账户").id
         }

@@ -24,8 +24,8 @@ class TrendsNavigationTest {
         runBlocking { insertReadingRecordFixture(container) }
         val before = facts()
         rule.setContent { MirraTheme { MirraApp(container, TopLevelDestination.Profile, {}) } }
-        await("查看趋势")
-        rule.onNodeWithText("查看趋势").performScrollTo().performClick()
+        await("详细分析")
+        rule.onNodeWithText("详细分析").performScrollTo().performClick()
         await("趋势")
         for (range in listOf("THIRTY_DAYS", "NINETY_DAYS", "ALL")) {
             rule.onNodeWithTag("trends-range-$range").performClick()
@@ -34,7 +34,7 @@ class TrendsNavigationTest {
         captureReadingRecordEvidence("phase4a-trends-all")
         rule.onNode(hasScrollAction()).performScrollToNode(hasText("返回"))
         rule.onNodeWithText("返回").performClick()
-        await("查看趋势")
+        await("详细分析")
         captureReadingRecordEvidence("phase4a-mine")
         assertEquals(before, facts())
     }

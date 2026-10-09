@@ -41,7 +41,7 @@ class LearningItemEffectivePaceTest {
         return LearningItemDetailViewModel("book", proxy<LearningItemRepository> { name, _ ->
             if (name == "observe") item else error(name)
         }, proxy<StudyWorkflowRepository> { name, _ ->
-            if (name == "observeLatestSummaryForItem") flowOf(null) else error(name)
+            if (name in setOf("observeLatestSummaryForItem", "observeActiveIntent", "observeActiveSession")) flowOf(null) else error(name)
         }, analytics, ReadingAnalyticsService(), CompletionPredictionService(), time, EffectiveReadingService())
     }
     private suspend fun TestScope.withVm(vm: LearningItemDetailViewModel = vm(), check: suspend (LearningItemDetailViewModel) -> Unit) {

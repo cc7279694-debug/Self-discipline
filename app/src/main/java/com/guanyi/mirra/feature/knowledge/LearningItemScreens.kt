@@ -57,6 +57,7 @@ import com.guanyi.mirra.domain.PredictionUnavailableReason
 import com.guanyi.mirra.domain.ReadingAnalyticsService
 import com.guanyi.mirra.domain.insights.ReadingPaceInsight
 import com.guanyi.mirra.ui.components.MirraPrimaryButton
+import com.guanyi.mirra.ui.components.FirstActionInput
 import com.guanyi.mirra.ui.components.MirraProgress
 import com.guanyi.mirra.ui.components.MirraSecondaryButton
 import com.guanyi.mirra.ui.components.MirraTextAction
@@ -76,10 +77,13 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class CreateLearningItemViewModel(private val repository: LearningItemRepository) : ViewModel() {
     var error by mutableStateOf<String?>(null)
+        private set
+    var isSubmitting by mutableStateOf(false)
         private set
 
     fun create(
@@ -90,6 +94,9 @@ class CreateLearningItemViewModel(private val repository: LearningItemRepository
         setAsMainline: Boolean,
         onCreated: (String) -> Unit,
     ) {
+        if (isSubmitting) return
+        isSubmitting = true
+        error = null
         viewModelScope.launch {
             runCatching {
                 repository.create(
@@ -101,6 +108,7 @@ class CreateLearningItemViewModel(private val repository: LearningItemRepository
                 )
             }.onSuccess { onCreated(it.id) }
                 .onFailure { error = it.message ?: "无法创建" }
+            isSubmitting = false
         }
     }
 }
@@ -118,31 +126,26 @@ fun CreateLearningItemScreen(
     var currentPage by remember { mutableStateOf("1") }
     var firstAction by remember { mutableStateOf("") }
     var setAsMainline by remember { mutableStateOf(defaultSetAsMainline) }
-    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("创建学习内容", style = MaterialTheme.typography.headlineMedium)
         OutlinedTextField(name, { name = it }, label = { Text("书名") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(totalPages, { totalPages = it.filter(Char::isDigit) }, label = { Text("总页数") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(currentPage, { currentPage = it.filter(Char::isDigit) }, label = { Text("当前页") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(
-            firstAction,
-            { firstAction = it },
-            label = { Text("起步动作（选填）") },
-            supportingText = { Text("未填写时使用“拿起书，翻到当前页”") },
-            modifier = Modifier.fillMaxWidth(),
-        )
+        FirstActionInput(firstAction, { firstAction = it }, currentPage.toIntOrNull() ?: 0, enabled = !viewModel.isSubmitting)
         if (showMainlineOption) {
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Checkbox(checked = setAsMainline, onCheckedChange = { setAsMainline = it })
+                Checkbox(checked = setAsMainline, onCheckedChange = { setAsMainline = it }, enabled = !viewModel.isSubmitting)
                 Text("设为主线")
             }
         }
         viewModel.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(
             onClick = { viewModel.create(name, totalPages, currentPage, firstAction, setAsMainline, onCreated) },
-            enabled = name.isNotBlank() && totalPages.isNotBlank() && currentPage.isNotBlank(),
+            enabled = !viewModel.isSubmitting && name.isNotBlank() && totalPages.isNotBlank() && currentPage.isNotBlank() &&
+                FirstActionResolver.validationError(firstAction) == null,
             modifier = Modifier.fillMaxWidth(),
         ) { Text("创建") }
-        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("返回") }
+        OutlinedButton(onClick = onBack, enabled = !viewModel.isSubmitting, modifier = Modifier.fillMaxWidth()) { Text("返回") }
     }
 }
 
@@ -179,6 +182,9 @@ class LearningItemDetailViewModel(
     var isSubmitting by mutableStateOf(false)
         private set
     private val timeContext = MutableStateFlow(ReadingTimeGeneration(0, timeProvider.snapshot()))
+    private val hasActiveWorkflow = combine(workflow.observeActiveIntent(), workflow.observeActiveSession()) { intent, session ->
+        intent?.learningItemId == itemId || session?.learningItemId == itemId
+    }
     private val sources = timeContext.flatMapLatest { generation ->
         val time = generation.time
         val today = time.now.atZone(time.zoneId).toLocalDate()
@@ -212,7 +218,8 @@ class LearningItemDetailViewModel(
         workflow.observeLatestSummaryForItem(itemId),
         sources,
         insights,
-    ) { item, session, source, insight ->
+        hasActiveWorkflow,
+    ) { item, session, source, insight, active ->
         val time = source.time
         val allHistory = source.history.getOrDefault(emptyList())
         val window = source.recent.getOrNull()?.let { analyticsService.selectAnalyticsWindow(it, time) }
@@ -234,6 +241,7 @@ class LearningItemDetailViewModel(
             isAnalyticsLoading = false,
             analyticsError = sourceError,
             insight = insight.insight.takeIf { insight.generation == source.generation },
+            hasActiveWorkflow = active,
         )
     }.stateIn(
         viewModelScope,
@@ -253,27 +261,46 @@ class LearningItemDetailViewModel(
 
     fun complete() = perform { learningItems.complete(it.id) }
 
-    fun updateFirstAction(firstAction: String) = perform {
-        learningItems.updateFirstAction(it.id, firstAction)
+    fun updateFirstAction(firstAction: String, onSaved: () -> Unit = {}, onIntentReady: ((String) -> Unit)? = null) = perform {
+        val updated = learningItems.updateFirstAction(it.id, firstAction)
+        onIntentReady?.invoke(workflow.createIntent(updated.id).id)
+        onSaved()
     }
 
-    fun begin(onIntentReady: (String) -> Unit) = viewModelScope.launch {
-        val item = uiState.value.item ?: return@launch
+    fun begin(onIntentReady: (String) -> Unit, onFirstActionRequired: () -> Unit = {}) {
+        if (isSubmitting) return
+        val item = uiState.value.item ?: return
         isSubmitting = true
         error = null
-        runCatching { workflow.createIntent(item.id) }
-            .onSuccess { onIntentReady(it.id) }
-            .onFailure { error = it.message ?: "无法开始" }
-        isSubmitting = false
+        viewModelScope.launch {
+            try {
+                if (workflow.observeActiveIntent().first() == null && FirstActionResolver.needsConfirmation(item)) {
+                    onFirstActionRequired()
+                } else {
+                    onIntentReady(workflow.createIntent(item.id).id)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: IllegalArgumentException) {
+                if (FirstActionResolver.needsConfirmation(item)) onFirstActionRequired()
+                else error = failure.message ?: "无法开始"
+            } catch (failure: Exception) {
+                error = failure.message ?: "无法开始"
+            } finally { isSubmitting = false }
+        }
     }
 
-    private fun perform(action: suspend (LearningItemEntity) -> Unit) = viewModelScope.launch {
-        val item = uiState.value.item ?: return@launch
+    private fun perform(action: suspend (LearningItemEntity) -> Unit) {
+        if (isSubmitting) return
+        val item = uiState.value.item ?: return
         isSubmitting = true
         error = null
-        runCatching { action(item) }
-            .onFailure { error = it.message ?: "操作失败" }
-        isSubmitting = false
+        viewModelScope.launch {
+            try { action(item) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: Exception) { error = failure.message ?: "操作失败" }
+            finally { isSubmitting = false }
+        }
     }
 
     private fun buildAnalyticsUi(
@@ -365,6 +392,7 @@ data class LearningItemDetailUiState(
     val isAnalyticsLoading: Boolean = true,
     val analyticsError: String? = null,
     val insight: ReadingPaceInsight? = null,
+    val hasActiveWorkflow: Boolean = false,
 )
 
 @Composable
@@ -379,6 +407,7 @@ fun LearningItemDetailScreen(
     val item = state.item
     var confirmComplete by remember { mutableStateOf(false) }
     var firstActionEditor by remember { mutableStateOf<String?>(null) }
+    var beginAfterSaving by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
@@ -402,18 +431,25 @@ fun LearningItemDetailScreen(
                     progress = { it.currentPage.toFloat() / it.totalPages.coerceAtLeast(1).toFloat() },
                     modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
                 )
-                Text("起步动作：${FirstActionResolver.resolve(it)}", color = MirraTheme.colors.textSecondary, modifier = Modifier.padding(top = 8.dp))
-                MirraTextAction(onClick = { firstActionEditor = it.firstAction }) { Text("编辑起步动作") }
+                val action = if (state.hasActiveWorkflow) FirstActionResolver.forActiveIntent(it) else FirstActionResolver.resolve(it)
+                Text("第一步：${action.ifBlank { "尚未确定，请选择或填写一个现在就能做的动作。" }}", color = MirraTheme.colors.textSecondary, modifier = Modifier.padding(top = 8.dp))
+                MirraTextAction(onClick = {
+                    beginAfterSaving = false
+                    firstActionEditor = FirstActionResolver.resolve(it)
+                }, enabled = !state.hasActiveWorkflow && !viewModel.isSubmitting) { Text("编辑第一步") }
                 state.lastSummary?.let { summary ->
                     Text("上次总结：$summary", color = MirraTheme.colors.textSecondary)
                 }
                 Spacer(Modifier.height(12.dp))
                 if (it.status == LearningItemStatus.IN_PROGRESS) {
                     MirraPrimaryButton(
-                        onClick = { viewModel.begin(onStart) },
+                        onClick = { viewModel.begin(onStart) {
+                            beginAfterSaving = true
+                            firstActionEditor = ""
+                        } },
                         enabled = !viewModel.isSubmitting,
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("开始阅读") }
+                    ) { Text("开始准备") }
                     if (!it.isMainline) {
                         MirraSecondaryButton(
                             onClick = { viewModel.setMainline() },
@@ -490,23 +526,23 @@ fun LearningItemDetailScreen(
     firstActionEditor?.let { initial ->
         var edited by remember(initial) { mutableStateOf(initial) }
         AlertDialog(
-            onDismissRequest = { firstActionEditor = null },
-            title = { Text("编辑起步动作") },
+            onDismissRequest = { if (!viewModel.isSubmitting) firstActionEditor = null },
+            title = { Text("确定第一步") },
             text = {
-                OutlinedTextField(
-                    value = edited,
-                    onValueChange = { edited = it },
-                    label = { Text("起步动作") },
-                    supportingText = { Text("留空会使用当前阅读页生成默认动作") },
-                )
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FirstActionInput(edited, { edited = it }, item?.currentPage ?: 0, enabled = !viewModel.isSubmitting)
+                    viewModel.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
             },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.updateFirstAction(edited)
-                    firstActionEditor = null
-                }) { Text("保存") }
+                    viewModel.updateFirstAction(edited, onSaved = { firstActionEditor = null },
+                        onIntentReady = onStart.takeIf { beginAfterSaving })
+                }, enabled = !viewModel.isSubmitting && FirstActionResolver.validationError(edited) == null) {
+                    Text(if (beginAfterSaving) "确认动作，开始准备" else "保存动作")
+                }
             },
-            dismissButton = { TextButton(onClick = { firstActionEditor = null }) { Text("取消") } },
+            dismissButton = { TextButton(onClick = { firstActionEditor = null }, enabled = !viewModel.isSubmitting) { Text("取消") } },
         )
     }
 }

@@ -57,8 +57,8 @@ class StudyWorkflowRepositoryTest {
 
     @Test
     fun settingNewMainlineAtomicallyClearsPreviousMainline() = runTest {
-        val first = learningItems.create("第一本书", totalPages = 200, currentPage = 20)
-        val second = learningItems.create("第二本书", totalPages = 300, currentPage = 8)
+        val first = learningItems.create("第一本书", totalPages = 200, currentPage = 20, firstAction = "把书放到桌上，翻到上次阅读的位置")
+        val second = learningItems.create("第二本书", totalPages = 300, currentPage = 8, firstAction = "把书放到桌上，翻到上次阅读的位置")
 
         learningItems.setMainline(first.id)
         learningItems.setMainline(second.id)
@@ -69,8 +69,8 @@ class StudyWorkflowRepositoryTest {
 
     @Test
     fun intentCanAtomicallySetTheChosenInProgressItemAsMainline() = runTest {
-        val previous = learningItems.create("旧主线", 100, setAsMainline = true)
-        val chosen = learningItems.create("本次学习", 100)
+        val previous = learningItems.create("旧主线", 100, firstAction = "把书放到桌上，翻到上次阅读的位置", setAsMainline = true)
+        val chosen = learningItems.create("本次学习", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
 
         val intent = workflow.createIntent(chosen.id, setAsMainline = true)
 
@@ -81,8 +81,8 @@ class StudyWorkflowRepositoryTest {
 
     @Test
     fun choosingAnItemForThisIntentDoesNotChangeMainlineByDefault() = runTest {
-        val previous = learningItems.create("旧主线", 100, setAsMainline = true)
-        val chosen = learningItems.create("本次学习", 100)
+        val previous = learningItems.create("旧主线", 100, firstAction = "把书放到桌上，翻到上次阅读的位置", setAsMainline = true)
+        val chosen = learningItems.create("本次学习", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
 
         workflow.createIntent(chosen.id)
 
@@ -91,9 +91,9 @@ class StudyWorkflowRepositoryTest {
 
     @Test
     fun existingActiveIntentWinsWithoutChangingMainline() = runTest {
-        val mainline = learningItems.create("当前主线", 100, setAsMainline = true)
-        val activeItem = learningItems.create("已有启动", 100)
-        val requested = learningItems.create("另一本", 100)
+        val mainline = learningItems.create("当前主线", 100, firstAction = "把书放到桌上，翻到上次阅读的位置", setAsMainline = true)
+        val activeItem = learningItems.create("已有启动", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
+        val requested = learningItems.create("另一本", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val active = workflow.createIntent(activeItem.id)
 
         val returned = workflow.createIntent(requested.id, setAsMainline = true)
@@ -104,7 +104,7 @@ class StudyWorkflowRepositoryTest {
 
     @Test
     fun duplicateActiveIntentIsRejectedByDatabaseConstraint() = runTest {
-        val item = learningItems.create("书", totalPages = 100, currentPage = 1)
+        val item = learningItems.create("书", totalPages = 100, currentPage = 1, firstAction = "把书放到桌上，翻到上次阅读的位置")
         database.intentDao().insert(activeIntent(item.id, "intent-1"))
 
         assertSuspendThrows<Exception> {
@@ -114,7 +114,7 @@ class StudyWorkflowRepositoryTest {
 
     @Test
     fun startingSessionConvertsIntentInSameTransaction() = runTest {
-        val item = learningItems.create("书", totalPages = 100, currentPage = 12)
+        val item = learningItems.create("书", totalPages = 100, currentPage = 12, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val intent = workflow.createIntent(item.id)
         workflow.markTransitioned(intent.id)
 
@@ -130,8 +130,8 @@ class StudyWorkflowRepositoryTest {
 
     @Test
     fun abandoningIntentEndsItAndAllowsAnotherItemToCreateIntent() = runTest {
-        val firstItem = learningItems.create("第一本", 100, 4)
-        val secondItem = learningItems.create("第二本", 100, 7)
+        val firstItem = learningItems.create("第一本", 100, 4, firstAction = "把书放到桌上，翻到上次阅读的位置")
+        val secondItem = learningItems.create("第二本", 100, 7, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val firstIntent = workflow.createIntent(firstItem.id)
         workflow.markTransitioned(firstIntent.id)
 
@@ -148,8 +148,8 @@ class StudyWorkflowRepositoryTest {
 
     @Test
     fun secondActiveSessionIsRejected() = runTest {
-        val firstItem = learningItems.create("第一本", 100, 4)
-        val secondItem = learningItems.create("第二本", 100, 7)
+        val firstItem = learningItems.create("第一本", 100, 4, firstAction = "把书放到桌上，翻到上次阅读的位置")
+        val secondItem = learningItems.create("第二本", 100, 7, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val firstIntent = workflow.createIntent(firstItem.id)
         workflow.startSession(firstIntent.id, 4)
 
@@ -163,8 +163,8 @@ class StudyWorkflowRepositoryTest {
 
     @Test
     fun newIntentIsRejectedWhileSessionIsActive() = runTest {
-        val firstItem = learningItems.create("第一本", 100, 4)
-        val secondItem = learningItems.create("第二本", 100, 7)
+        val firstItem = learningItems.create("第一本", 100, 4, firstAction = "把书放到桌上，翻到上次阅读的位置")
+        val secondItem = learningItems.create("第二本", 100, 7, firstAction = "把书放到桌上，翻到上次阅读的位置")
         workflow.startSession(workflow.createIntent(firstItem.id).id, 4)
 
         assertSuspendThrows<IllegalStateException> { workflow.createIntent(secondItem.id) }
@@ -173,7 +173,7 @@ class StudyWorkflowRepositoryTest {
 
     @Test
     fun sessionAndSummaryProgressNeverMoveBackward() = runTest {
-        val item = learningItems.create("书", totalPages = 200, currentPage = 40)
+        val item = learningItems.create("书", totalPages = 200, currentPage = 40, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val intent = workflow.createIntent(item.id)
         val session = workflow.startSession(intent.id, startPage = 40)
         now += 45 * 60 * 1_000L
@@ -193,7 +193,7 @@ class StudyWorkflowRepositoryTest {
 
     @Test
     fun oldPageNoteDoesNotChangeSessionOrLearningItemProgress() = runTest {
-        val item = learningItems.create("书", totalPages = 200, currentPage = 40)
+        val item = learningItems.create("书", totalPages = 200, currentPage = 40, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val session = workflow.startSession(workflow.createIntent(item.id).id, startPage = 40)
         workflow.updateCurrentPage(session.id, 52)
 
@@ -206,7 +206,7 @@ class StudyWorkflowRepositoryTest {
 
     @Test
     fun interruptedSessionBecomesAbnormalWithoutAdvancingBook() = runTest {
-        val item = learningItems.create("书", totalPages = 200, currentPage = 20)
+        val item = learningItems.create("书", totalPages = 200, currentPage = 20, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val session = workflow.startSession(workflow.createIntent(item.id).id, 20)
         workflow.updateCurrentPage(session.id, 31)
         now += 10_000L
@@ -222,7 +222,7 @@ class StudyWorkflowRepositoryTest {
 
     @Test
     fun latestNormalReadingExcludesAbnormalSessionsAndCountsNotes() = runTest {
-        val item = learningItems.create("书", 200, 20)
+        val item = learningItems.create("书", 200, 20, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val normal = workflow.startSession(workflow.createIntent(item.id).id, 20)
         notes.save(item.id, normal.id, "第一条", 20)
         notes.save(item.id, normal.id, "第二条", 21)
@@ -245,7 +245,7 @@ class StudyWorkflowRepositoryTest {
 
     @Test
     fun expiredIntentIsPersistedAsTimeoutWhenSessionStartIsRejected() = runTest {
-        val item = learningItems.create("书", totalPages = 100, currentPage = 1)
+        val item = learningItems.create("书", totalPages = 100, currentPage = 1, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val intent = workflow.createIntent(item.id)
         now += 30 * 60 * 1_000L
 
@@ -260,7 +260,7 @@ class StudyWorkflowRepositoryTest {
 
     @Test
     fun sessionStoresAllFourIndependentNoteTypesWithPageNumbers() = runTest {
-        val item = learningItems.create("书", 100, 1)
+        val item = learningItems.create("书", 100, 1, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val session = workflow.startSession(workflow.createIntent(item.id).id, 1)
 
         NoteSemanticType.entries.forEachIndexed { index, type ->

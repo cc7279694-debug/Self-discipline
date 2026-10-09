@@ -43,7 +43,7 @@ class LearningItemInsightTest {
             else -> error(method)
         } }
         return LearningItemDetailViewModel("book", proxy<LearningItemRepository> { if (it == "observe") book else error(it) },
-            proxy<StudyWorkflowRepository> { if (it == "observeLatestSummaryForItem") flowOf(null) else error(it) }, analytics,
+            proxy<StudyWorkflowRepository> { if (it in setOf("observeLatestSummaryForItem", "observeActiveIntent", "observeActiveSession")) flowOf(null) else error(it) }, analytics,
             ReadingAnalyticsService(), CompletionPredictionService(), AnalyticsTimeProvider(Clock.fixed(time.now, time.zoneId)) { time.zoneId },
             EffectiveReadingService(), insightRepository)
     }

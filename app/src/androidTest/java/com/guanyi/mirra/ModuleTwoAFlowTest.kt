@@ -43,7 +43,7 @@ class ModuleTwoAFlowTest {
     @Test
     fun learningItemCanPauseResumeAndCompleteWithoutRestoringMainline() {
         val item = runBlocking {
-            container.learningItemRepository.create("生命周期", 100, 10).also {
+            container.learningItemRepository.create("生命周期", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").also {
                 container.learningItemRepository.setMainline(it.id)
             }
         }
@@ -60,7 +60,7 @@ class ModuleTwoAFlowTest {
                 composeRule.onAllNodes(hasText("状态：已暂停")).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("状态：已暂停").assertExists()
-        assertTextAbsent("开始阅读")
+        assertTextAbsent("开始准备")
         composeRule.onNodeWithText("恢复为进行中").performClick()
         composeRule.waitUntil(5_000) {
             runBlocking { container.learningItemRepository.get(item.id)?.status } == LearningItemStatus.IN_PROGRESS
@@ -75,12 +75,12 @@ class ModuleTwoAFlowTest {
         }
         composeRule.onNodeWithText("状态：已完成").assertExists()
         assertTextAbsent("恢复为进行中")
-        assertTextAbsent("开始阅读")
+        assertTextAbsent("开始准备")
     }
 
     @Test
     fun standaloneNoteCreatesOnlyAfterRequiredFieldsAndCanBeEditedAndDeleted() {
-        val item = runBlocking { container.learningItemRepository.create("笔记所属书", 120, 40) }
+        val item = runBlocking { container.learningItemRepository.create("笔记所属书", 120, 40, firstAction = "把书放到桌上，翻到上次阅读的位置") }
         launchKnowledge()
         composeRule.onNodeWithText("笔记").performClick()
         composeRule.onNodeWithText("还没有笔记").assertExists()
@@ -120,8 +120,8 @@ class ModuleTwoAFlowTest {
 
     @Test
     fun noteListSupportsSemanticAndLearningItemFilters() {
-        val first = runBlocking { container.learningItemRepository.create("第一本", 100) }
-        val second = runBlocking { container.learningItemRepository.create("第二本", 100) }
+        val first = runBlocking { container.learningItemRepository.create("第一本", 100, firstAction = "把书放到桌上，翻到上次阅读的位置") }
+        val second = runBlocking { container.learningItemRepository.create("第二本", 100, firstAction = "把书放到桌上，翻到上次阅读的位置") }
         runBlocking {
             container.noteRepository.createStandalone(first.id, "第一本摘录", NoteSemanticType.QUOTE, 3)
             container.noteRepository.createStandalone(first.id, "第一本问题", NoteSemanticType.QUESTION, 4)
@@ -143,7 +143,7 @@ class ModuleTwoAFlowTest {
 
     @Test
     fun createNoteDoesNotPersistBlankPlaceholder() {
-        runBlocking { container.learningItemRepository.create("空白测试", 100) }
+        runBlocking { container.learningItemRepository.create("空白测试", 100, firstAction = "把书放到桌上，翻到上次阅读的位置") }
         launchKnowledge()
         composeRule.onNodeWithText("笔记").performClick()
         composeRule.onNodeWithText("新建笔记").performClick()
@@ -158,7 +158,7 @@ class ModuleTwoAFlowTest {
 
     @Test
     fun standaloneDraftFlushesWhenActivityGoesToBackground() {
-        runBlocking { container.learningItemRepository.create("后台保存", 100) }
+        runBlocking { container.learningItemRepository.create("后台保存", 100, firstAction = "把书放到桌上，翻到上次阅读的位置") }
         launchKnowledge()
         composeRule.onNodeWithText("笔记").performClick()
         composeRule.onNodeWithText("新建笔记").performClick()
@@ -177,7 +177,7 @@ class ModuleTwoAFlowTest {
     @Test
     fun activeIntentBlocksPauseAndShowsReason() {
         val item = runBlocking {
-            container.learningItemRepository.create("启动冲突", 100).also {
+            container.learningItemRepository.create("启动冲突", 100, firstAction = "把书放到桌上，翻到上次阅读的位置").also {
                 container.studyWorkflowRepository.createIntent(it.id)
             }
         }

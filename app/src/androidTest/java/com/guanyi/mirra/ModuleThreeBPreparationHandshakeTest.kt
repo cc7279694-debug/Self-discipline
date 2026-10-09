@@ -46,7 +46,7 @@ class ModuleThreeBPreparationHandshakeTest {
     }
 
     @Test fun loadingIsVisibleAndRepeatedTapDoesNotStartAnotherMonitor() {
-        val item = runBlocking { container.learningItemRepository.create("握手测试", 100, 1) }
+        val item = runBlocking { container.learningItemRepository.create("握手测试", 100, 1, "翻到当前页，读第一段。") }
         val intent = runBlocking { container.studyWorkflowRepository.createIntent(item.id) }
         val started = AtomicReference<String?>(null)
         val viewModel = PreparationViewModel(intent.id, container.studyWorkflowRepository,
@@ -55,10 +55,10 @@ class ModuleThreeBPreparationHandshakeTest {
             PreparationScreen(viewModel, onStarted = { started.set(it) }, onAbandoned = {}, onBack = {})
         }
         composeRule.waitUntil(5_000) { viewModel.uiState.value.item != null }
-        composeRule.onNodeWithText("我已拿起书，开始阅读").performClick()
+        composeRule.onNodeWithText("我已完成这一步，开始阅读").performClick()
         composeRule.waitUntil(5_000) { viewModel.starting }
         composeRule.onNodeWithText("正在准备本次学习…").assertExists()
-        composeRule.onNodeWithText("我已拿起书，开始阅读").assertIsNotEnabled()
+        composeRule.onNodeWithText("我已完成这一步，开始阅读").assertIsNotEnabled()
         viewModel.start { _, _ -> }
         assertEquals(1, starts)
 

@@ -30,7 +30,7 @@ import org.junit.Test
 class SessionCloseoutUiTest {
     @get:Rule val rule = createAndroidComposeRule<ComponentActivity>()
     private fun start(c: TestAppContainer) = runBlocking {
-        val item = c.learningItemRepository.create("结束确认测试", 320, currentPage = 40)
+        val item = c.learningItemRepository.create("结束确认测试", 320, currentPage = 40, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val intent = c.studyWorkflowRepository.createIntent(item.id)
         c.studyWorkflowRepository.startSession(intent.id, 40)
     }
@@ -65,6 +65,65 @@ class SessionCloseoutUiTest {
         } finally {
             allowNoteSave.complete(Unit)
             rule.activityRule.scenario.close(); vm.viewModelScope.cancel(); c.close()
+        }
+    }
+    @Test fun pendingPageWriteRejectsStaleConfirmationUntilEndPageIsCorrected() {
+        val c = TestAppContainer(ApplicationProvider.getApplicationContext()); val s = start(c)
+        val pageWriteStarted = CompletableDeferred<Unit>(); val allowPageWrite = CompletableDeferred<Unit>()
+        val manager = object : SessionManager by c.sessionManager {
+            override suspend fun updatePage(sessionId: String, page: Int) {
+                if (page == 42) {
+                    pageWriteStarted.complete(Unit)
+                    allowPageWrite.await()
+                }
+                c.sessionManager.updatePage(sessionId, page)
+            }
+        }
+        val vm = SessionViewModel(s.id, c.studyWorkflowRepository, c.noteRepository, manager,
+            focusActions = c.focusSessionActions, learningItems = c.learningItemRepository)
+        var completed = false
+        try {
+            rule.setContent { MirraTheme { SessionScreen(vm, { completed = true }, {}, {}) } }
+            rule.waitUntil(5_000) { vm.currentPageText == "40" }
+            rule.onNode(hasSetTextAction() and hasText("当前页码")).performTextReplacement("42")
+            rule.waitUntil(5_000) { pageWriteStarted.isCompleted }
+            assertEquals(40, runBlocking { c.database.sessionDao().get(s.id) }!!.currentPage)
+
+            rule.onNodeWithText("结束本次阅读").performScrollTo().performClick()
+            rule.waitUntil(5_000) { vm.finishUi.value == SessionFinishUiState.Confirming("40") }
+            rule.onNode(hasSetTextAction() and hasText("结束页码")).assertTextContains("40")
+            rule.onNodeWithTag("confirm-session-finish").performClick()
+            rule.waitUntil(5_000) { vm.finishUi.value == SessionFinishUiState.Saving }
+            assertEquals(FocusCloseoutState.ACTIVE, runBlocking { c.studyWorkflowRepository.getCloseoutState(s.id) })
+            assertNull(runBlocking { c.database.sessionDao().get(s.id) }!!.endedAt)
+            rule.runOnIdle { assertFalse(completed) }
+
+            allowPageWrite.complete(Unit)
+            rule.waitUntil(5_000) {
+                vm.finishUi.value == SessionFinishUiState.Confirming("40") &&
+                    vm.error == "不能低于已经记录的阅读位置"
+            }
+            rule.onNodeWithText("不能低于已经记录的阅读位置").assertExists()
+            rule.onNode(hasSetTextAction() and hasText("结束页码")).assertTextContains("40")
+            val active = runBlocking { c.database.sessionDao().get(s.id) }!!
+            val context = runBlocking { c.database.focusDao().getContext(s.id) }!!
+            assertEquals(42, active.currentPage); assertEquals(1, active.activeSlot)
+            assertNull(active.endedAt); assertNull(active.endPage); assertNull(active.endType)
+            assertEquals(FocusCloseoutState.ACTIVE, context.closeoutState)
+            assertNull(context.closeoutStartedAt); assertNull(context.requestedEndPage)
+            rule.runOnIdle { assertFalse(completed) }
+
+            rule.onNode(hasSetTextAction() and hasText("结束页码")).performTextReplacement("42")
+            rule.onNodeWithTag("confirm-session-finish").performClick()
+            rule.waitUntil(5_000) { completed }
+            val ended = runBlocking { c.database.sessionDao().get(s.id) }!!
+            assertEquals(SessionEndType.NORMAL, ended.endType); assertEquals(42, ended.endPage)
+            assertEquals(FocusCloseoutState.COMPLETED, runBlocking { c.studyWorkflowRepository.getCloseoutState(s.id) })
+            assertEquals(42, runBlocking { c.database.learningItemDao().get(s.learningItemId) }!!.currentPage)
+        } finally {
+            allowPageWrite.complete(Unit)
+            try { rule.activityRule.scenario.close() }
+            finally { vm.viewModelScope.cancel(); c.close() }
         }
     }
     @Test fun finalNoteFailureKeepsTemporaryEndPageAndRetrySamplesAfterFlush() {

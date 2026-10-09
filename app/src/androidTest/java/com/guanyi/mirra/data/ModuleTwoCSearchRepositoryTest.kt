@@ -95,7 +95,7 @@ class ModuleTwoCSearchRepositoryTest {
         val items = DefaultLearningItemRepository(database, searchIndexWriter = writer)
         val notes = DefaultNoteRepository(database, storage, searchIndexWriter = writer)
         val images = DefaultImageRepository(database, storage, searchIndexWriter = writer)
-        val item = items.create("搜索书名", 100)
+        val item = items.create("搜索书名", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val note = notes.createStandalone(item.id, "正文")
         database.imageAssetDao().insert(ImageAssetEntity("image", note.id, "images/00000000-0000-0000-0000-000000000001.jpg", "旧词语", 1, 1, 1, 3))
         writer.reindexNote(note.id)
@@ -140,7 +140,7 @@ class ModuleTwoCSearchRepositoryTest {
             clock = { now }, newId = { if (nextId++ == 0) "intent2" else "session2" },
             searchIndexWriter = writer,
         )
-        val item = items.create("测试材料", 100)
+        val item = items.create("测试材料", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val intent = workflow.createIntent(item.id)
         now = 101L
         val session = workflow.startSession(intent.id, 1)

@@ -659,7 +659,7 @@ class ModuleThreeDCloseoutRepositoryTest {
         val workflow = DefaultStudyWorkflowRepository(
             db, RuleBasedSummaryEngine(), IntentExpiryPolicy(), clock = { wallNow },
         )
-        val intent = workflow.createIntent(items.create("Clock preflight", 100, 10).id)
+        val intent = workflow.createIntent(items.create("Clock preflight", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").id)
         val lease = MonitoringReadyLease(
             generation = "clock-preflight", readyAtWall = 1_000, readyAtElapsed = 0,
             successfulQueryGeneration = 1, cursorWallMillis = 1_000,
@@ -906,14 +906,14 @@ class ModuleThreeDCloseoutRepositoryTest {
     private fun focus() = DefaultFocusRepository(db, clock = { wallNow })
 
     private suspend fun startMonitored(): StudySessionEntity {
-        val intent = workflow().createIntent(DefaultLearningItemRepository(db, clock = { wallNow }).create("Clock fixture", 100, 10).id)
+        val intent = workflow().createIntent(DefaultLearningItemRepository(db, clock = { wallNow }).create("Clock fixture", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").id)
         return workflow().startMonitoredSession(intent.id, 10,
             MonitoringReadyLease("clock-fixture", wallNow, 0, 1, wallNow, 0, 0, false, false),
             proposedSessionId = "clock-fixture-session").session
     }
 
     private suspend fun startUnmonitored(): StudySessionEntity {
-        val intent = workflow().createIntent(DefaultLearningItemRepository(db, clock = { wallNow }).create("Clock fixture", 100, 10).id)
+        val intent = workflow().createIntent(DefaultLearningItemRepository(db, clock = { wallNow }).create("Clock fixture", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").id)
         return workflow().startSession(intent.id, 10)
     }
 

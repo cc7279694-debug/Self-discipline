@@ -14,14 +14,21 @@ import com.guanyi.mirra.data.local.entity.*
 import com.guanyi.mirra.feature.session.*
 import com.guanyi.mirra.di.AppContainer
 import com.guanyi.mirra.data.repository.StudyWorkflowRepository
+import com.guanyi.mirra.domain.SessionFinishResult
+import com.guanyi.mirra.domain.SessionManager
+import com.guanyi.mirra.domain.monitoring.ClockSample
 import java.lang.reflect.Proxy
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.CopyOnWriteArrayList
 import com.guanyi.mirra.navigation.TopLevelDestination
 import com.guanyi.mirra.ui.theme.MirraTheme
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.runBlocking
 import org.junit.*
 import org.junit.Assert.*
@@ -82,15 +89,48 @@ class ReadingRecordNavigationTest {
 
     @Test fun summaryExpandsInlineAndDoneReturnsStartWithoutRestoringSession() {
         val session = runBlocking {
-            val book = container.learningItemRepository.create("原地展开测试", 320)
+            val book = container.learningItemRepository.create("原地展开测试", 320, firstAction = "把书放到桌上，翻到上次阅读的位置")
             val intent = container.studyWorkflowRepository.createIntent(book.id)
             container.studyWorkflowRepository.startSession(intent.id, 40)
         }
-        rule.setContent { MirraTheme { MirraApp(container, TopLevelDestination.Start, {}) } }
+        val finishTrace = CopyOnWriteArrayList<String>()
+        val manager = object : SessionManager by container.sessionManager {
+            override suspend fun finish(sessionId: String, endPage: Int, sample: ClockSample): SessionFinishResult {
+                finishTrace += "finish requestedEndPage=$endPage wall=${sample.wallNowMillis} elapsed=${sample.elapsedNowMillis}"
+                try {
+                    return container.sessionManager.finish(sessionId, endPage, sample).also {
+                        finishTrace += "finish returned=${it.javaClass.simpleName}"
+                    }
+                } catch (failure: Throwable) {
+                    finishTrace += "finish threw=${failure.javaClass.simpleName}: ${failure.message}"
+                    throw failure
+                }
+            }
+        }
+        val diagnosticContainer = object : AppContainer by container {
+            override val sessionManager = manager
+        }
+        rule.setContent { MirraTheme { MirraApp(diagnosticContainer, TopLevelDestination.Start, {}) } }
         await("继续学习"); rule.onNodeWithText("继续学习").performClick()
         await("结束本次阅读"); rule.onNodeWithText("结束本次阅读").performScrollTo().performClick()
         await("结束本次阅读？"); rule.onNodeWithTag("confirm-session-finish").performClick()
-        await("本次阅读已保存")
+        try { await("本次阅读已保存") }
+        catch (failure: Throwable) {
+            val facts = runCatching { runBlocking {
+                val saved = container.database.sessionDao().get(session.id)
+                val context = container.database.focusDao().getContext(session.id)
+                "startPage=${saved?.startPage} currentPage=${saved?.currentPage} endPage=${saved?.endPage} " +
+                    "endType=${saved?.endType} endedAt=${saved?.endedAt} activeSlot=${saved?.activeSlot} " +
+                    "closeout=${context?.closeoutState} requestedEndPage=${context?.requestedEndPage} " +
+                    "closeoutStartedAt=${context?.closeoutStartedAt}"
+            } }.getOrElse { "Unable to read synthetic facts: ${it.javaClass.simpleName}: ${it.message}" }
+            val tree = runCatching { rule.onAllNodes(isRoot(), useUnmergedTree = true).printToString() }
+                .getOrElse { "Unable to read semantics: ${it.javaClass.simpleName}: ${it.message}" }
+            val diagnostic = "Synthetic Summary timeout diagnostics\n$facts\n${finishTrace.joinToString("\n")}\n$tree"
+            println(diagnostic)
+            failure.addSuppressed(AssertionError(diagnostic))
+            throw failure
+        }
         rule.onNodeWithText("查看本次记录").performScrollTo().performClick()
         rule.onNodeWithText("本次阅读已保存").assertExists()
         rule.onNodeWithText("阅读记录").assertDoesNotExist()
@@ -99,6 +139,63 @@ class ReadingRecordNavigationTest {
         rule.onNode(hasText("开始") and hasClickAction()).assertIsSelected()
         assertNull(runBlocking { container.studyWorkflowRepository.observeActiveSession().first() })
         assertEquals(SessionEndType.NORMAL, runBlocking { container.database.sessionDao().get(session.id) }!!.endType)
+    }
+
+    @Test fun queuedPendingObservationCannotReopenCompletedReadingFromSummary() {
+        val session = runBlocking {
+            val book = container.learningItemRepository.create("晚到结束状态测试", 320,
+                firstAction = "把书放到桌上，翻到上次阅读的位置")
+            val intent = container.studyWorkflowRepository.createIntent(book.id)
+            container.studyWorkflowRepository.startSession(intent.id, 40)
+        }
+        // Hold an earlier occupied-query result while a queued closeout observation arrives later.
+        // All reads by ID and all mutations still use real Room; this is not a PENDING database.
+        val occupiedSnapshot = MutableStateFlow<StudySessionEntity?>(session)
+        val observedCloseout = MutableStateFlow<FocusCloseoutState?>(FocusCloseoutState.ACTIVE)
+        val pendingObserved = CompletableDeferred<Unit>()
+        val delayedObservations = object : StudyWorkflowRepository by container.studyWorkflowRepository {
+            override fun observeActiveSession() = occupiedSnapshot
+            override fun observeCloseoutState(sessionId: String) = observedCloseout.onEach {
+                if (it == FocusCloseoutState.PENDING) pendingObserved.complete(Unit)
+            }
+        }
+        val delayedContainer = object : AppContainer by container {
+            override val studyWorkflowRepository = delayedObservations
+        }
+        try {
+            rule.setContent { MirraTheme { MirraApp(delayedContainer, TopLevelDestination.Start, {}) } }
+            await("继续学习"); rule.onNodeWithText("继续学习").performClick()
+            await("结束本次阅读"); rule.onNodeWithText("结束本次阅读").performScrollTo().performClick()
+            await("结束本次阅读？"); rule.onNodeWithTag("confirm-session-finish").performClick()
+            await("本次阅读已保存")
+            val completed = runBlocking { container.database.sessionDao().get(session.id) }!!
+            val context = runBlocking { container.database.focusDao().getContext(session.id) }!!
+            val segments = runBlocking { container.database.focusDao().listSegments(session.id) }
+            val events = runBlocking { container.database.focusDao().listEvents(session.id) }
+            val counts = rowCounts()
+            assertEquals(SessionEndType.NORMAL, completed.endType)
+            assertEquals(FocusCloseoutState.COMPLETED, context.closeoutState)
+            assertNull(completed.activeSlot)
+
+            rule.runOnIdle { observedCloseout.value = FocusCloseoutState.PENDING }
+            rule.waitUntil(5_000) { pendingObserved.isCompleted }
+            rule.waitForIdle()
+            assertEquals(FocusCloseoutState.COMPLETED,
+                runBlocking { container.studyWorkflowRepository.getCloseoutState(session.id) })
+            rule.onNodeWithText("本次阅读已保存").assertExists()
+            rule.onNodeWithText("阅读已结束").assertDoesNotExist()
+            rule.onNodeWithText("正在阅读").assertDoesNotExist()
+            rule.onNodeWithText("结束本次阅读").assertDoesNotExist()
+            assertNull(runBlocking { container.studyWorkflowRepository.observeActiveSession().first() })
+            assertEquals(completed, runBlocking { container.database.sessionDao().get(session.id) })
+            assertEquals(context, runBlocking { container.database.focusDao().getContext(session.id) })
+            assertEquals(segments, runBlocking { container.database.focusDao().listSegments(session.id) })
+            assertEquals(events, runBlocking { container.database.focusDao().listEvents(session.id) })
+            assertEquals(counts, rowCounts())
+        } finally {
+            occupiedSnapshot.value = null
+            observedCloseout.value = FocusCloseoutState.COMPLETED
+        }
     }
 
     @Test fun abnormalHistoryCanBeReadButNeverShowsEffectiveTime() {

@@ -47,6 +47,7 @@ class StartExperienceCorrectionTest {
         composeRule.onNodeWithText("添加第一本书").performClick()
         composeRule.onNode(hasText("书名") and hasSetTextAction()).performTextInput("第一本")
         composeRule.onNode(hasText("总页数") and hasSetTextAction()).performTextInput("100")
+        composeRule.onNode(hasText("第一步动作") and hasSetTextAction()).performTextInput("翻到当前页，读第一段。")
         composeRule.onNode(hasText("创建") and hasClickAction()).performClick()
 
         composeRule.waitUntil(5_000) {
@@ -63,6 +64,7 @@ class StartExperienceCorrectionTest {
         composeRule.onNodeWithText("添加第一本书").performClick()
         composeRule.onNode(hasText("书名") and hasSetTextAction()).performTextInput("非主线")
         composeRule.onNode(hasText("总页数") and hasSetTextAction()).performTextInput("100")
+        composeRule.onNode(hasText("第一步动作") and hasSetTextAction()).performTextInput("翻到当前页，读第一段。")
         composeRule.onNode(isToggleable()).performClick()
         composeRule.onNode(hasText("创建") and hasClickAction()).performClick()
 
@@ -75,11 +77,11 @@ class StartExperienceCorrectionTest {
 
     @Test
     fun choosingThisStudyDoesNotImplicitlyChangeMainline() {
-        val chosen = runBlocking { container.learningItemRepository.create("本次学习", 120, 18) }
+        val chosen = runBlocking { container.learningItemRepository.create("本次学习", 120, 18, "翻到当前页，读第一段。") }
         launchStart()
         waitForText("本次学习")
         composeRule.onNodeWithText("本次学习").performClick()
-        composeRule.onNodeWithText("开始学习").performClick()
+        composeRule.onNodeWithText("开始准备").performClick()
 
         composeRule.waitUntil(5_000) {
             runBlocking { container.studyWorkflowRepository.observeActiveIntent().first() }?.learningItemId == chosen.id
@@ -89,7 +91,7 @@ class StartExperienceCorrectionTest {
 
     @Test
     fun activeIntentAndSessionUseContinuationActions() {
-        val item = runBlocking { container.learningItemRepository.create("继续测试", 100, 8) }
+        val item = runBlocking { container.learningItemRepository.create("继续测试", 100, 8, "翻到当前页，读第一段。") }
         val intent = runBlocking { container.studyWorkflowRepository.createIntent(item.id) }
         launchStart()
         waitForText("继续准备")
@@ -104,7 +106,7 @@ class StartExperienceCorrectionTest {
 
     @Test
     fun noInProgressContentRoutesToKnowledge() {
-        val item = runBlocking { container.learningItemRepository.create("暂停书", 100) }
+        val item = runBlocking { container.learningItemRepository.create("暂停书", 100, firstAction = "翻到当前页，读第一段。") }
         runBlocking { container.learningItemRepository.pause(item.id) }
         launchStart()
 

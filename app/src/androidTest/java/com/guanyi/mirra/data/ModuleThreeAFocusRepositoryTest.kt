@@ -124,7 +124,7 @@ class ModuleThreeAFocusRepositoryTest {
     }
 
     @Test fun stableStartAndRecoveryAreMilestonesOnlyAfterTheirTrustedWindows() = runTest {
-        val item = items.create("测试书", 100, 10)
+        val item = items.create("测试书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val intent = workflow.createIntent(item.id)
         val session = workflow.startMonitoredSession(intent.id, 10,
             com.guanyi.mirra.platform.focus.MonitoringReadyLease("g", now, 0, 1, now, 0, 0,
@@ -172,7 +172,7 @@ class ModuleThreeAFocusRepositoryTest {
         }
     }
 
-    private suspend fun start() = items.create("书", 100, 10).let { item ->
+    private suspend fun start() = items.create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置").let { item ->
         workflow.startSession(workflow.createIntent(item.id).id, 10)
     }
 

@@ -21,14 +21,19 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +50,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.guanyi.mirra.data.local.model.RecentReadingSnapshot
+import com.guanyi.mirra.domain.FirstActionResolver
+import com.guanyi.mirra.ui.components.FirstActionInput
 import com.guanyi.mirra.ui.components.MirraFocusCard
 import com.guanyi.mirra.ui.components.MirraPrimaryButton
 import com.guanyi.mirra.ui.components.MirraPersonGlyph
@@ -94,6 +101,7 @@ fun StartScreen(
                     onSelectItem = viewModel::selectItem,
                     onSetAsMainline = viewModel::setSelectedAsMainline,
                     onBegin = { viewModel.begin(onOpenIntent) },
+                    onEditFirstAction = viewModel::editFirstAction,
                     onAbandon = { viewModel.abandonIntent() },
                 )
             }
@@ -102,6 +110,30 @@ fun StartScreen(
                 Text(it, color = colors.danger)
             }
         }
+    }
+    state.firstActionEditor?.let { editor ->
+        var edited by remember(editor.item.id, editor.beginAfterSaving) { mutableStateOf(editor.item.firstAction) }
+        AlertDialog(
+            onDismissRequest = viewModel::dismissFirstActionEditor,
+            title = { Text("确定第一步") },
+            text = {
+                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(editor.item.name, style = MaterialTheme.typography.titleMedium)
+                    FirstActionInput(edited, { edited = it }, editor.item.currentPage, enabled = !state.isSubmitting)
+                    state.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.saveFirstAction(edited, onOpenIntent) },
+                    enabled = !state.isSubmitting && FirstActionResolver.validationError(edited) == null,
+                ) { Text(if (editor.beginAfterSaving) "确认动作，开始准备" else "保存动作") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissFirstActionEditor, enabled = !state.isSubmitting) { Text("取消") }
+            },
+        )
     }
 }
 
@@ -138,6 +170,7 @@ private fun StartContent(
     onSelectItem: (String) -> Unit,
     onSetAsMainline: (Boolean) -> Unit,
     onBegin: () -> Unit,
+    onEditFirstAction: () -> Unit,
     onAbandon: () -> Unit,
 ) {
     when (content) {
@@ -162,6 +195,9 @@ private fun StartContent(
             Text("今天继续", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MirraTheme.colors.textPrimary)
             Spacer(Modifier.height(20.dp))
             LearningItemSummary(content.item)
+            MirraTextAction(onClick = onEditFirstAction, enabled = !isSubmitting) {
+                Text(if (content.item.firstAction.isBlank()) "确定第一步" else "编辑第一步")
+            }
             Spacer(Modifier.height(20.dp))
             MirraPrimaryButton(
                 onClick = onBegin,
@@ -170,7 +206,7 @@ private fun StartContent(
             ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(25.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("开始学习", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("开始准备", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             }
             content.recentReading?.let {
                 Spacer(Modifier.height(20.dp))
@@ -182,10 +218,10 @@ private fun StartContent(
             Spacer(Modifier.height(20.dp))
             content.items.forEach { item ->
                 Row(
-                    Modifier.fillMaxWidth().clickable { onSelectItem(item.id) }.padding(vertical = 8.dp),
+                    Modifier.fillMaxWidth().clickable(enabled = !isSubmitting) { onSelectItem(item.id) }.padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    RadioButton(selected = content.selectedItemId == item.id, onClick = { onSelectItem(item.id) })
+                    RadioButton(selected = content.selectedItemId == item.id, onClick = { onSelectItem(item.id) }, enabled = !isSubmitting)
                     Column(Modifier.weight(1f)) {
                         Text(item.name, fontWeight = FontWeight.Medium)
                         Text("上次停在第 ${item.currentPage} 页", color = MirraTheme.colors.textSecondary)
@@ -196,15 +232,18 @@ private fun StartContent(
             if (content.selectedItemId != null) {
                 val selected = content.items.first { it.id == content.selectedItemId }
                 Spacer(Modifier.height(12.dp))
-                Text(selected.firstAction, color = MirraTheme.colors.textSecondary)
+                Text(selected.firstAction.ifBlank { "请先确定一个现在就能做的第一步。" }, color = MirraTheme.colors.textSecondary)
+                MirraTextAction(onClick = onEditFirstAction, enabled = !isSubmitting) {
+                    Text(if (selected.firstAction.isBlank()) "确定第一步" else "编辑第一步")
+                }
                 RecentReading(content.recentReading)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = content.setSelectedAsMainline, onCheckedChange = onSetAsMainline)
+                    Checkbox(checked = content.setSelectedAsMainline, onCheckedChange = onSetAsMainline, enabled = !isSubmitting)
                     Text("设为主线")
                 }
             }
             MirraPrimaryButton(onClick = onBegin, enabled = content.selectedItemId != null && !isSubmitting, modifier = Modifier.fillMaxWidth()) {
-                Text("开始学习")
+                Text("开始准备")
             }
         }
         is StartContentState.NoInProgress -> {
@@ -257,7 +296,7 @@ private fun LearningItemSummary(item: StartLearningItem) {
                         Text("第一步", color = MirraTheme.colors.textSecondary, style = MaterialTheme.typography.bodyMedium)
                     }
                     Text(
-                        item.firstAction,
+                        item.firstAction.ifBlank { "请先确定一个现在就能做的第一步。" },
                         color = MirraTheme.colors.textPrimary,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,

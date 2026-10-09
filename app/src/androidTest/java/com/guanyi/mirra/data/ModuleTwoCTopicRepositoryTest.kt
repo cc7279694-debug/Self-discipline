@@ -67,7 +67,7 @@ class ModuleTwoCTopicRepositoryTest {
 
     @Test
     fun manyToManyLinksAreIdempotentAndUnlinkDoesNotDeleteEitherSide() = runTest {
-        val item = learningItems.create("书", 100)
+        val item = learningItems.create("书", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val firstNote = notes.createStandalone(item.id, "心理账户")
         val secondNote = notes.createStandalone(item.id, "另一条")
         val firstTopic = (topics.create("心理") as CreateTopicResult.Created).topic
@@ -91,7 +91,7 @@ class ModuleTwoCTopicRepositoryTest {
         assertSuspendFails { topics.createAndLink("missing", "孤立") }
         assertTrue(topics.observeAll().first().isEmpty())
 
-        val item = learningItems.create("书", 100)
+        val item = learningItems.create("书", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val note = notes.createStandalone(item.id, "内容")
         val result = topics.createAndLink(note.id, "主题")
         assertTrue(result is CreateTopicResult.Created)
@@ -100,7 +100,7 @@ class ModuleTwoCTopicRepositoryTest {
 
     @Test
     fun deletingNoteCascadesCrossReferences() = runTest {
-        val item = learningItems.create("书", 100)
+        val item = learningItems.create("书", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val note = notes.createStandalone(item.id, "内容")
         val topic = (topics.create("主题") as CreateTopicResult.Created).topic
         topics.link(note.id, topic.id)

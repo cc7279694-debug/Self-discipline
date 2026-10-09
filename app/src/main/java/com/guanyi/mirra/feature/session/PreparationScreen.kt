@@ -6,7 +6,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,6 +36,7 @@ import kotlinx.coroutines.launch
 import com.guanyi.mirra.ui.components.MirraPrimaryButton
 import com.guanyi.mirra.ui.components.MirraSecondaryButton
 import com.guanyi.mirra.ui.components.MirraTextAction
+import com.guanyi.mirra.ui.components.MirraFocusCard
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 
@@ -64,7 +68,7 @@ class PreparationViewModel(
     }
 
     fun start(onStarted: (String, Boolean) -> Unit) {
-        if (starting) return
+        if (starting || abandoning || uiState.value.intent?.id != intentId) return
         val item = uiState.value.item ?: return
         starting = true
         error = null
@@ -108,15 +112,20 @@ fun PreparationScreen(
     val context = LocalContext.current
     val item = state.item
     Column(
-        Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(28.dp),
     ) {
         Column {
             Text("启动准备", style = MaterialTheme.typography.headlineMedium)
             Spacer(Modifier.height(20.dp))
-            Text("先完成一个具体动作", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("先做完下面这一步，再确认开始阅读。", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(10.dp))
-            Text(item?.let(FirstActionResolver::resolve) ?: "正在读取…", style = MaterialTheme.typography.titleLarge)
+            MirraFocusCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("第一步", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(item?.let(FirstActionResolver::forActiveIntent) ?: "正在读取…", style = MaterialTheme.typography.headlineSmall)
+                }
+            }
             if (viewModel.starting) Text("正在准备本次学习…", color = MaterialTheme.colorScheme.onSurfaceVariant)
             viewModel.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
@@ -126,9 +135,9 @@ fun PreparationScreen(
                     if (unmonitored) Toast.makeText(context, "本次未开启分心监测", Toast.LENGTH_SHORT).show()
                     onStarted(sessionId)
                 } },
-                enabled = item != null && !viewModel.starting,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-            ) { Text("我已拿起书，开始阅读") }
+                enabled = item != null && state.intent != null && !viewModel.starting && !viewModel.abandoning,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            ) { Text("我已完成这一步，开始阅读") }
             Spacer(Modifier.height(10.dp))
             MirraSecondaryButton(onClick = onBack, enabled = !viewModel.starting,
                 modifier = Modifier.fillMaxWidth()) { Text("稍后再说") }

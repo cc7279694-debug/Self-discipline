@@ -7,24 +7,24 @@ import org.junit.Test
 
 class FirstActionResolverTest {
     @Test
-    fun blankActionUsesCurrentPageWithoutIncrementing() {
+    fun blankActionNeedsAnExplicitChoiceBeforeNewIntent() {
         val item = item(currentPage = 146, firstAction = "")
 
         assertEquals(
-            "拿起《怪诞行为学》，翻到第 146 页。",
+            "",
             FirstActionResolver.resolve(item),
         )
     }
 
     @Test
-    fun legacyGeneratedActionUsesLatestCurrentPage() {
+    fun legacyGeneratedActionNeedsAnExplicitChoiceBeforeNewIntent() {
         val item = item(
             currentPage = 146,
             firstAction = "拿起《怪诞行为学》，翻到第 10 页。",
         )
 
         assertEquals(
-            "拿起《怪诞行为学》，翻到第 146 页。",
+            "",
             FirstActionResolver.resolve(item),
         )
     }
@@ -37,6 +37,35 @@ class FirstActionResolverTest {
         )
 
         assertEquals("把手机放到桌外，再打开书。", FirstActionResolver.resolve(item))
+    }
+
+    @Test
+    fun obviousLearningGoalsCannotStandInForAnAction() {
+        listOf("完成这本书", "读完这本书", "提高阅读能力", "学会 Kotlin").forEach { goal ->
+            assertEquals("", FirstActionResolver.resolve(item(146, goal)))
+        }
+    }
+
+    @Test
+    fun invisibleTextCannotStandInForAnAction() {
+        assertEquals("", FirstActionResolver.resolve(item(146, "\u200B\uFEFF")))
+    }
+
+    @Test
+    fun pageAndDurationTargetsCannotStandInForAnImmediateAction() {
+        listOf("今天读30页", "读30页", "阅读30分钟", "本次阅读 1 小时", "读完30页", "读完《怪诞行为学》").forEach { goal ->
+            assertEquals("", FirstActionResolver.resolve(item(146, goal)))
+        }
+    }
+
+    @Test
+    fun concreteAdjustmentIsNotMistakenForAnAbstractImprovementGoal() {
+        assertEquals("提高台灯亮度，再翻开书。", FirstActionResolver.resolve(item(146, "提高台灯亮度，再翻开书。")))
+    }
+
+    @Test
+    fun punctuationCannotStandInForAnAction() {
+        assertEquals("", FirstActionResolver.resolve(item(146, "...！！！")))
     }
 
     private fun item(currentPage: Int, firstAction: String) = LearningItemEntity(

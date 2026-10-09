@@ -128,7 +128,12 @@ fun MirraApp(
     }
     LaunchedEffect(pendingCloseoutId) {
         pendingCloseoutId?.let { id ->
-            if (backStack.lastOrNull() != SessionRoute(id)) {
+            if (backStack.lastOrNull() != SessionRoute(id) &&
+                backStack.lastOrNull() != SessionSummaryRoute(id)) {
+                // An observed PENDING may arrive after normal completion. Never reopen its route.
+                if (container.studyWorkflowRepository.getCloseoutState(id) != FocusCloseoutState.PENDING)
+                    return@LaunchedEffect
+                if (backStack.lastOrNull() == SessionSummaryRoute(id)) return@LaunchedEffect
                 backStack.clear(); backStack.add(SessionRoute(id))
             }
         }
@@ -201,6 +206,7 @@ fun MirraApp(
                                     container.readingAnalyticsService,
                                     container.analyticsTimeProvider,
                                     container.dndUserActions,
+                                    container.trendsRepository,
                                 )
                             }),
                             debugMonitoring = debugMonitoring,

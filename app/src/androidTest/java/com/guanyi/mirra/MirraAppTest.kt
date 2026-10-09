@@ -7,6 +7,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import com.guanyi.mirra.data.local.entity.IntentOutcome
 import com.guanyi.mirra.data.local.entity.LearningItemEntity
@@ -67,6 +68,10 @@ class MirraAppTest {
         }
 
         composeRule.onNode(hasText("我的") and hasClickAction()).performClick().assertIsSelected()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(hasText("更多阅读数据")).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("更多阅读数据").performScrollTo().performClick()
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodes(hasText("1 次")).fetchSemanticsNodes().isNotEmpty()
         }

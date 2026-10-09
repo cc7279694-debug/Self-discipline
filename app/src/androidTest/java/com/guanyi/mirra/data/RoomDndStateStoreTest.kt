@@ -23,7 +23,7 @@ class RoomDndStateStoreTest {
             MirraDatabase::class.java).build()
         try {
             var now = 1_000L
-            val item = DefaultLearningItemRepository(db, clock = { now }).create("书", 100, 10)
+            val item = DefaultLearningItemRepository(db, clock = { now }).create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置")
             val workflow = DefaultStudyWorkflowRepository(db, RuleBasedSummaryEngine(), IntentExpiryPolicy(), clock = { now })
             val session = workflow.startSession(workflow.createIntent(item.id).id, 10)
             val store = RoomDndStateStore(db)
@@ -48,7 +48,7 @@ class RoomDndStateStoreTest {
             MirraDatabase::class.java).build()
         try {
             var now = 1_000L
-            val item = DefaultLearningItemRepository(db, clock = { now }).create("书", 100, 10)
+            val item = DefaultLearningItemRepository(db, clock = { now }).create("书", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置")
             val workflow = DefaultStudyWorkflowRepository(db, RuleBasedSummaryEngine(), IntentExpiryPolicy(), clock = { now })
             val session = workflow.startSession(workflow.createIntent(item.id).id, 10)
             now = 2_000L

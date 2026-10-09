@@ -52,7 +52,7 @@ class ModuleTwoANoteRepositoryTest {
 
     @Test
     fun standaloneNoteRequiresValidContentAndNeverAdvancesProgress() = runTest {
-        val item = learningItems.create("独立笔记", 120, 40)
+        val item = learningItems.create("独立笔记", 120, 40, firstAction = "把书放到桌上，翻到上次阅读的位置")
 
         val note = notes.createStandalone(
             learningItemId = item.id,
@@ -75,7 +75,7 @@ class ModuleTwoANoteRepositoryTest {
 
     @Test
     fun updatePreservesOwnershipSessionAndCreatedAt() = runTest {
-        val item = learningItems.create("编辑笔记", 100, 30)
+        val item = learningItems.create("编辑笔记", 100, 30, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val original = notes.save(
             learningItemId = item.id,
             sessionId = null,
@@ -103,8 +103,8 @@ class ModuleTwoANoteRepositoryTest {
 
     @Test
     fun listIsNewestFirstAndSupportsCombinedFilters() = runTest {
-        val firstItem = learningItems.create("第一本", 100)
-        val secondItem = learningItems.create("第二本", 100)
+        val firstItem = learningItems.create("第一本", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
+        val secondItem = learningItems.create("第二本", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
         notes.createStandalone(firstItem.id, "旧摘录", NoteSemanticType.QUOTE, 2)
         now = 2_000L
         notes.createStandalone(firstItem.id, "新问题", NoteSemanticType.QUESTION, 3)
@@ -124,7 +124,7 @@ class ModuleTwoANoteRepositoryTest {
 
     @Test
     fun deleteRemovesOnlyRequestedNote() = runTest {
-        val item = learningItems.create("删除笔记", 100)
+        val item = learningItems.create("删除笔记", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val keep = notes.createStandalone(item.id, "保留", NoteSemanticType.SUMMARY, null)
         val remove = notes.createStandalone(item.id, "删除", NoteSemanticType.QUESTION, null)
 

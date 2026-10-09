@@ -15,6 +15,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.selected
@@ -38,6 +41,9 @@ fun TrendsScreen(viewModel: TrendsViewModel, onBack: () -> Unit, modifier: Modif
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val error = state.error
     val snapshot = state.snapshot
+    var startExpanded by rememberSaveable { mutableStateOf(false) }
+    var maintainExpanded by rememberSaveable { mutableStateOf(false) }
+    var recoverExpanded by rememberSaveable { mutableStateOf(false) }
     LazyColumn(
         modifier = modifier.fillMaxSize().background(MirraTheme.colors.background),
         contentPadding = PaddingValues(24.dp),
@@ -73,14 +79,21 @@ fun TrendsScreen(viewModel: TrendsViewModel, onBack: () -> Unit, modifier: Modif
                     MirraTextAction(viewModel::retry) { Text("重试读取") }
                 }
             }
-            snapshot != null -> facts(snapshot)
+            snapshot != null -> facts(snapshot, mapOf("start" to startExpanded, "maintain" to maintainExpanded,
+                "recover" to recoverExpanded)) { section ->
+                when (section) {
+                    "start" -> startExpanded = !startExpanded
+                    "maintain" -> maintainExpanded = !maintainExpanded
+                    "recover" -> recoverExpanded = !recoverExpanded
+                }
+            }
         }
         item("refresh") { MirraTextAction(viewModel::refresh, Modifier.fillMaxWidth(), enabled = !state.isLoading) { Text("刷新") } }
         item("back") { MirraSecondaryButton(onBack, Modifier.fillMaxWidth()) { Text("返回") } }
     }
 }
 
-private fun LazyListScope.facts(snapshot: TrendsSnapshot) {
+private fun LazyListScope.facts(snapshot: TrendsSnapshot, expanded: Map<String, Boolean>, onToggle: (String) -> Unit) {
     val start = snapshot.current.start
     val maintain = snapshot.current.maintain
     val recover = snapshot.current.recover
@@ -90,13 +103,15 @@ private fun LazyListScope.facts(snapshot: TrendsSnapshot) {
     val noEndedSessions = maintain.endedSessionCount == 0L
     val unavailable = if (noEndedSessions) ACCUMULATING else UNAVAILABLE
 
-    heading("开始", "start", "按学习意图创建日期统计")
+    heading("启动", "start", "按学习意图创建日期统计")
+    metric("开始转化", fraction(start.conversion, if (noResolvedIntents) ACCUMULATING else UNAVAILABLE), "conversion",
+        if (comparison == null) null else percentagePointChange(comparison.conversionPercentagePointDelta, previous), prominent = true)
+    detailsToggle("启动", "start", expanded, onToggle)
+    if (expanded["start"] == true) {
     metric("学习意图", "${start.conversion.denominator + start.openCount} 次", "intents")
     metric("真正开始", "${start.convertedCount} 次", "converted", countChange(comparison?.convertedCountDelta, previous))
     metric("放弃", "${start.abandonedCount} 次", "abandoned")
     metric("超时", "${start.timeoutCount} 次", "timeouts")
-    metric("开始转化", fraction(start.conversion, if (noResolvedIntents) ACCUMULATING else UNAVAILABLE), "conversion",
-        if (comparison == null) null else percentagePointChange(comparison.conversionPercentagePointDelta, previous))
     if (start.openCount > 0) item("open-intents") {
         Text("${start.openCount} 个学习意图仍在进行，不计入转化率", color = MirraTheme.colors.textPrimary)
     }
@@ -107,12 +122,18 @@ private fun LazyListScope.facts(snapshot: TrendsSnapshot) {
     metric("未确认稳定开始", "${start.stableUnconfirmedCount} 次", "stable-unconfirmed")
     if (start.stableDataIssueCount > 0) metric("稳定开始数据无法确认", "${start.stableDataIssueCount} 次", "stable-issues")
     metric("典型稳定耗时", latency(start.medianStableLatencyMillis, if (start.convertedCount == 0L) ACCUMULATING else UNAVAILABLE), "stable-latency")
+    }
 
-    heading("学习过程", "maintain", "按阅读结束日期统计")
+    heading("专注", "maintain", "按阅读结束日期统计")
+    metric("有效专注时间", duration(maintain.effectiveFocusMillis, unavailable), "effective-focus",
+        durationChange(comparison?.effectiveFocusMillisDelta, previous), prominent = true)
+    item("daily-reading") {
+        DailyReadingChart(snapshot.daily, "trends-reading-chart", snapshot.range == TrendsRange.ALL)
+    }
+    detailsToggle("专注", "maintain", expanded, onToggle)
+    if (expanded["maintain"] == true) {
     metric("可完整分析的阅读", "${maintain.trustedSessionCount} 次", "trusted-count",
         countChange(comparison?.trustedSessionCountDelta, previous))
-    metric("有效专注时间", duration(maintain.effectiveFocusMillis, unavailable), "effective-focus",
-        durationChange(comparison?.effectiveFocusMillisDelta, previous))
     metric("深度阅读时间", duration(maintain.deepFocusMillis, unavailable), "deep-focus",
         durationChange(comparison?.deepFocusMillisDelta, previous))
     metric("明确分心次数", if (maintain.trustedSessionCount == 0L) unavailable else "${maintain.distractionCount} 次", "distraction-count",
@@ -122,12 +143,22 @@ private fun LazyListScope.facts(snapshot: TrendsSnapshot) {
     metric("明确分心时间", duration(maintain.distractionMillis, unavailable), "distraction-duration")
     metric("无法完整分析的记录", "${maintain.unavailableSessionCount} 次", "unavailable-count",
         countChange(comparison?.unavailableSessionCountDelta, previous))
+    }
 
-    heading("回到学习", "recover", "按阅读结束日期统计")
+    heading("恢复", "recover", "按阅读结束日期统计")
+    metric("明确成功", "${recover.successCount} 次", "recovery-success",
+        countChange(comparison?.recoverySuccessCountDelta, previous), prominent = true)
+    item("recovery-evidence") {
+        Text(when {
+            recover.unknownCount > 0L -> "另有 ${recover.unknownCount} 次结果无法确认，不计作失败。"
+            recover.attemptCount == 0L -> "尚无分心后的恢复尝试记录。"
+            else -> "根据分心后可确认的恢复记录。"
+        }, color = MirraTheme.colors.textSecondary)
+    }
+    detailsToggle("恢复", "recover", expanded, onToggle)
+    if (expanded["recover"] == true) {
     metric("分心后恢复尝试", "${recover.attemptCount} 次", "recovery-attempts",
         countChange(comparison?.recoveryAttemptCountDelta, previous))
-    metric("明确成功", "${recover.successCount} 次", "recovery-success",
-        countChange(comparison?.recoverySuccessCountDelta, previous))
     metric("明确中断", "${recover.interruptedCount} 次", "recovery-interrupted")
     metric("无法确认", "${recover.unknownCount} 次", "recovery-unknown",
         countChange(comparison?.recoveryUnknownCountDelta, previous))
@@ -135,6 +166,15 @@ private fun LazyListScope.facts(snapshot: TrendsSnapshot) {
         if (recover.attemptCount == 0L) ACCUMULATING else UNAVAILABLE), "recovery-known-fraction")
     metric("典型恢复耗时", latency(recover.medianSuccessfulRecoveryMillis,
         if (recover.attemptCount == 0L) ACCUMULATING else UNAVAILABLE), "recovery-latency")
+    }
+}
+
+private fun LazyListScope.detailsToggle(label: String, key: String, expanded: Map<String, Boolean>, onToggle: (String) -> Unit) {
+    item("details-$key") {
+        MirraTextAction({ onToggle(key) }, Modifier.testTag("trends-details-$key")) {
+            Text("${if (expanded[key] == true) "收起" else "展开"}${label}详情")
+        }
+    }
 }
 
 private fun LazyListScope.heading(label: String, key: String, cohort: String) {
@@ -149,13 +189,14 @@ private fun LazyListScope.heading(label: String, key: String, cohort: String) {
     }
 }
 
-private fun LazyListScope.metric(label: String, value: String, key: String, comparison: String? = null) {
+private fun LazyListScope.metric(label: String, value: String, key: String, comparison: String? = null, prominent: Boolean = false) {
     item("metric-$key") {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(label, style = MaterialTheme.typography.bodyLarge, color = MirraTheme.colors.textPrimary)
             Text(value, modifier = Modifier.testTag("trend-$key"),
-                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium,
-                color = MirraTheme.colors.textPrimary)
+                style = if (prominent) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.titleMedium,
+                fontWeight = if (prominent) FontWeight.SemiBold else FontWeight.Medium,
+                color = if (prominent) MirraTheme.colors.accentStrong else MirraTheme.colors.textPrimary)
             comparison?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = MirraTheme.colors.textPrimary) }
         }
     }

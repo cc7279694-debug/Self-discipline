@@ -154,7 +154,7 @@ class ModuleThreeDFinalBoundaryTest {
 
     private suspend fun startMonitored(): StudySessionEntity {
         val item = DefaultLearningItemRepository(database, clock = { wallNow })
-            .create("Final boundary controlled fixture", 100, 10)
+            .create("Final boundary controlled fixture", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val intent = workflow.createIntent(item.id)
         // Controlled READY evidence for this isolated Room test, not a running Android monitor.
         val lease = MonitoringReadyLease("final-boundary", wallNow, 0, 1, wallNow, 0, 0, false, true)

@@ -13,7 +13,7 @@ import org.junit.Test
 class InterventionReceiptRepositoryTest {
     private suspend fun fixture(block: suspend (TestAppContainer, InterventionUiModel, InterventionReceiptRepository) -> Unit) {
         TestAppContainer(ApplicationProvider.getApplicationContext()).use { c ->
-            val item = c.learningItemRepository.create("3C3 receipt test", 100, 1)
+            val item = c.learningItemRepository.create("3C3 receipt test", 100, 1, firstAction = "把书放到桌上，翻到上次阅读的位置")
             val intent = c.studyWorkflowRepository.createIntent(item.id)
             val s = c.studyWorkflowRepository.startSession(intent.id, 1)
             val db = c.database

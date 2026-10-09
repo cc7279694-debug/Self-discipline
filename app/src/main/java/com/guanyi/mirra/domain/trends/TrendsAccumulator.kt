@@ -8,11 +8,14 @@ import com.guanyi.mirra.data.local.entity.MonitoringCoverage
 import com.guanyi.mirra.data.local.entity.SessionEndType
 import com.guanyi.mirra.data.local.entity.SessionSegmentEntity
 import com.guanyi.mirra.data.local.entity.SessionSegmentType
+import com.guanyi.mirra.data.local.entity.StudySessionEntity
 import com.guanyi.mirra.domain.AnalyticsTimeContext
 import com.guanyi.mirra.domain.SegmentInterval
 import com.guanyi.mirra.domain.SegmentTimelinePolicy
 import com.guanyi.mirra.domain.SessionTimelineValidator
 import com.guanyi.mirra.domain.TimelineTrust
+import java.time.Instant
+import java.time.LocalDate
 
 /**
  * Each source row is supplied once by the repository's keyset scan. Raw pages are never retained.
@@ -26,9 +29,13 @@ class TrendsAccumulator internal constructor(
 ) {
     private val current = PeriodAccumulator(time.now.toEpochMilli(), timelineValidator)
     private val previous = windows.previous?.let { PeriodAccumulator(time.now.toEpochMilli(), timelineValidator) }
+    private val daily = sortedMapOf<LocalDate, PeriodAccumulator>()
 
     fun addStartPage(sources: List<StartTrendSource>) {
-        for (source in sources) periodFor(source.intent.createdAt)?.addStart(source)
+        for (source in sources) {
+            periodFor(source.intent.createdAt)?.addStart(source)
+            dailyFor(source.intent.createdAt)?.addStart(source)
+        }
     }
 
     fun addSessionPage(sources: List<SessionTrendSource>) {
@@ -37,6 +44,7 @@ class TrendsAccumulator internal constructor(
             val endedAt = session.endedAt ?: continue
             if (session.activeSlot != null || source.context?.closeoutState == FocusCloseoutState.PENDING) continue
             periodFor(endedAt)?.addSession(source)
+            dailyFor(endedAt)?.addSession(source)
         }
     }
 
@@ -44,7 +52,28 @@ class TrendsAccumulator internal constructor(
         val currentResult = current.finish()
         val previousResult = previous?.finish()
         return TrendsSnapshot(range, time, windows, currentResult, previousResult,
-            previousResult?.let { compare(currentResult, it) })
+            previousResult?.let { compare(currentResult, it) },
+            normalReading = current.finishReading(),
+            previousNormalReading = previous?.finishReading(),
+            daily = finishDaily())
+    }
+
+    private fun dailyFor(timestamp: Long): PeriodAccumulator? {
+        if (!windows.current.contains(timestamp)) return null
+        val date = Instant.ofEpochMilli(timestamp).atZone(time.zoneId).toLocalDate()
+        return daily.getOrPut(date) { PeriodAccumulator(time.now.toEpochMilli(), timelineValidator) }
+    }
+
+    private fun finishDaily(): List<DailyTrendsPoint> {
+        val dates = range.days?.let { days ->
+            val today = time.now.atZone(time.zoneId).toLocalDate()
+            List(days) { index -> today.minusDays(days - 1L - index) }
+        } ?: daily.keys.toList()
+        // ALL keeps only recorded dates: an ancient damaged fact must not allocate every intervening day.
+        return dates.map { date ->
+            val day = daily[date] ?: PeriodAccumulator(time.now.toEpochMilli(), timelineValidator)
+            DailyTrendsPoint(date, day.finishReading(), day.finish())
+        }
     }
 
     private fun periodFor(timestamp: Long): PeriodAccumulator? = when {
@@ -109,6 +138,7 @@ private class PeriodAccumulator(
     private var plannedReturns = 0L
     private var invalidOrigins = 0L
     private val recoveryLatencies = mutableListOf<Long>()
+    private val reading = ReadingDurationAccumulator()
 
     fun addStart(source: StartTrendSource) {
         val intent = source.intent
@@ -143,6 +173,7 @@ private class PeriodAccumulator(
     }
 
     fun addSession(source: SessionTrendSource) {
+        reading.add(source.session)
         endedSessions++
         val analysis = timelineValidator.analyze(source.session, source.context, source.segments)
         if (analysis.trust == TimelineTrust.COMPLETE_TRUSTED) {
@@ -264,6 +295,41 @@ private class PeriodAccumulator(
         recover = RecoverTrends(recoveryAttempts, recoverySuccesses, recoveryInterruptions, recoveryUnknown,
             plannedReturns, invalidOrigins, fraction(recoverySuccesses, Math.addExact(recoverySuccesses, recoveryInterruptions)),
             median(recoveryLatencies)),
+    )
+
+    fun finishReading(): ReadingDurationTrends = reading.finish()
+}
+
+private class ReadingDurationAccumulator {
+    private var qualifiedSessions = 0L
+    private var dataIssues = 0L
+    private var individualOverflow = false
+    private val duration = MillisSum()
+
+    fun add(session: StudySessionEntity) {
+        if (session.endType != null && session.endType != SessionEndType.NORMAL) return
+        val endedAt = requireNotNull(session.endedAt)
+        // Same normal/end-page/positive-elapsed qualification as the frozen Phase 2 reading summary.
+        // Snapshot cutoff, active-slot and pending-closeout filtering belong to the outer cohort scan.
+        if (session.endType != SessionEndType.NORMAL || session.endPage == null || endedAt <= session.startedAt) {
+            dataIssues++
+            return
+        }
+        val millis = elapsed(session.startedAt, endedAt)
+        if (millis == null) {
+            dataIssues++
+            individualOverflow = true
+            return
+        }
+        qualifiedSessions++
+        duration.add(millis)
+    }
+
+    fun finish() = ReadingDurationTrends(
+        sessionCount = qualifiedSessions,
+        totalDurationMillis = duration.value.takeUnless { individualOverflow || (qualifiedSessions == 0L && dataIssues > 0L) },
+        dataIssueCount = dataIssues,
+        durationOverflow = individualOverflow || duration.overflow,
     )
 }
 

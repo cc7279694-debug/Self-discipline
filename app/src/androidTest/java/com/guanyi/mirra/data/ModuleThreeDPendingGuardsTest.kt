@@ -40,7 +40,7 @@ class ModuleThreeDPendingGuardsTest {
     @After fun tearDown() = db.close()
     private suspend fun start(): StudySessionEntity {
         focus.replaceRiskApp("risk", "Test risk")
-        val item = DefaultLearningItemRepository(db, clock = { now }).create("Closeout guards", 100, 10)
+        val item = DefaultLearningItemRepository(db, clock = { now }).create("Closeout guards", 100, 10, firstAction = "把书放到桌上，翻到上次阅读的位置")
         val intent = workflow.createIntent(item.id)
         return workflow.startMonitoredSession(intent.id, 10, MonitoringReadyLease("guard", now, 0, 1, now, 0, 0, false, false), "guard-session").session
     }

@@ -1,5 +1,27 @@
 # Decisions
 
+## 2026-10-09 — V1 趋势视觉与明确 First Action
+
+### Decision
+
+按用户本轮明确授权，将创建与下一场启动的 First Action 从可选动态 fallback 改为必须填写或主动选择建议。Start / 详情允许在新 Intent 前编辑；Preparation 展示完整动作，并由主动完成确认触发既有 Session start。Mine 直接展示真实近期每日阅读时长和两个辅助指标，趋势详情用三个板块与可展开次级事实。
+
+### Context
+
+原体验提供能力但缺乏层级；自动动作没有经过用户明确选择。本决定仅替代下面历史决定中“新建/新 Intent 的可选动作与静默 fallback”以及相关按钮文案，保留历史说明和旧合法 Active Intent 的继续路径。
+
+### Alternatives
+
+静默填默认动作；每场重填或新增动作打卡表；把周期总时长平均成七根柱；重写被冻结的趋势/专注算法。
+
+### Reason
+
+明确、低摩擦的动作门槛和真实本地日序列可以支持开始与理解学习，不需要新 Schema、云能力、依赖或评分。有限文本校验是提示与准入，不是语义/现实行为证明；旧数据无法证明选择来源时保守补录，而不补造历史。
+
+### Consequences
+
+Room v4 / Schema 1–4 / migrations、Session/Closeout/Monitoring/READY/DND/Backup/Export 规则保持不变。阅读时长仍按正常结束日期归属，可信专注单独复用冻结 Validator。ALL 图表仅展示标明的最近记录日期，完整汇总不截断；准确中位数仍为 O(N) 标量。Logo 原图纠偏独立未完成，API/OEM/实体机与发行级边界不由 API37 AVD 外推。
+
 ## 2026-10-06 — Inner Window 品牌资源与 Mirra Blue 分离
 
 ### Decision

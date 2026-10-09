@@ -6,6 +6,7 @@ import com.guanyi.mirra.data.local.entity.SessionSegmentEntity
 import com.guanyi.mirra.data.local.entity.StudyIntentEntity
 import com.guanyi.mirra.data.local.entity.StudySessionEntity
 import com.guanyi.mirra.domain.AnalyticsTimeContext
+import java.time.LocalDate
 
 enum class TrendsRange(val days: Int?) {
     SEVEN_DAYS(7), THIRTY_DAYS(30), NINETY_DAYS(90), ALL(null),
@@ -73,6 +74,25 @@ data class RecoverTrends(
 
 data class TrendsPeriod(val start: StartTrends, val maintain: MaintainTrends, val recover: RecoverTrends)
 
+/**
+ * Whole duration of qualified normal reading sessions, separate from trusted effective focus.
+ * Empty periods are 0; only damaged normal samples or arithmetic overflow are unavailable (null).
+ * When valid and damaged samples coexist, the duration is the qualified subtotal and issues remain explicit.
+ */
+data class ReadingDurationTrends(
+    val sessionCount: Long = 0,
+    val totalDurationMillis: Long? = 0,
+    val dataIssueCount: Long = 0,
+    val durationOverflow: Boolean = false,
+)
+
+/** Start uses Intent.createdAt; reading/Maintain/Recover use Session.endedAt in the snapshot timezone. */
+data class DailyTrendsPoint(
+    val date: LocalDate,
+    val normalReading: ReadingDurationTrends,
+    val period: TrendsPeriod,
+)
+
 /** Rate changes are percentage points; counts and durations are absolute changes. */
 data class TrendsComparison(
     val convertedCountDelta: Long,
@@ -96,4 +116,8 @@ data class TrendsSnapshot(
     val current: TrendsPeriod,
     val previous: TrendsPeriod?,
     val comparison: TrendsComparison?,
+    val normalReading: ReadingDurationTrends = ReadingDurationTrends(),
+    val previousNormalReading: ReadingDurationTrends? = null,
+    /** Fixed ranges include every local day; ALL includes only recorded dates, sorted ascending. */
+    val daily: List<DailyTrendsPoint> = emptyList(),
 )

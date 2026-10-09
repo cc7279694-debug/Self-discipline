@@ -38,6 +38,7 @@ class StartViewModel(
     private val setAsMainline = MutableStateFlow(false)
     private val submission = MutableStateFlow(Pair(false, null as String?))
     private val nowMillis = MutableStateFlow(clock())
+    private val firstActionEditor = MutableStateFlow<StartFirstActionEditor?>(null)
 
     private val sources = combine(
         learningItems.observeAll(),
@@ -55,7 +56,7 @@ class StartViewModel(
             if (itemId == null) flowOf(null) else workflow.observeLatestNormalReading(itemId)
         }
 
-    val uiState = combine(sources, recentReading, nowMillis, submission) { source, recent, now, submit ->
+    val uiState = combine(sources, recentReading, nowMillis, submission, firstActionEditor) { source, recent, now, submit, editor ->
         when (val resolution = resolveStartContent(
             items = source.items,
             activeIntent = source.intent,
@@ -70,6 +71,7 @@ class StartViewModel(
                 isLoading = false,
                 isSubmitting = submit.first,
                 errorMessage = submit.second,
+                firstActionEditor = editor,
             )
             is StartResolution.DataError -> StartUiState(
                 isLoading = false,
@@ -88,32 +90,69 @@ class StartViewModel(
     }
 
     fun selectItem(itemId: String) {
+        if (submission.value.first) return
         selectedItemId.value = itemId
         setAsMainline.value = false
         submission.value = false to null
+        firstActionEditor.value = null
     }
 
     fun setSelectedAsMainline(enabled: Boolean) {
+        if (submission.value.first) return
         setAsMainline.value = enabled
     }
 
     fun begin(onIntentReady: (String) -> Unit) {
+        if (submission.value.first) return
         val content = uiState.value.content
         val itemId: String
+        val item: StartLearningItem
         val makeMainline: Boolean
         when (content) {
             is StartContentState.Mainline -> {
+                item = content.item
                 itemId = content.item.id
                 makeMainline = false
             }
             is StartContentState.ChooseInProgress -> {
                 itemId = content.selectedItemId ?: return setError("请先选择本次学习内容")
+                item = content.items.firstOrNull { it.id == itemId } ?: return
                 makeMainline = content.setSelectedAsMainline
             }
             else -> return
         }
+        if (item.firstAction.isBlank()) {
+            firstActionEditor.value = StartFirstActionEditor(item, beginAfterSaving = true, setAsMainline = makeMainline)
+            return
+        }
         perform {
             onIntentReady(workflow.createIntent(itemId, setAsMainline = makeMainline).id)
+        }
+    }
+
+    fun editFirstAction() {
+        if (submission.value.first) return
+        val item = when (val content = uiState.value.content) {
+            is StartContentState.Mainline -> content.item
+            is StartContentState.ChooseInProgress -> content.items.firstOrNull { it.id == content.selectedItemId }
+            else -> null
+        } ?: return
+        firstActionEditor.value = StartFirstActionEditor(item, beginAfterSaving = false)
+        submission.value = false to null
+    }
+
+    fun dismissFirstActionEditor() {
+        if (!submission.value.first) firstActionEditor.value = null
+    }
+
+    fun saveFirstAction(action: String, onIntentReady: (String) -> Unit) {
+        val editor = firstActionEditor.value ?: return
+        perform {
+            learningItems.updateFirstAction(editor.item.id, action)
+            if (editor.beginAfterSaving) {
+                onIntentReady(workflow.createIntent(editor.item.id, setAsMainline = editor.setAsMainline).id)
+            }
+            firstActionEditor.value = null
         }
     }
 

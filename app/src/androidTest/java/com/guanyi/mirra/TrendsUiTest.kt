@@ -33,6 +33,20 @@ class TrendsUiTest {
     @get:Rule val rule = createAndroidComposeRule<ComponentActivity>()
     private val time = AnalyticsTimeContext(Instant.parse("2026-10-07T04:00:00Z"), ZoneId.of("Asia/Shanghai"))
 
+    @Test fun overviewHasThreeTaskSectionsAndSecondaryDetails() {
+        val vm = vm { range -> snapshot(range, trustedPeriod()) }
+        try {
+            show(vm)
+            awaitReady(vm, expand = false)
+            for (heading in listOf("启动", "专注", "恢复")) {
+                scrollTo(heading)
+                rule.onNodeWithText(heading).assertIsDisplayed()
+            }
+            scrollTo("展开启动详情")
+            rule.onNodeWithText("展开启动详情").assertHasClickAction()
+        } finally { close(vm) }
+    }
+
     @Test fun sectionsExplainTheirIntentAndEndedReadingDateCohorts() {
         val vm = vm { range -> snapshot(range, trustedPeriod()) }
         try {
@@ -63,6 +77,7 @@ class TrendsUiTest {
             scrollTo("已确认稳定开始")
             rule.onNodeWithTag("trend-stable-confirmed").assertTextEquals("3 次")
             rule.onNodeWithTag("trend-stable-unconfirmed").assertTextEquals("6 次")
+            scrollTo("典型稳定耗时")
             rule.onNodeWithTag("trend-stable-latency").assertTextEquals("2 分钟")
             rule.onNodeWithText("稳定开始成功率", substring = true).assertDoesNotExist()
         } finally { close(vm) }
@@ -290,7 +305,13 @@ class TrendsUiTest {
     }
 
     private fun show(vm: TrendsViewModel) { rule.setContent { MirraTheme { TrendsScreen(vm, {}) } } }
-    private fun awaitReady(vm: TrendsViewModel) = rule.waitUntil(5_000) { vm.uiState.value.snapshot != null }
+    private fun awaitReady(vm: TrendsViewModel, expand: Boolean = true) {
+        rule.waitUntil(5_000) { vm.uiState.value.snapshot != null }
+        if (expand) for (section in listOf("start", "maintain", "recover")) {
+            rule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("trends-details-$section"))
+            rule.onNodeWithTag("trends-details-$section").performClick()
+        }
+    }
     private fun await(text: String) = rule.waitUntil(5_000) { rule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
     private fun scrollTo(text: String) { rule.onNode(hasScrollAction()).performScrollToNode(hasText(text)) }
     private fun close(vm: TrendsViewModel) { rule.activityRule.scenario.close(); vm.viewModelScope.cancel() }

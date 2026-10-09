@@ -34,7 +34,7 @@ class SessionFocusUiTest {
     @Test fun editingCurrentPageAllowsPartialInputButNeverRollsBackRoomProgress() {
         val container = TestAppContainer(ApplicationProvider.getApplicationContext())
         val session = runBlocking {
-            val item = container.learningItemRepository.create("页码编辑测试", 320)
+            val item = container.learningItemRepository.create("页码编辑测试", 320, firstAction = "把书放到桌上，翻到上次阅读的位置")
             val intent = container.studyWorkflowRepository.createIntent(item.id)
             container.studyWorkflowRepository.startSession(intent.id, 40)
         }
@@ -64,7 +64,7 @@ class SessionFocusUiTest {
     @Test fun backDismissesPromptBeforeLeavingAndKeepsDraft() {
         val container = TestAppContainer(ApplicationProvider.getApplicationContext())
         val session = runBlocking {
-            val item = container.learningItemRepository.create("Back 测试书", 100)
+            val item = container.learningItemRepository.create("Back 测试书", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
             val intent = container.studyWorkflowRepository.createIntent(item.id)
             container.studyWorkflowRepository.startSession(intent.id, 1)
         }
@@ -168,7 +168,7 @@ class SessionFocusUiTest {
     @Test fun panelBackKeepsDraftAndNavigationAndLifecycleRevokesEvidence() {
         val container = TestAppContainer(ApplicationProvider.getApplicationContext())
         val session = runBlocking {
-            val item = container.learningItemRepository.create("测试书", 100)
+            val item = container.learningItemRepository.create("测试书", 100, firstAction = "把书放到桌上，翻到上次阅读的位置")
             val intent = container.studyWorkflowRepository.createIntent(item.id)
             container.studyWorkflowRepository.startSession(intent.id, 1)
         }
@@ -177,7 +177,9 @@ class SessionFocusUiTest {
         actions.intervention.value = InterventionUiModel(session.id, "p", "e", "seg", "risk", 5_000, 5_000,
             allowanceOptions = AllowanceReason.entries.map { AllowanceOption(it, 300_000) })
         val vm = SessionViewModel(session.id, container.studyWorkflowRepository, container.noteRepository,
-            container.sessionManager, focusActions = actions, learningItems = container.learningItemRepository)
+            container.sessionManager, focusActions = actions, learningItems = container.learningItemRepository,
+            // Compose v2 drives effect delays with its test clock, not real elapsedRealtime.
+            clockSample = { ClockSample(session.startedAt + rule.mainClock.currentTime, rule.mainClock.currentTime) })
         var left = false
         rule.setContent { MirraTheme { SessionScreen(vm, {}, {}, { left = true }) } }
         rule.waitUntil(5_000) { vm.session.value != null }
@@ -193,7 +195,17 @@ class SessionFocusUiTest {
         rule.waitUntil(5_000) { actions.calls.contains("evidence:false:false") }
         rule.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
         rule.waitUntil(5_000) { actions.calls.count { it == "refresh" } >= 2 }
-        rule.waitUntil(5_000) { actions.evidenceSamples.zipWithNext().any { (a, b) -> b.elapsedNowMillis - a.elapsedNowMillis >= 900 } }
+        // Observe new periodic samples after resume; incidental lifecycle/window callbacks are
+        // not a substitute for the one-second loop. Keep the original interval requirement.
+        rule.mainClock.autoAdvance = false
+        val beforeTick = rule.runOnIdle { actions.evidenceSamples.size }
+        rule.mainClock.advanceTimeBy(2_100)
+        rule.waitUntil(5_000) {
+            actions.evidenceSamples.drop(beforeTick).zipWithNext().any { (a, b) ->
+                b.elapsedNowMillis - a.elapsedNowMillis >= 900
+            }
+        }
+        rule.mainClock.autoAdvance = true
         val persisted = runBlocking { container.noteRepository.observeForSession(session.id).first() }
         assertEquals("草稿仍在", persisted.single().content)
         assertEquals(42, persisted.single().pageNumber)

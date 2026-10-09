@@ -14,6 +14,7 @@ import com.guanyi.mirra.data.local.entity.SessionSegmentEntity
 import com.guanyi.mirra.data.local.entity.SessionSegmentType
 import com.guanyi.mirra.data.local.model.RecentReadingSnapshot
 import com.guanyi.mirra.domain.IntentExpiryPolicy
+import com.guanyi.mirra.domain.FirstActionResolver
 import com.guanyi.mirra.domain.SummaryEngine
 import com.guanyi.mirra.domain.SessionRecoveryResult
 import com.guanyi.mirra.data.search.SearchIndexWriter
@@ -161,37 +162,45 @@ class DefaultStudyWorkflowRepository(
     override suspend fun createIntent(
         learningItemId: String,
         setAsMainline: Boolean,
-    ): StudyIntentEntity = database.withTransaction {
-        val initialItem = checkNotNull(itemDao.get(learningItemId)) { "Learning Item 不存在" }
-        check(initialItem.status == LearningItemStatus.IN_PROGRESS) {
-            "只有进行中的内容可以开始"
+    ): StudyIntentEntity {
+        var actionError: String? = null
+        val result = database.withTransaction<StudyIntentEntity?> {
+            val initialItem = checkNotNull(itemDao.get(learningItemId)) { "Learning Item 不存在" }
+            check(initialItem.status == LearningItemStatus.IN_PROGRESS) {
+                "只有进行中的内容可以开始"
+            }
+            check(sessionDao.getActive() == null) { "请先结束当前 Session" }
+            val now = clock()
+            val active = intentDao.getActive()
+            if (active != null && expiryPolicy.isExpired(active.createdAt, now)) {
+                intentDao.markTimedOut(active.id, now)
+            } else if (active != null) {
+                return@withTransaction active
+            }
+            val itemBeforeInsert = checkNotNull(itemDao.get(learningItemId)) { "Learning Item 不存在" }
+            check(itemBeforeInsert.status == LearningItemStatus.IN_PROGRESS) {
+                "只有进行中的内容可以开始"
+            }
+            // Admission applies only to a new Intent, never to the legal active Intent returned above.
+            actionError = FirstActionResolver.validationError(itemBeforeInsert.firstAction)
+            if (actionError != null) return@withTransaction null
+            if (setAsMainline) {
+                itemDao.clearMainline(now)
+                check(itemDao.assignMainline(learningItemId, now) == 1) { "设置主线失败" }
+            }
+            StudyIntentEntity(
+                id = newId(),
+                learningItemId = learningItemId,
+                createdAt = now,
+                transitionedAt = null,
+                convertedAt = null,
+                endedAt = null,
+                outcome = null,
+                activeSlot = ACTIVE_SLOT,
+            ).also { intentDao.insert(it) }
         }
-        check(sessionDao.getActive() == null) { "请先结束当前 Session" }
-        val now = clock()
-        val active = intentDao.getActive()
-        if (active != null && expiryPolicy.isExpired(active.createdAt, now)) {
-            intentDao.markTimedOut(active.id, now)
-        } else if (active != null) {
-            return@withTransaction active
-        }
-        val itemBeforeInsert = checkNotNull(itemDao.get(learningItemId)) { "Learning Item 不存在" }
-        check(itemBeforeInsert.status == LearningItemStatus.IN_PROGRESS) {
-            "只有进行中的内容可以开始"
-        }
-        if (setAsMainline) {
-            itemDao.clearMainline(now)
-            check(itemDao.assignMainline(learningItemId, now) == 1) { "设置主线失败" }
-        }
-        StudyIntentEntity(
-            id = newId(),
-            learningItemId = learningItemId,
-            createdAt = now,
-            transitionedAt = null,
-            convertedAt = null,
-            endedAt = null,
-            outcome = null,
-            activeSlot = ACTIVE_SLOT,
-        ).also { intentDao.insert(it) }
+        // Preserve an expired Intent's terminal fact even when the next admission is refused.
+        return requireNotNull(result) { actionError ?: "请先确定一个第一步动作" }
     }
 
     override suspend fun markTransitioned(intentId: String) {

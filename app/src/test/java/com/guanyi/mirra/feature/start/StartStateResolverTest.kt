@@ -50,7 +50,7 @@ class StartStateResolverTest {
     }
 
     @Test
-    fun inProgressMainlineUsesCurrentPageWithoutIncrementing() {
+    fun inProgressMainlineShowsMissingActionWithoutInventingAChoice() {
         val result = resolveStartContent(
             items = listOf(item(id = "book", mainlineSlot = 1, currentPage = 40)),
             activeIntent = null,
@@ -64,7 +64,7 @@ class StartStateResolverTest {
         val content = assertType<StartResolution.Content>(result).value
         val mainline = assertType<StartContentState.Mainline>(content)
         assertEquals(40, mainline.item.currentPage)
-        assertEquals("拿起《book》，翻到第 40 页。", mainline.item.firstAction)
+        assertEquals("", mainline.item.firstAction)
     }
 
     @Test

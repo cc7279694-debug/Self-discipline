@@ -1,6 +1,7 @@
 package com.guanyi.mirra
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -13,6 +14,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
 import com.guanyi.mirra.navigation.TopLevelDestination
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -48,10 +50,11 @@ class PhaseOneLearningLoopTest {
         composeRule.onNode(hasText("书名") and hasSetTextAction()).performTextInput("怪诞行为学")
         composeRule.onNode(hasText("总页数") and hasSetTextAction()).performTextInput("300")
         composeRule.onNode(hasText("当前页") and hasSetTextAction()).performTextReplacement("10")
+        composeRule.onNode(hasText("第一步动作") and hasSetTextAction()).performTextInput("把书放到桌上，翻到上次阅读的位置")
         composeRule.onNode(hasText("创建") and hasClickAction()).performClick()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("今天继续")).fetchSemanticsNodes().isNotEmpty() }
-        composeRule.onNodeWithText("开始学习").performClick()
-        composeRule.onNodeWithText("我已拿起书，开始阅读").performClick()
+        composeRule.onNodeWithText("开始准备").performClick()
+        composeRule.onNodeWithText("我已完成这一步，开始阅读").performClick()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("快速笔记")).fetchSemanticsNodes().isNotEmpty() }
 
         composeRule.onNodeWithText("摘录").performClick()
@@ -63,8 +66,13 @@ class PhaseOneLearningLoopTest {
         composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performTextInput("这个结论适用于长期选择吗？")
         composeRule.onNodeWithText("保存并记下一条").performClick()
         composeRule.onNode(hasText("当前页码") and hasSetTextAction()).performTextReplacement("25")
+        // Confirmation defaults to durable progress, not an in-flight text edit.
+        composeRule.waitUntil(5_000) {
+            runBlocking { container.database.sessionDao().getActive()?.currentPage == 25 }
+        }
         composeRule.onNodeWithText("结束本次阅读").performClick()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasTestTag("confirm-session-finish")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNode(hasText("结束页码") and hasSetTextAction()).assertTextContains("25")
         composeRule.onNodeWithTag("confirm-session-finish").performClick()
 
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("本次阅读已保存")).fetchSemanticsNodes().isNotEmpty() }

@@ -53,7 +53,7 @@ class ModuleTwoALearningItemRepositoryTest {
 
     @Test
     fun pauseClearsMainlineAndResumeKeepsItClear() = runTest {
-        val item = learningItems.create("状态测试", 200, 20)
+        val item = learningItems.create("状态测试", 200, 20, firstAction = "翻到当前页，读第一段。")
         learningItems.setMainline(item.id)
 
         now = 2_000L
@@ -73,7 +73,7 @@ class ModuleTwoALearningItemRepositoryTest {
 
     @Test
     fun createCanAtomicallyMakeTheNewItemMainline() = runTest {
-        val previous = learningItems.create("旧主线", 120, setAsMainline = true)
+        val previous = learningItems.create("旧主线", 120, firstAction = "翻到当前页，读第一段。", setAsMainline = true)
 
         now = 2_000L
         val created = learningItems.create(
@@ -91,27 +91,27 @@ class ModuleTwoALearningItemRepositoryTest {
 
     @Test
     fun createWithoutMainlineChoiceNeverSelectsItImplicitly() = runTest {
-        val created = learningItems.create("第一本书", 100, setAsMainline = false)
+        val created = learningItems.create("第一本书", 100, firstAction = "翻到当前页，读第一段。", setAsMainline = false)
 
         assertNull(created.mainlineSlot)
         assertNull(learningItems.observeMainline().first())
     }
 
     @Test
-    fun firstActionCanBeUpdatedAndBlankRestoresDynamicFallback() = runTest {
-        val item = learningItems.create("起步动作", 100, 16)
+    fun firstActionCanBeUpdatedButBlankCannotRemoveTheChosenAction() = runTest {
+        val item = learningItems.create("起步动作", 100, 16, firstAction = "翻到当前页，读第一段。")
 
         val customized = learningItems.updateFirstAction(item.id, "  先倒一杯水。  ")
         assertEquals("先倒一杯水。", customized.firstAction)
         assertEquals(now, customized.updatedAt)
 
-        val reset = learningItems.updateFirstAction(item.id, "   ")
-        assertEquals("", reset.firstAction)
+        assertLearningItemSuspendThrows<IllegalArgumentException> { learningItems.updateFirstAction(item.id, "   ") }
+        assertEquals(customized.firstAction, learningItems.get(item.id)?.firstAction)
     }
 
     @Test
     fun completeSetsTimestampClearsMainlineAndCannotResume() = runTest {
-        val item = learningItems.create("完成测试", 100)
+        val item = learningItems.create("完成测试", 100, firstAction = "翻到当前页，读第一段。")
         learningItems.setMainline(item.id)
 
         now = 4_000L
@@ -126,9 +126,9 @@ class ModuleTwoALearningItemRepositoryTest {
 
     @Test
     fun pausedOrCompletedItemCannotBecomeMainlineOrCreateIntent() = runTest {
-        val currentMainline = learningItems.create("当前主线", 100)
-        val paused = learningItems.create("暂停内容", 100)
-        val completed = learningItems.create("完成内容", 100)
+        val currentMainline = learningItems.create("当前主线", 100, firstAction = "翻到当前页，读第一段。")
+        val paused = learningItems.create("暂停内容", 100, firstAction = "翻到当前页，读第一段。")
+        val completed = learningItems.create("完成内容", 100, firstAction = "翻到当前页，读第一段。")
         learningItems.setMainline(currentMainline.id)
         learningItems.pause(paused.id)
         learningItems.complete(completed.id)
@@ -143,7 +143,7 @@ class ModuleTwoALearningItemRepositoryTest {
 
     @Test
     fun activeIntentAndSessionBlockPauseAndCompleteForTheirItem() = runTest {
-        val item = learningItems.create("冲突测试", 100, 10)
+        val item = learningItems.create("冲突测试", 100, 10, firstAction = "翻到当前页，读第一段。")
         val intent = workflow.createIntent(item.id)
 
         assertLearningItemSuspendThrows<IllegalStateException> { learningItems.pause(item.id) }
@@ -156,8 +156,8 @@ class ModuleTwoALearningItemRepositoryTest {
 
     @Test
     fun activeIntentForAnotherItemDoesNotBlockPause() = runTest {
-        val active = learningItems.create("正在启动", 100)
-        val other = learningItems.create("另一内容", 100)
+        val active = learningItems.create("正在启动", 100, firstAction = "翻到当前页，读第一段。")
+        val other = learningItems.create("另一内容", 100, firstAction = "翻到当前页，读第一段。")
         workflow.createIntent(active.id)
 
         assertEquals(LearningItemStatus.PAUSED, learningItems.pause(other.id).status)
@@ -165,7 +165,7 @@ class ModuleTwoALearningItemRepositoryTest {
 
     @Test
     fun startSessionRechecksLearningItemStatusBeforeInsert() = runTest {
-        val item = learningItems.create("事务内复核", 100, 5)
+        val item = learningItems.create("事务内复核", 100, 5, firstAction = "翻到当前页，读第一段。")
         val intent = workflow.createIntent(item.id)
         database.openHelper.writableDatabase.execSQL(
             "UPDATE learning_items SET status = 'PAUSED', mainlineSlot = NULL WHERE id = ?",

@@ -50,6 +50,7 @@ class VisualParityCaptureTest {
                 name = "怪诞行为学",
                 totalPages = 320,
                 currentPage = 146,
+                firstAction = "把书放到桌上，翻到上次阅读的位置",
                 setAsMainline = true,
             ).also {
                 val endedAt = now - Duration.ofDays(1).toMillis()

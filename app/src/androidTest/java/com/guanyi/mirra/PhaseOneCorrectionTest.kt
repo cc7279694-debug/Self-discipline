@@ -161,7 +161,7 @@ class PhaseOneCorrectionTest {
     private fun launchAtSession(currentPage: Int) {
         composeRule.setContent { MirraApp(container, TopLevelDestination.Start, onDestinationChanged = {}) }
         createBookAndOpenPreparation(currentPage)
-        composeRule.onNodeWithText("我已拿起书，开始阅读").performClick()
+        composeRule.onNodeWithText("我已完成这一步，开始阅读").performClick()
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodes(hasText("快速笔记")).fetchSemanticsNodes().isNotEmpty()
         }
@@ -175,11 +175,12 @@ class PhaseOneCorrectionTest {
         composeRule.onNode(hasText("书名") and hasSetTextAction()).performTextInput("修正测试书")
         composeRule.onNode(hasText("总页数") and hasSetTextAction()).performTextInput("100")
         composeRule.onNode(hasText("当前页") and hasSetTextAction()).performTextReplacement(currentPage.toString())
+        composeRule.onNode(hasText("第一步动作") and hasSetTextAction()).performTextInput("把书放到桌上，翻到上次阅读的位置")
         composeRule.onNode(hasText("创建") and hasClickAction()).performClick()
         composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(hasText("开始学习")).fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(hasText("开始准备")).fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("开始学习").performClick()
+        composeRule.onNodeWithText("开始准备").performClick()
     }
 
     private fun activeSessionId(): String = runBlocking {

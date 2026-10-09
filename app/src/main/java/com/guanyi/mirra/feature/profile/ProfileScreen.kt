@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.HorizontalDivider
@@ -45,6 +46,7 @@ import com.guanyi.mirra.platform.focus.LaunchableRiskApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 @Composable
 fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier,
@@ -98,9 +100,7 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier,
             style = MaterialTheme.typography.bodyLarge,
             color = MirraTheme.colors.textSecondary,
         )
-        ProfileSummaryContent(state, Modifier.padding(top = 28.dp))
-        com.guanyi.mirra.ui.components.MirraTextAction(onOpenTrends,
-            Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("查看趋势") }
+        ProfileSummaryContent(state, Modifier.padding(top = 28.dp), onOpenTrends)
         com.guanyi.mirra.ui.components.MirraTextAction(onOpenReadingHistory,
             Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("阅读记录") }
         com.guanyi.mirra.ui.components.MirraTextAction(onOpenDataManagement,
@@ -233,25 +233,76 @@ private fun DndSettingsContent(
 }
 
 @Composable
-fun ProfileSummaryContent(state: ProfileUiState, modifier: Modifier = Modifier) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("最近 7 天", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = MirraTheme.colors.textPrimary)
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+fun ProfileSummaryContent(state: ProfileUiState, modifier: Modifier = Modifier, onOpenTrends: () -> Unit = {}) {
+    var more by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        androidx.compose.foundation.layout.FlowRow(
+            modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Column {
+                Text("本周学习", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text("最近 7 天", color = MirraTheme.colors.textSecondary, style = MaterialTheme.typography.bodyMedium)
+            }
+            com.guanyi.mirra.ui.components.MirraTextAction(onOpenTrends) { Text("详细分析") }
+        }
         if (state.isLoading) {
             Text("正在整理本地记录…", color = MirraTheme.colors.textTertiary)
             return@Column
         }
-        state.error?.let { Text(it, color = MirraTheme.colors.danger) }
-        if (state.isEmpty && state.sessionCount == 0) {
+        state.error?.let { Text(it, color = MirraTheme.colors.danger); return@Column }
+        val reading = state.trends?.normalReading
+        val previousReading = state.trends?.previousNormalReading
+        val durationText = if (reading == null) state.totalDurationText else
+            reading.totalDurationMillis?.let { com.guanyi.mirra.feature.session.recordDuration(it) } ?: "暂无可确认数据"
+        Text(durationText, style = MaterialTheme.typography.displaySmall,
+            fontWeight = FontWeight.SemiBold, modifier = Modifier.testTag("weekly-reading-duration"))
+        Text("阅读时长", color = MirraTheme.colors.textSecondary)
+        if (reading == null || reading.totalDurationMillis != null && reading.dataIssueCount == 0L && !reading.durationOverflow &&
+            previousReading?.totalDurationMillis != null && previousReading.dataIssueCount == 0L && !previousReading.durationOverflow) {
+            state.comparisonText?.let { Text(it, color = MirraTheme.colors.textSecondary, style = MaterialTheme.typography.bodyMedium) }
+        }
+        if ((reading?.dataIssueCount ?: 0L) > 0L) Text("仅累计可确认时长，另有无法确认的记录。", color = MirraTheme.colors.textSecondary)
+        if (state.isEmpty && state.sessionCount == 0 && (reading?.dataIssueCount ?: 0L) == 0L && reading?.durationOverflow != true) {
             Text("最近 7 天还没有正常结束的阅读记录。", color = MirraTheme.colors.textSecondary)
         }
-        FactRow("正常阅读", "${state.sessionCount} 次")
-        FactRow("阅读时长", state.totalDurationText)
-        FactRow("推进页数", "${state.pagesRead} 页")
-        FactRow("新增笔记", "${state.noteCount} 条")
-        state.comparisonText?.let {
-            HorizontalDivider(color = MirraTheme.colors.divider)
-            Text(it, color = MirraTheme.colors.textTertiary)
+        DailyReadingChart(state.trends?.daily.orEmpty(), "weekly-reading-chart")
+        val start = state.trends?.current?.start
+        val recover = state.trends?.current?.recover
+        val maintain = state.trends?.current?.maintain
+        state.trendsError?.let { Text(it, color = MirraTheme.colors.danger) }
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            WeeklyAuxiliary("开始转化率", start?.conversion?.value?.takeIf { it.isFinite() }?.let {
+                "${(it * 100).roundToInt()}%"
+            } ?: if (state.trendsError != null) "暂无可确认数据" else "数据积累中", start?.let {
+                "${it.conversion.denominator} 次已结束计划，${it.convertedCount} 次真正开始"
+            } ?: "暂无可确认数据", "weekly-start")
+            WeeklyAuxiliary("分心后恢复", when {
+                recover == null -> "暂无可确认数据"
+                recover.attemptCount == 0L && (maintain?.trustedSessionCount ?: 0L) == 0L -> "暂无可确认数据"
+                else -> "${recover.successCount} 次"
+            }, "根据可确认记录", "weekly-recover")
         }
+        HorizontalDivider(color = MirraTheme.colors.divider)
+        com.guanyi.mirra.ui.components.MirraTextAction({ more = !more }) {
+            Text(if (more) "收起阅读数据" else "更多阅读数据")
+        }
+        if (more) {
+            FactRow("正常阅读", "${state.sessionCount} 次")
+            FactRow("推进页数", "${state.pagesRead} 页")
+            FactRow("新增笔记", "${state.noteCount} 条")
+        }
+    }
+}
+
+@Composable
+private fun WeeklyAuxiliary(label: String, value: String, explanation: String, tag: String) {
+    Column(Modifier.widthIn(min = 100.dp, max = 260.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, color = MirraTheme.colors.textSecondary, style = MaterialTheme.typography.bodyMedium)
+        Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.testTag(tag), color = MirraTheme.colors.accentStrong)
+        Text(explanation, style = MaterialTheme.typography.bodySmall, color = MirraTheme.colors.textSecondary)
     }
 }
 

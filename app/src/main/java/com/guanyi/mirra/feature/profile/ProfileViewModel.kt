@@ -4,6 +4,9 @@ import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.guanyi.mirra.data.repository.ReadingAnalyticsRepository
+import com.guanyi.mirra.data.repository.TrendsRepository
+import com.guanyi.mirra.domain.trends.TrendsRange
+import com.guanyi.mirra.domain.trends.TrendsSnapshot
 import com.guanyi.mirra.domain.AnalyticsTimeContext
 import com.guanyi.mirra.domain.AnalyticsTimeProvider
 import com.guanyi.mirra.domain.ReadingAnalyticsService
@@ -14,7 +17,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -27,6 +30,8 @@ data class ProfileUiState(
     val isEmpty: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null,
+    val trends: TrendsSnapshot? = null,
+    val trendsError: String? = null,
 )
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -35,16 +40,28 @@ class ProfileViewModel(
     private val analyticsService: ReadingAnalyticsService,
     private val timeProvider: AnalyticsTimeProvider,
     private val dndActions: DndUserActions? = null,
+    private val trendsRepository: TrendsRepository? = null,
 ) : ViewModel() {
-    private val timeContext = MutableStateFlow(timeProvider.snapshot())
+    private data class Refresh(val generation: Long, val time: AnalyticsTimeContext)
+    private val timeContext = MutableStateFlow(Refresh(0L, timeProvider.snapshot()))
 
-    val uiState = timeContext.flatMapLatest { time ->
+    val uiState = timeContext.flatMapLatest { request ->
+        val time = request.time
         val boundaries = boundaries(time)
         repository.observeFourteenDaySource(
             fromInclusive = boundaries.previousStart,
             currentPeriodStart = boundaries.currentStart,
             toExclusive = boundaries.toExclusive,
-        ).map { source ->
+        ).mapLatest { source ->
+            // Invalidate the chart with the reactive reading facts; never combine a fresh
+            // summary with a cached old trend. Navigation/resume also requests a new time.
+            val overview = try {
+                trendsRepository?.load(TrendsRange.SEVEN_DAYS, time)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                null
+            }
             val comparison = analyticsService.buildSevenDayComparison(
                 source.sessions,
                 source.currentNoteCount,
@@ -59,6 +76,8 @@ class ProfileViewModel(
                 noteCount = current.noteCount,
                 comparisonText = comparisonText(current.totalDuration, comparison.previous.totalDuration),
                 isEmpty = current.sessionCount == 0,
+                trends = overview,
+                trendsError = if (overview == null && trendsRepository != null) "暂时无法读取启动与恢复记录" else null,
             )
         }
     }.catch {
@@ -68,7 +87,7 @@ class ProfileViewModel(
     val dndState: StateFlow<DndSettingsUiState>? = dndActions?.state
 
     fun refreshTimeContext() {
-        timeContext.value = timeProvider.snapshot()
+        timeContext.value = Refresh(timeContext.value.generation + 1L, timeProvider.snapshot())
     }
 
     fun refreshDnd() {
@@ -98,11 +117,14 @@ class ProfileViewModel(
     }
 
     private fun comparisonText(current: Duration, previous: Duration): String {
-        val deltaMinutes = current.minus(previous).toMinutes()
+        val delta = current.minus(previous)
+        val deltaMinutes = delta.toMinutes()
         return when {
             deltaMinutes > 0 -> "阅读时间比前 7 天多 $deltaMinutes 分钟"
             deltaMinutes < 0 -> "阅读时间比前 7 天少 ${-deltaMinutes} 分钟"
-            else -> "阅读时间与前 7 天相同"
+            delta.isZero -> "阅读时间与前 7 天相同"
+            delta.isNegative -> "阅读时间比前 7 天稍少（不足 1 分钟）"
+            else -> "阅读时间比前 7 天稍多（不足 1 分钟）"
         }
     }
 
