@@ -16,9 +16,11 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -347,6 +349,30 @@ class DataManagementViewModel(
                 restoreCandidate = if (discarded) null else candidate)
             operationJob = null
             if (discarded) onLeave()
+        }
+    }
+
+    override fun onCleared() {
+        val prepared = state.value.preparedBackup
+        val candidate = state.value.restoreCandidate
+        val pendingOperation = operationJob
+        super.onCleared()
+        if (prepared == null && candidate == null) return
+        // The lifecycle has cancelled viewModelScope. This owner only releases captured handles;
+        // the original operation must finish its own finally before service-serialized cleanup.
+        val cleanupScope = CoroutineScope(viewModelScope.coroutineContext.minusKey(Job))
+        cleanupScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                pendingOperation?.join()
+                if (state.value.maintenanceBlocked) return@launch
+                state.value = state.value.copy(result = null)
+                if (prepared != null && state.value.preparedBackup === prepared && discardPrepared(prepared)) {
+                    state.value = state.value.copy(preparedBackup = null, exportRequest = null)
+                }
+                if (candidate != null && state.value.restoreCandidate === candidate && discardCandidate(candidate)) {
+                    state.value = state.value.copy(restoreCandidate = null, showRestoreConfirmation = false)
+                }
+            } finally { cleanupScope.cancel() }
         }
     }
 

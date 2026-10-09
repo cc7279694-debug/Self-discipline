@@ -2,6 +2,7 @@ package com.guanyi.mirra.data.backup
 
 import android.content.Context
 import android.net.Uri
+import com.guanyi.mirra.data.export.ExportWorkspace
 import com.guanyi.mirra.domain.backup.*
 import com.guanyi.mirra.domain.maintenance.MaintenanceUnavailableException
 import com.guanyi.mirra.domain.maintenance.PendingEditRegistry
@@ -26,32 +27,46 @@ class DefaultFullBackupService(
     private val codec = BackupArchive(limits)
     private val database = BackupDatabaseSnapshot(context, limits)
     private val files = androidDurableFiles()
+    private val workspace = ExportWorkspace(workRoot, files)
     private data class Export(val prepared: PreparedBackup, val root: File, val hash: String)
     private data class Import(val candidate: RestoreCandidate, val root: File, val archive: File, val hash: String)
     private val exports = mutableMapOf<String, Export>()
     private val imports = mutableMapOf<String, Import>()
 
-    override suspend fun prepareBackup(): PreparedBackup = translated {
-        serial.withLock {
-            requireCurrentAndEligible()
-            val root = newWork()
-            try {
-                maintenance {
-                    val needed = resourceBytes(owner.storagePaths)
-                    requireSpace(needed * 3)
-                    val preferences = owner.backupPreferences.repository.readStrictSnapshot().portable
-                    val snapshot = database.capture(owner.backupDatabase, owner.storagePaths.images, File(root, "snapshot"))
-                    val archive = File(root, "Mirra-backup.zip")
-                    val metadata = codec.create(snapshot, archive, preferences, System.currentTimeMillis())
-                    // Validate the bytes we will hand to SAF, not just the in-memory manifest.
-                    codec.validateAndExtract(archive, File(root, "verify"))
-                    val prepared = PreparedBackup(archive, metadata.createdAt,
-                        metadata.tableCounts.getValue("learning_items").toInt(),
-                        metadata.tableCounts.getValue("notes").toInt(), metadata.imageCount)
-                    exports[archive.canonicalPath] = Export(prepared, root, hash(archive))
-                    prepared
+    override suspend fun prepareBackup(): PreparedBackup {
+        var awaitingDelivery: PreparedBackup? = null
+        try {
+            return translated {
+                serial.withLock {
+                    requireCurrentAndEligible()
+                    val root = newWork()
+                    try {
+                        maintenance {
+                            val needed = resourceBytes(owner.storagePaths)
+                            requireSpace(needed * 3)
+                            val preferences = owner.backupPreferences.repository.readStrictSnapshot().portable
+                            val snapshot = database.capture(owner.backupDatabase, owner.storagePaths.images, File(root, "snapshot"))
+                            val archive = File(root, "Mirra-backup.zip")
+                            val metadata = codec.create(snapshot, archive, preferences, System.currentTimeMillis())
+                            // Validate the bytes we will hand to SAF, not just the in-memory manifest.
+                            codec.validateAndExtract(archive, File(root, "verify"))
+                            val prepared = PreparedBackup(archive, metadata.createdAt,
+                                metadata.tableCounts.getValue("learning_items").toInt(),
+                                metadata.tableCounts.getValue("notes").toInt(), metadata.imageCount)
+                            exports[archive.canonicalPath] = Export(prepared, root, hash(archive))
+                            awaitingDelivery = prepared
+                            prepared
+                        }
+                    } catch (failure: Throwable) { cleanup(root); throw failure }
                 }
-            } catch (failure: Throwable) { cleanup(root); throw failure }
+            }
+        } catch (failure: Throwable) {
+            // IO can finish while prompt cancellation prevents the caller receiving its handle.
+            withContext(NonCancellable) {
+                try { awaitingDelivery?.let { discardPreparedBackup(it) } }
+                catch (cleanupFailure: Exception) { failure.addSuppressed(cleanupFailure) }
+            }
+            throw failure
         }
     }
 
@@ -79,28 +94,40 @@ class DefaultFullBackupService(
         }
     }
 
-    override suspend fun inspectBackup(source: Uri): RestoreCandidate = translated {
-        serial.withLock {
-            requireCurrentAndEligible()
-            val root = newWork()
-            try {
-                val archive = File(root, "input.zip")
-                withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(source)?.use { input ->
-                        archive.outputStream().use { output -> copyBounded(input, output, limits.archiveBytes, checkSpace = true) }
-                    } ?: throw IOException("Document could not be read")
+    override suspend fun inspectBackup(source: Uri): RestoreCandidate {
+        var awaitingDelivery: RestoreCandidate? = null
+        try {
+            return translated {
+                serial.withLock {
+                    requireCurrentAndEligible()
+                    val root = newWork()
+                    try {
+                        val archive = File(root, "input.zip")
+                        withContext(Dispatchers.IO) {
+                            context.contentResolver.openInputStream(source)?.use { input ->
+                                archive.outputStream().use { output -> copyBounded(input, output, limits.archiveBytes, checkSpace = true) }
+                            } ?: throw IOException("Document could not be read")
+                        }
+                        val validated = withContext(Dispatchers.IO) { codec.validateAndExtract(archive, File(root, "verified")) }
+                        requireSpace(validated.metadata.files.sumOf { it.bytes } * 4)
+                        val snapshot = database.validateAndReconstruct(validated, File(root, "staging"))
+                        writeStagingPreferences(snapshot.root, validated)
+                        val metadata = validated.metadata
+                        val candidate = RestoreCandidate(UUID.randomUUID().toString(), metadata.createdAt,
+                            metadata.tableCounts.getValue("learning_items").toInt(), metadata.tableCounts.getValue("notes").toInt(),
+                            metadata.imageCount, metadata.appVersion, metadata.roomSchemaVersion, metadata.backupFormatVersion)
+                        imports[candidate.token] = Import(candidate, root, archive, hash(archive))
+                        awaitingDelivery = candidate
+                        candidate
+                    } catch (failure: Throwable) { cleanup(root); throw failure }
                 }
-                val validated = withContext(Dispatchers.IO) { codec.validateAndExtract(archive, File(root, "verified")) }
-                requireSpace(validated.metadata.files.sumOf { it.bytes } * 4)
-                val snapshot = database.validateAndReconstruct(validated, File(root, "staging"))
-                writeStagingPreferences(snapshot.root, validated)
-                val metadata = validated.metadata
-                val candidate = RestoreCandidate(UUID.randomUUID().toString(), metadata.createdAt,
-                    metadata.tableCounts.getValue("learning_items").toInt(), metadata.tableCounts.getValue("notes").toInt(),
-                    metadata.imageCount, metadata.appVersion, metadata.roomSchemaVersion, metadata.backupFormatVersion)
-                imports[candidate.token] = Import(candidate, root, archive, hash(archive))
-                candidate
-            } catch (failure: Throwable) { cleanup(root); throw failure }
+            }
+        } catch (failure: Throwable) {
+            withContext(NonCancellable) {
+                try { awaitingDelivery?.let { discardRestoreCandidate(it) } }
+                catch (cleanupFailure: Exception) { failure.addSuppressed(cleanupFailure) }
+            }
+            throw failure
         }
     }
 
@@ -191,9 +218,13 @@ class DefaultFullBackupService(
         return file
     }
     private suspend fun newWork(): File = withContext(Dispatchers.IO) {
+        val operation = workspace.newOperationDirectory()
         requireSpace(0)
-        files.directory(workRoot)
-        File(workRoot, UUID.randomUUID().toString()).also(files::directory)
+        operation.also(files::directory)
+    }
+    /** Private temporary copies only; the independent full-restore journal tree is never visited. */
+    suspend fun reclaimPreviousProcesses(): Unit = translated {
+        serial.withLock { workspace.reclaimPreviousProcesses() }
     }
     private fun requireSpace(bytes: Long) {
         if (bytes < 0 || availableBytes() < bytes + RESERVE_BYTES) throw FullBackupOperationException(FullBackupErrorCode.LOW_SPACE)

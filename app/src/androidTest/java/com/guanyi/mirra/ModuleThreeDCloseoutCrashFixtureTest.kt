@@ -24,17 +24,21 @@ import org.junit.runner.RunWith
 import java.io.File
 import java.util.Properties
 
-/** No side effects in the ordinary suite. Only explicit, identified AVD fixtures may access mirra.db. */
+/**
+ * No side effects in the ordinary suite. Only explicit, identified AVD fixtures may access mirra.db.
+ * The driver must preserve a complete installed baseline and restore it after these fixtures.
+ */
 internal fun requireDedicatedThreeDScenario(expected: String) {
     val args = InstrumentationRegistry.getArguments()
     assumeTrue("Explicit $expected fixture required", args.getString("mirra3dScenario") == expected)
-    assumeTrue("Explicit dedicated AVD name required", args.getString("mirra3dAvd") == "Mirra_API_37")
+    val requestedAvd = args.getString("mirra3dAvd")
+    assumeTrue("Explicit dedicated AVD name required", requestedAvd in setOf("Mirra_API_37", "Mirra_API_37_Phase4B_Final"))
     assumeTrue("Only API37 emulator fixtures are permitted", Build.VERSION.SDK_INT == 37 && Build.HARDWARE == "ranchu")
     val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
     val avdName = automation.executeShellCommand("getprop ro.boot.qemu.avd_name").let { fd ->
         ParcelFileDescriptor.AutoCloseInputStream(fd).bufferedReader().use { it.readText().trim() }
     }
-    assumeTrue("Not the confirmed dedicated AVD", avdName == "Mirra_API_37")
+    assumeTrue("Not the confirmed dedicated AVD", avdName == requestedAvd)
 }
 
 @RunWith(AndroidJUnit4::class)

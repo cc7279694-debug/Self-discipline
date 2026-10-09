@@ -1,6 +1,10 @@
 package com.guanyi.mirra.data
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
+import android.os.Build
+import android.os.SystemClock
+import android.util.Log
 import androidx.room.Room
 import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
@@ -11,6 +15,7 @@ import com.guanyi.mirra.data.repository.DefaultGlobalReadingHistoryRepository
 import com.guanyi.mirra.data.repository.HistoryCursor
 import java.util.Collections
 import java.util.concurrent.Executor
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.*
@@ -96,6 +101,111 @@ class GlobalReadingHistoryRepositoryTest {
         assertEquals(listOf("s-0000"), last.records.map { it.sessionId })
         assertFalse(last.hasMore)
         assertEquals(51, (first.records + last.records).size)
+    }
+
+    // This budget includes synthetic seeding, as in the existing same-scale trends fixture.
+    // Process-wide Java heap endpoints are GC-sensitive; their sampled maximum is not a peak.
+    // Debug/device-or-AVD in-memory measurements are not production or arbitrary-scale SLAs.
+    @Test fun tenThousandAndOneEndedSessionsUseBoundedKeysetPagesAndExposeActualTimeAndMemory() = runTest(timeout = 3.minutes) {
+        val count = 10_001
+        val snapshotNow = 20_000L
+        val runtime = Runtime.getRuntime()
+        fun heapBytes() = runtime.totalMemory() - runtime.freeMemory()
+        val seedHeapBefore = heapBytes()
+        var heapSampleMax = seedHeapBefore
+        val seedStarted = SystemClock.elapsedRealtime()
+        database.withTransaction {
+            insertBook()
+            repeat(count) { insertSession(it) }
+        }
+        val seedElapsed = SystemClock.elapsedRealtime() - seedStarted
+        val seedHeapAfter = heapBytes()
+        heapSampleMax = maxOf(heapSampleMax, seedHeapAfter)
+        val actualCount = database.openHelper.readableDatabase.query(
+            "SELECT COUNT(*) FROM study_sessions WHERE endedAt IS NOT NULL",
+        ).use { rows -> assertTrue(rows.moveToFirst()); rows.getLong(0) }
+        assertEquals(10_001L, actualCount)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val debugBuild = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+        Log.i("MirraV1History", "MIRRA_V1_HISTORY stage=seed count=$actualCount elapsedMs=$seedElapsed " +
+            "heapBeforeBytes=$seedHeapBefore heapAfterBytes=$seedHeapAfter debugBuild=$debugBuild " +
+            "api=${Build.VERSION.SDK_INT} hardware=${Build.HARDWARE} storage=inMemoryRoom " +
+            "heapScope=wholeInstrumentedProcess heapSamples=endpoints heapPeakClaim=false arbitraryScaleSlaClaim=false")
+
+        repeat(3) { repetition ->
+            queries.clear()
+            val before = heapBytes()
+            val started = SystemClock.elapsedRealtime()
+            val page = repository.loadPage(snapshotNow)
+            val elapsed = SystemClock.elapsedRealtime() - started
+            val after = heapBytes()
+            heapSampleMax = maxOf(heapSampleMax, before, after)
+            assertEquals(1, queries.size)
+            assertEquals(50, page.records.size)
+            assertTrue(page.hasMore)
+            page.records.forEachIndexed { offset, row ->
+                val expected = 10_000 - offset
+                assertEquals("s-${expected.toString().padStart(4, '0')}", row.sessionId)
+                assertEquals(10_000L + expected, row.endedAt)
+            }
+            assertEquals(HistoryCursor(19_951L, "s-9951"), page.nextCursor)
+            Log.i("MirraV1History", "MIRRA_V1_HISTORY stage=firstPage repetition=${repetition + 1} " +
+                "snapshotNow=$snapshotNow count=$actualCount rows=${page.records.size} selects=${queries.size} " +
+                "elapsedMs=$elapsed heapBeforeBytes=$before heapAfterBytes=$after heapDeltaBytes=${after - before}")
+        }
+
+        var cursor: HistoryCursor? = null
+        var expectedIndex = 10_000
+        var traversed = 0
+        var pages = 0
+        var selects = 0
+        val traversalHeapBefore = heapBytes()
+        val traversalStarted = SystemClock.elapsedRealtime()
+        do {
+            queries.clear()
+            val before = heapBytes()
+            val started = SystemClock.elapsedRealtime()
+            val page = repository.loadPage(snapshotNow, cursor)
+            val elapsed = SystemClock.elapsedRealtime() - started
+            val after = heapBytes()
+            heapSampleMax = maxOf(heapSampleMax, before, after)
+            pages++
+            assertEquals("One SELECT per history page $pages", 1, queries.size)
+            selects += queries.size
+            assertTrue("History page must be bounded to 50 rows", page.records.size <= 50)
+            assertEquals(minOf(50, expectedIndex + 1), page.records.size)
+            // Check one row at a time; retain only this page and a scalar expected position.
+            page.records.forEach { row ->
+                assertTrue("History may not repeat or add a Session", expectedIndex >= 0)
+                assertEquals("History may not omit or reorder a Session",
+                    "s-${expectedIndex.toString().padStart(4, '0')}", row.sessionId)
+                assertEquals(10_000L + expectedIndex, row.endedAt)
+                expectedIndex--
+                traversed++
+            }
+            assertEquals(expectedIndex >= 0, page.hasMore)
+            val expectedLastIndex = expectedIndex + 1
+            val expectedCursor = if (page.hasMore) HistoryCursor(10_000L + expectedLastIndex,
+                "s-${expectedLastIndex.toString().padStart(4, '0')}") else null
+            assertEquals(expectedCursor, page.nextCursor)
+            cursor = page.nextCursor
+            Log.i("MirraV1History", "MIRRA_V1_HISTORY stage=page page=$pages snapshotNow=$snapshotNow " +
+                "rows=${page.records.size} selects=${queries.size} elapsedMs=$elapsed " +
+                "heapBeforeBytes=$before heapAfterBytes=$after heapDeltaBytes=${after - before}")
+        } while (page.hasMore)
+        val traversalElapsed = SystemClock.elapsedRealtime() - traversalStarted
+        val traversalHeapAfter = heapBytes()
+        heapSampleMax = maxOf(heapSampleMax, traversalHeapBefore, traversalHeapAfter)
+        assertEquals(201, pages)
+        assertEquals(201, selects)
+        assertEquals(10_001, traversed)
+        assertEquals(-1, expectedIndex)
+        assertNull(cursor)
+        Log.i("MirraV1History", "MIRRA_V1_HISTORY stage=complete count=$actualCount traversed=$traversed " +
+            "pages=$pages selects=$selects traversalElapsedMs=$traversalElapsed traversalIncludesChecksAndLogging=true " +
+            "heapBeforeBytes=$traversalHeapBefore heapAfterBytes=$traversalHeapAfter " +
+            "heapSampleMaxBytes=$heapSampleMax heapScope=wholeInstrumentedProcess heapSamples=endpoints " +
+            "heapPeakClaim=false arbitraryScaleSlaClaim=false storage=inMemoryRoom")
     }
 
     private suspend fun insertBook() = database.learningItemDao().insert(

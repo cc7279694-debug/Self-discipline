@@ -279,7 +279,16 @@ class DefaultAppContainer(
             { searchIndexRebuilder.ensureConsistent() },
             { android.util.Log.w("MirraStartup", "Bootstrap step requires retry: ${it.javaClass.simpleName}") }) }
     }
-    override val fullBackupService = backupHost?.let { DefaultFullBackupService(context, this, it) }
+    override val fullBackupService = backupHost?.let { DefaultFullBackupService(context, this, it) }?.also { service ->
+        // App bootstrap has already resolved the separate restore journal before constructing us.
+        applicationScope.launch(Dispatchers.IO) {
+            try { service.reclaimPreviousProcesses() }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: Exception) {
+                android.util.Log.w("MirraBackup", "Private backup cleanup requires retry: ${failure.javaClass.simpleName}")
+            }
+        }
+    }
     override val dataExportService = fullBackupService?.let { service ->
         com.guanyi.mirra.data.export.DefaultDataExportService(context, service,
             requireCurrent = { checkNotNull(backupHost).requireCurrent(this) }).also { export ->

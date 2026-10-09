@@ -111,13 +111,14 @@ internal class BackupValidation(private val limits: BackupLimits) {
             WHERE (n.pageNumber IS NOT NULL AND (n.pageNumber < 1 OR n.pageNumber > l.totalPages))
                 OR (n.sessionId IS NOT NULL AND n.learningItemId <> s.learningItemId) LIMIT 1
         """.trimIndent(), "Invalid Note item or page")
+        // Pre-3D ended NORMAL history retains ACTIVE/null closeout fields; do not backfill it.
         rejectRows(query, """
             SELECT 1 FROM session_focus_contexts c JOIN study_sessions s ON s.id = c.sessionId
             JOIN learning_items l ON l.id = s.learningItemId
             WHERE (c.requestedEndPage IS NOT NULL AND (c.requestedEndPage < 1 OR c.requestedEndPage > l.totalPages))
                 OR (c.requestedEndPage IS NULL AND c.closeoutStartedAt IS NOT NULL)
                 OR (c.requestedEndPage IS NOT NULL AND c.closeoutStartedAt IS NULL)
-                OR (c.closeoutState = 'ACTIVE' AND (s.endType = 'NORMAL' OR c.requestedEndPage IS NOT NULL))
+                OR (c.closeoutState = 'ACTIVE' AND c.requestedEndPage IS NOT NULL)
                 OR (c.closeoutState = 'COMPLETED' AND (s.endType <> 'NORMAL'
                     OR c.closeoutStartedAt IS NULL OR c.requestedEndPage IS NULL
                     OR c.closeoutStartedAt <> s.endedAt OR c.requestedEndPage <> s.endPage
