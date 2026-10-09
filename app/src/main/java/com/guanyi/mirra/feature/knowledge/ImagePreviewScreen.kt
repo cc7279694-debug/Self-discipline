@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import coil3.compose.SubcomposeAsyncImage
 import com.guanyi.mirra.data.repository.ImageRepository
+import com.guanyi.mirra.ui.media.rememberStorageImageRequest
 import java.io.File
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -141,7 +142,7 @@ private fun ZoomableImage(file: File, description: String, resetKey: Int, onZoom
         onZoomChanged(nextScale > 1f)
     }
     SubcomposeAsyncImage(
-        model = file,
+        model = rememberStorageImageRequest(file),
         contentDescription = description,
         contentScale = ContentScale.Fit,
         modifier = Modifier.fillMaxSize()

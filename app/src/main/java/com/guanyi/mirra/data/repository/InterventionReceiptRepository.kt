@@ -10,13 +10,18 @@ import com.guanyi.mirra.data.local.entity.InterventionDeliveryChannel
 import com.guanyi.mirra.data.local.entity.MonitoringCoverage
 import com.guanyi.mirra.data.local.entity.SessionSegmentType
 
+interface InterventionReceiptStore {
+    suspend fun isEligible(prompt: InterventionUiModel): Boolean
+    suspend fun record(prompt: InterventionUiModel, receipt: InterventionDeliveryReceipt): Boolean
+}
+
 /** Presentation facts only; never owns Segment transitions or monitoring coverage. */
 class InterventionReceiptRepository(private val database: MirraDatabase,
     private val isCurrent: (InterventionUiModel) -> Boolean,
-    private val now: () -> Long = System::currentTimeMillis) {
-    suspend fun isEligible(prompt: InterventionUiModel): Boolean = database.withTransaction { eligible(prompt) }
+    private val now: () -> Long = System::currentTimeMillis) : InterventionReceiptStore {
+    override suspend fun isEligible(prompt: InterventionUiModel): Boolean = database.withTransaction { eligible(prompt) }
 
-    suspend fun record(prompt: InterventionUiModel, receipt: InterventionDeliveryReceipt): Boolean {
+    override suspend fun record(prompt: InterventionUiModel, receipt: InterventionDeliveryReceipt): Boolean {
         if (receipt == InterventionDeliveryReceipt.NOTIFICATION_POSTED) return false
         return database.withTransaction {
             if (!eligible(prompt)) return@withTransaction false

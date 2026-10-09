@@ -78,12 +78,16 @@ class SessionStartCoordinator(
     private val readyTimeoutMillis: Long = 5_000,
     private val newSessionId: () -> String = { UUID.randomUUID().toString() },
     private val onSessionCreated: suspend (StudySessionEntity) -> Unit = {},
+    private val operationAdmission: suspend (suspend () -> SessionStartOutcome) -> SessionStartOutcome = { action -> action() },
 ) {
     private val mutex = Mutex()
     private val mutableState = MutableStateFlow(CoordinatorState())
     val state: StateFlow<CoordinatorState> = mutableState
 
-    suspend fun start(intentId: String, startPage: Int): SessionStartOutcome {
+    suspend fun start(intentId: String, startPage: Int): SessionStartOutcome =
+        operationAdmission { startAdmitted(intentId, startPage) }
+
+    private suspend fun startAdmitted(intentId: String, startPage: Int): SessionStartOutcome {
         mutex.lock()
         var generation: String? = null
         var readyLease: MonitoringReadyLease? = null

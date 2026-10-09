@@ -25,6 +25,7 @@ import androidx.lifecycle.viewModelScope
 import coil3.compose.SubcomposeAsyncImage
 import com.guanyi.mirra.data.local.model.ImageListItem
 import com.guanyi.mirra.data.repository.ImageRepository
+import com.guanyi.mirra.ui.media.rememberStorageImageRequest
 import java.io.File
 import java.text.DateFormat
 import java.util.Date
@@ -75,7 +76,7 @@ private fun ImageGridCard(item: ImageListItem, imageFile: (String) -> File, onCl
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             SubcomposeAsyncImage(
-                model = imageFile(item.image.localPath),
+                model = rememberStorageImageRequest(imageFile(item.image.localPath)),
                 contentDescription = item.image.caption ?: "笔记图片",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxWidth().height(150.dp),

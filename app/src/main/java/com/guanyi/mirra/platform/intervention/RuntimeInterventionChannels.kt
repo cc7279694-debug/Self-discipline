@@ -4,7 +4,7 @@ import android.app.KeyguardManager
 import android.content.Context
 import android.os.PowerManager
 import android.os.SystemClock
-import com.guanyi.mirra.data.repository.InterventionReceiptRepository
+import com.guanyi.mirra.data.repository.InterventionReceiptStore
 import com.guanyi.mirra.domain.intervention.*
 import com.guanyi.mirra.domain.monitoring.ClockSample
 import com.guanyi.mirra.domain.monitoring.InterventionUiModel
@@ -16,9 +16,10 @@ import java.util.concurrent.atomic.AtomicLong
 
 /** Presentation lifetime only. Consumes the existing facts; never queries UsageStats. */
 class RuntimeInterventionChannels(private val context: Context, private val runtime: MonitoringPlatformRuntime,
-    private val receipts: InterventionReceiptRepository, private val titleProvider: suspend (String) -> String,
+    private val receipts: InterventionReceiptStore, private val titleProvider: suspend (String) -> String,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    @Volatile private var retired = false
     private val snapshot = SessionInterventionSnapshot()
     private val releaseEpoch = AtomicLong()
     private val mutableError = MutableStateFlow<String?>(null)
@@ -89,11 +90,32 @@ class RuntimeInterventionChannels(private val context: Context, private val runt
         safelyLaunch { if (appVisible.value && isCurrent(prompt)) receipts.record(prompt, InterventionDeliveryReceipt.IN_APP_PRESENTED) }
     }
     private fun safelyLaunch(start: CoroutineStart = CoroutineStart.DEFAULT, block: suspend () -> Unit) {
+        if (retired) return
         scope.launch(start = start) {
-            try { block() }
+            try { runtime.registeredPlatformOperation(block) }
             catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: com.guanyi.mirra.domain.maintenance.MaintenanceUnavailableException) { /* No new platform work during draining. */ }
+            catch (_: com.guanyi.mirra.domain.maintenance.RetiredStorageEpochException) { /* Captured old owner, not the new generation. */ }
             catch (failure: RuntimeException) { mutableError.value = failure.javaClass.simpleName }
         }
     }
     private fun clock() = ClockSample(System.currentTimeMillis(), SystemClock.elapsedRealtime())
+
+    suspend fun assertMaintenanceQuiescent() {
+        check(snapshot.sessionId == null) { "跨应用提醒尚未释放" }
+        presenter.reconcile(null, true, false)
+        val state = presenter.diagnostics.value
+        check(state.channel == PresentationChannel.NONE && state.error == null && !overlay.isAttached()) {
+            "跨应用提醒清理尚未完成"
+        }
+        val manager = context.getSystemService(android.app.NotificationManager::class.java)
+        check(manager.activeNotifications.none { it.id == NotificationInterventionPresenter.NOTIFICATION_ID }) {
+            "学习提醒通知尚未清理"
+        }
+    }
+
+    suspend fun closeMaintenanceOwner() {
+        if (!retired) { assertMaintenanceQuiescent(); retired = true }
+        scope.coroutineContext[Job]?.cancelAndJoin()
+    }
 }

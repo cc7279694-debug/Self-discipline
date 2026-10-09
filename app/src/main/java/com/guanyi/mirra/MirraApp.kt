@@ -70,11 +70,13 @@ import com.guanyi.mirra.navigation.SearchRoute
 import com.guanyi.mirra.navigation.SessionSearchDetailRoute
 import com.guanyi.mirra.navigation.GlobalReadingHistoryRoute
 import com.guanyi.mirra.navigation.TrendsRoute
+import com.guanyi.mirra.navigation.DataManagementRoute
 import com.guanyi.mirra.navigation.CreateTopicRoute
 import com.guanyi.mirra.data.search.SearchDocumentType
 import com.guanyi.mirra.ui.viewModelFactory
 import com.guanyi.mirra.ui.components.MirraBottomNavigation
 import com.guanyi.mirra.ui.theme.MirraTheme
+import com.guanyi.mirra.ui.media.StorageImageCacheScope
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.flow.collect
 import com.guanyi.mirra.domain.intervention.InterventionNavigationRequest
@@ -89,10 +91,11 @@ fun MirraApp(
     container: AppContainer,
     restoredDestination: TopLevelDestination,
     onDestinationChanged: (TopLevelDestination) -> Unit,
+    onDataRestored: () -> Unit = {},
 ) {
     val appContext = LocalContext.current.applicationContext
     val debugMonitoring = if (appContext.isMirraDebuggable())
-        (appContext as? MirraApplication)?.monitoringPlatform else null
+        (appContext as? MirraApplication)?.monitoringPlatformOrNull else null
     val backStack = rememberNavBackStack(TopLevelDestination.Start)
     var selectedDestination by remember { mutableStateOf(TopLevelDestination.Start) }
     var externalRequest by remember { mutableStateOf<InterventionNavigationRequest?>(null) }
@@ -149,6 +152,7 @@ fun MirraApp(
     }
 
     val isTopLevel = backStack.lastOrNull() is TopLevelDestination
+    StorageImageCacheScope(container) {
     Scaffold(
         containerColor = MirraTheme.colors.background,
         bottomBar = {
@@ -204,6 +208,7 @@ fun MirraApp(
                             crossAppActions = container.crossAppInterventionActions,
                             onOpenReadingHistory = { open(GlobalReadingHistoryRoute) },
                             onOpenTrends = { open(TrendsRoute) },
+                            onOpenDataManagement = { open(DataManagementRoute) },
                         )
                     }
                 }
@@ -224,6 +229,18 @@ fun MirraApp(
                                 container.trendsRepository, container.analyticsTimeProvider)
                         }),
                         onBack = ::back,
+                    )
+                }
+                entry<DataManagementRoute> {
+                    com.guanyi.mirra.feature.datamanagement.DataManagementScreen(
+                        viewModel = viewModel(factory = viewModelFactory {
+                            com.guanyi.mirra.feature.datamanagement.DataManagementViewModel(container.fullBackupService)
+                        }),
+                        onBack = ::back,
+                        onRestoreComplete = {
+                            onDataRestored()
+                            select(TopLevelDestination.Start, persist = false)
+                        },
                     )
                 }
                 entry<CreateLearningItemRoute> {
@@ -305,6 +322,7 @@ fun MirraApp(
                                     imageRepository = container.imageRepository,
                                     learningItems = container.learningItemRepository,
                                     topicRepository = container.topicRepository,
+                                    pendingEdits = container.pendingEdits,
                                 )
                             },
                         ),
@@ -326,6 +344,7 @@ fun MirraApp(
                                     imageRepository = container.imageRepository,
                                     learningItems = container.learningItemRepository,
                                     topicRepository = container.topicRepository,
+                                    pendingEdits = container.pendingEdits,
                                 )
                             },
                         ),
@@ -430,6 +449,7 @@ fun MirraApp(
                                     container.sessionManager,
                                     focusActions = container.focusSessionActions,
                                     learningItems = container.learningItemRepository,
+                                    pendingEdits = container.pendingEdits,
                                 )
                             },
                         ),
@@ -463,5 +483,6 @@ fun MirraApp(
                 }
             },
         )
+    }
     }
 }

@@ -68,6 +68,7 @@ import kotlinx.coroutines.flow.map
 import android.os.SystemClock
 import java.util.UUID
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -89,6 +90,7 @@ class SessionViewModel(
     private val focusActions: FocusSessionActions,
     private val learningItems: LearningItemRepository? = null,
     private val clockSample: () -> ClockSample = { ClockSample(System.currentTimeMillis(), SystemClock.elapsedRealtime()) },
+    private val pendingEdits: com.guanyi.mirra.domain.maintenance.PendingEditRegistry? = null,
 ) : ViewModel() {
     private val mutableFinishUi = MutableStateFlow<SessionFinishUiState>(SessionFinishUiState.PreparingConfirmation)
     val finishUi: StateFlow<SessionFinishUiState> = mutableFinishUi
@@ -102,6 +104,7 @@ class SessionViewModel(
     val isReadingQualified: Boolean get() = durableCloseout == FocusCloseoutState.ACTIVE
     val canEditLearning: Boolean get() = durableCloseout == FocusCloseoutState.ACTIVE &&
         mutableFinishUi.value == SessionFinishUiState.Idle && !rotatingDraft &&
+        acceptingEdits.value &&
         session.value?.let { it.activeSlot == 1 && it.endedAt == null } == true
     private val canObserveLearning: Boolean get() = durableCloseout == FocusCloseoutState.ACTIVE &&
         mutableFinishUi.value !is SessionFinishUiState.Saving && mutableFinishUi.value !is SessionFinishUiState.SaveFailed &&
@@ -304,6 +307,8 @@ class SessionViewModel(
     private var draftPageManuallyEdited = false
     private val saveMutex = Mutex()
     private val evidenceMutex = Mutex()
+    private val pendingRegistration = pendingEdits?.register(::freezeAndFlushForMaintenance)
+    val acceptingEdits = pendingEdits?.acceptingEdits ?: MutableStateFlow(true)
     val focusStatus = focusActions.focusStatus
     val intervention = focusActions.intervention
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -404,8 +409,8 @@ class SessionViewModel(
         }
     }
 
-    fun changeContent(value: String) {
-        if (!canEditLearning) return
+    fun changeContent(value: String) = bufferedEdit {
+        if (!canEditLearning) return@bufferedEdit
         draftContent = value
         if (!draftTypeManuallySelected) {
             draftType = noteTypeSuggester.suggest(value)
@@ -415,30 +420,30 @@ class SessionViewModel(
         scheduleAutoSave()
     }
 
-    fun changePage(value: String) {
-        if (!canEditLearning) return
+    fun changePage(value: String) = bufferedEdit {
+        if (!canEditLearning) return@bufferedEdit
         draftPage = value.filter(Char::isDigit)
         draftPageManuallyEdited = true
         scheduleAutoSave()
     }
 
-    fun changeType(value: NoteSemanticType) {
-        if (!canEditLearning) return
+    fun changeType(value: NoteSemanticType) = bufferedEdit {
+        if (!canEditLearning) return@bufferedEdit
         draftType = value
         draftTypeManuallySelected = true
         scheduleAutoSave()
     }
 
-    fun syncCurrentPage(page: Int) {
-        if (!canEditLearning) return
+    fun syncCurrentPage(page: Int) = bufferedEdit {
+        if (!canEditLearning) return@bufferedEdit
         currentPageText = page.toString()
         if (draftContent.isBlank() && !draftPageManuallyEdited) {
             draftPage = page.toString()
         }
     }
 
-    fun saveAndContinue() {
-        if (!canEditLearning) return
+    fun saveAndContinue() = bufferedEdit {
+        if (!canEditLearning) return@bufferedEdit
         debounceJob?.cancel()
         rotatingDraft = true
         startNoteSave {
@@ -446,15 +451,15 @@ class SessionViewModel(
         }
     }
 
-    fun updatePage(value: String) {
-        if (!canEditLearning) return
+    fun updatePage(value: String) = bufferedEdit {
+        if (!canEditLearning) return@bufferedEdit
         val filtered = value.filter(Char::isDigit)
         currentPageText = filtered
-        val page = filtered.toIntOrNull() ?: return
-        val persistedPage = session.value?.currentPage ?: return
+        val page = filtered.toIntOrNull() ?: return@bufferedEdit
+        val persistedPage = session.value?.currentPage ?: return@bufferedEdit
         if (page < persistedPage) {
             // Keep partial input editable (40 -> 4 -> 42), without persisting a rollback.
-            return
+            return@bufferedEdit
         }
         if (draftContent.isBlank() && !draftPageManuallyEdited) {
             draftPage = page.toString()
@@ -467,8 +472,8 @@ class SessionViewModel(
         }
     }
 
-    fun flushDraft() {
-        if (!canSaveDraft) return
+    fun flushDraft() = bufferedEdit {
+        if (!canSaveDraft) return@bufferedEdit
         debounceJob?.cancel()
         startNoteSave { if (canSaveDraft) saveDraft() }
     }
@@ -500,7 +505,7 @@ class SessionViewModel(
         debounceJob = viewModelScope.launch {
             delay(500)
             // A cancellable confirmation does not suspend ordinary Note persistence.
-            if (canSaveDraft) startNoteSave { saveDraft() }
+            bufferedEdit { if (canSaveDraft) startNoteSave { saveDraft() } }
         }
     }
 
@@ -516,7 +521,7 @@ class SessionViewModel(
     }
 
     internal suspend fun flushPendingEdits(noteFirst: Boolean = false) {
-        debounceJob?.cancel()
+        debounceJob?.cancelAndJoin()
         val saves = pendingSaves.toList()
         val pages = pendingPageWrites.toList()
         // Await actual outcomes, not just Job completion: saves/page writes may have failed.
@@ -572,6 +577,28 @@ class SessionViewModel(
         draftTypeManuallySelected = false
         draftPageManuallyEdited = false
     }
+
+    private fun bufferedEdit(block: () -> Unit) {
+        if (pendingRegistration == null) block() else pendingRegistration.edit(block)
+    }
+
+    private suspend fun freezeAndFlushForMaintenance() {
+        debounceJob?.cancelAndJoin()
+        val current = workflow.observeSession(sessionId).first()
+        if (workflow.getCloseoutState(sessionId) == FocusCloseoutState.ACTIVE &&
+            current?.let { it.activeSlot == 1 && it.endedAt == null } == true) {
+            flushPendingEdits()
+        } else {
+            val pending = (pendingSaves + pendingPageWrites).toList()
+            pending.forEach { it.await().getOrThrow() }
+            pendingSaves.clear(); pendingPageWrites.clear()
+        }
+    }
+
+    override fun onCleared() {
+        pendingRegistration?.close()
+        super.onCleared()
+    }
 }
 
 @Composable
@@ -596,7 +623,8 @@ fun SessionScreen(
     var reasonsVisible by remember(prompt?.promptToken) { mutableStateOf(false) }
     var handledExternalRequestId by rememberSaveable { mutableStateOf<String?>(null) }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    val canEdit = viewModel.canEditLearning
+    val acceptingEdits by viewModel.acceptingEdits.collectAsStateWithLifecycle()
+    val canEdit = viewModel.canEditLearning && acceptingEdits
     DisposableEffect(viewModel, onFinished) {
         viewModel.dispatchCompletion(onFinished)
         onDispose { viewModel.releaseCompletionCallback(onFinished) }

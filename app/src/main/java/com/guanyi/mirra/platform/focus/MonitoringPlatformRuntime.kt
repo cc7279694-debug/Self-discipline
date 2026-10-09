@@ -21,16 +21,31 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import com.guanyi.mirra.domain.maintenance.StorageMaintenanceGate
+import com.guanyi.mirra.domain.maintenance.MaintenancePhase
 
 data class MonitoringBinding(val sessionId: String, val generation: String, val boundAtElapsed: Long)
 
 /** Process-local platform facts. No Session, Room, or risk state is owned here. */
 class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPort {
     private val factsScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var maintenance: StorageMaintenanceGate? = null
+    private val serviceOwners = mutableSetOf<Job>()
+    @Volatile private var retired = false
+    fun attachMaintenance(gate: StorageMaintenanceGate) { check(maintenance == null); maintenance = gate }
+    private suspend fun <T> registered(block: suspend () -> T): T = maintenance?.writerOperation(block) ?: block()
+    internal suspend fun <T> registeredPlatformOperation(block: suspend () -> T): T = registered(block)
+    @Synchronized internal fun registerServiceOwner(job: Job) {
+        check(!retired) { "Service belongs to a retired resource epoch" }
+        serviceOwners += job
+        job.invokeOnCompletion { synchronized(this) { serviceOwners.remove(job) } }
+    }
     private var factController: BoundSessionMonitoringController? = null
     var interventionChannels: com.guanyi.mirra.platform.intervention.RuntimeInterventionChannels? = null
         private set
-    fun attachInterventionChannels(receipts: com.guanyi.mirra.data.repository.InterventionReceiptRepository,
+    fun attachInterventionChannels(receipts: com.guanyi.mirra.data.repository.InterventionReceiptStore,
         titleProvider: suspend (String) -> String) {
         check(interventionChannels == null)
         interventionChannels = com.guanyi.mirra.platform.intervention.RuntimeInterventionChannels(context, this, receipts, titleProvider)
@@ -51,13 +66,15 @@ class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPo
         checkNotNull(factController) { "Runtime facts not attached" }.closeoutWithFacts(sessionId, sample, block)
 
     suspend fun onMonitorSample(generation: String, snapshot: MonitorSnapshot, sample: ClockSample) {
-        factController?.onSample(binding?.takeIf { it.generation == generation }, snapshot, sample)
+        registered { factController?.onSample(binding?.takeIf { it.generation == generation }, snapshot, sample) }
     }
 
     suspend fun onMonitoringDeadline(generation: String, sample: ClockSample, reason: String = "query deadline") {
-        checkNotNull(factController) { "Runtime facts not attached" }
-            .onServiceLost(binding?.takeIf { it.generation == generation }, sample, reason)
-        reconcileInterventionPresentation()
+        registered {
+            checkNotNull(factController) { "Runtime facts not attached" }
+                .onServiceLost(binding?.takeIf { it.generation == generation }, sample, reason)
+            reconcileInterventionPresentation()
+        }
     }
     val lifecycle = MonitoringLifecycle()
     val capabilities = MonitoringCapabilityManager()
@@ -85,6 +102,13 @@ class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPo
 
     /** Called only after a visible user action, including the Preparation start handshake. */
     @Synchronized fun startFromUserAction(): String? {
+        // Diagnostics has no outer SessionStart permit. This monitor is also used by quiescence.
+        if (retired || maintenance?.coordinator?.state?.value?.phase?.let { it != MaintenancePhase.OPEN } == true) return null
+        return startRegisteredRuntime()
+    }
+
+    @Synchronized private fun startRegisteredRuntime(): String? {
+        if (retired) return null
         val state = lifecycle.state.value
         if (state.phase != ServicePhase.STOPPED || requestedGeneration != null) return null
         val generation = UUID.randomUUID().toString()
@@ -125,8 +149,8 @@ class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPo
     @Synchronized fun onServiceDestroyed(generation: String?) {
         val lostBinding = binding?.takeIf { it.generation == generation }
         if (lostBinding != null) factsScope.launch {
-            factController?.onServiceLost(lostBinding,
-                ClockSample(System.currentTimeMillis(), SystemClock.elapsedRealtime()), "service stopped")
+            runCatching { registered { factController?.onServiceLost(lostBinding,
+                ClockSample(System.currentTimeMillis(), SystemClock.elapsedRealtime()), "service stopped") } }
         }
         if (requestedGeneration == generation) requestedGeneration = null
         if (binding?.generation == generation) binding = null
@@ -138,7 +162,7 @@ class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPo
         capabilities.state.value.usage == CapabilityStatus.AVAILABLE
     }
 
-    override fun start(): String = startFromUserAction() ?: error("已有监测正在运行")
+    override fun start(): String = startRegisteredRuntime() ?: error("已有监测正在运行")
 
     override suspend fun awaitReady(generation: String, timeoutMillis: Long): MonitoringReadyLease? {
         val ready = withTimeoutOrNull(timeoutMillis) {
@@ -195,6 +219,23 @@ class MonitoringPlatformRuntime(private val context: Context) : MonitoredStartPo
     }
 
     override fun nowWall(): Long = System.currentTimeMillis()
+
+    @Synchronized private fun noServiceOwner(): Boolean = requestedGeneration == null &&
+        binding == null && lifecycle.state.value.phase == ServicePhase.STOPPED && serviceOwners.all { it.isCompleted }
+
+    suspend fun assertMaintenanceQuiescent() {
+        check(noServiceOwner()) { "学习监测尚未停止，请稍后重试" }
+        interventionChannels?.assertMaintenanceQuiescent()
+    }
+
+    suspend fun closeMaintenanceOwners() {
+        if (!retired) {
+            assertMaintenanceQuiescent()
+            synchronized(this) { check(noServiceOwner()); retired = true }
+        }
+        interventionChannels?.closeMaintenanceOwner()
+        factsScope.coroutineContext[Job]?.cancelAndJoin()
+    }
 
     fun createMonitor(): UsageMonitor = UsageMonitor(AndroidUsageEventSource(
         context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager,

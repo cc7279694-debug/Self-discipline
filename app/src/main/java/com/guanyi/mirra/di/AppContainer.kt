@@ -1,14 +1,12 @@
 package com.guanyi.mirra.di
 
 import android.content.Context
-import androidx.datastore.preferences.preferencesDataStore
-import androidx.room.Room
+import com.guanyi.mirra.data.backup.*
+import com.guanyi.mirra.data.maintenance.*
+import com.guanyi.mirra.domain.maintenance.StorageMaintenanceGate
+import com.guanyi.mirra.domain.maintenance.PendingEditRegistry
 import com.guanyi.mirra.data.local.MirraDatabase
-import com.guanyi.mirra.data.local.MIGRATION_1_2
-import com.guanyi.mirra.data.local.MIGRATION_2_3
-import com.guanyi.mirra.data.local.MIGRATION_3_4
 import com.guanyi.mirra.data.preferences.AppPreferencesRepository
-import com.guanyi.mirra.data.preferences.DefaultAppPreferencesRepository
 import com.guanyi.mirra.data.repository.DefaultLearningItemRepository
 import com.guanyi.mirra.data.repository.DefaultImageRepository
 import com.guanyi.mirra.data.repository.DefaultNoteRepository
@@ -50,7 +48,6 @@ import android.os.Build
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -60,8 +57,11 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-
-private val Context.mirraPreferences by preferencesDataStore(name = "mirra_preferences")
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.io.File
 
 internal suspend fun runCloseoutStartup(
     recover: suspend () -> com.guanyi.mirra.domain.SessionRecoveryResult,
@@ -117,6 +117,8 @@ internal suspend fun configureActiveSessionPresentationAndDnd(
 }
 
 interface AppContainer {
+    val fullBackupService: com.guanyi.mirra.domain.backup.FullBackupService? get() = null
+    val pendingEdits: PendingEditRegistry? get() = null
     val appPreferencesRepository: AppPreferencesRepository
     val learningItemRepository: LearningItemRepository
     val studyWorkflowRepository: StudyWorkflowRepository
@@ -144,54 +146,79 @@ interface AppContainer {
     val startup: Deferred<Unit>
 }
 
-class DefaultAppContainer(context: Context, private val monitoringRuntime: MonitoringPlatformRuntime) : AppContainer {
+/** A closed Room owner must never be reopened merely to repeat its shutdown. */
+internal fun checkpointAndCloseDatabase(database: MirraDatabase) {
+    if (database.isOpen) {
+        database.openHelper.writableDatabase.query("PRAGMA wal_checkpoint(TRUNCATE)").use {
+            check(it.moveToFirst() && it.getInt(0) == 0) { "Database reader drain incomplete" }
+        }
+    }
+    database.close()
+    check(!database.isOpen) { "Database did not close" }
+}
+
+class DefaultAppContainer(
+    private val context: Context,
+    private val monitoringRuntime: MonitoringPlatformRuntime,
+    private val backupHost: BackupStorageHost? = null,
+    override val storagePaths: RestoreResources,
+    override val backupPreferences: ManagedPreferences,
+    private val database: MirraDatabase,
+    private val applicationScope: CoroutineScope,
+) : AppContainer, BackupStorageOwner {
     override val effectiveReadingService = com.guanyi.mirra.domain.EffectiveReadingService()
     override val readingRecordService = com.guanyi.mirra.domain.ReadingRecordService()
-    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val database = Room.databaseBuilder(
-        context,
-        MirraDatabase::class.java,
-        "mirra.db",
-    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
+    private val storageClose = Mutex()
+    private var storageOwnersClosed = false
+    override val storageGate = StorageMaintenanceGate(leaseScope = applicationScope)
+    override val pendingEdits = PendingEditRegistry()
+    override val backupDatabase get() = database
     private val imageStorage = DefaultImageStorageService(context)
     private val searchEngine = DefaultSearchEngine()
     private val searchIndexWriter = SearchIndexWriter(database, searchEngine)
     private val searchIndexRebuilder = SearchIndexRebuilder(database, searchEngine)
 
     override val appPreferencesRepository: AppPreferencesRepository =
-        DefaultAppPreferencesRepository(context.mirraPreferences)
+        GateAppPreferencesRepository(backupPreferences.repository, storageGate)
     override val learningItemRepository: LearningItemRepository =
-        DefaultLearningItemRepository(database, searchIndexWriter = searchIndexWriter)
+        GateLearningItemRepository(DefaultLearningItemRepository(database, searchIndexWriter = searchIndexWriter), storageGate)
     override val studyWorkflowRepository: StudyWorkflowRepository =
-        DefaultStudyWorkflowRepository(database, RuleBasedSummaryEngine(), IntentExpiryPolicy(), searchIndexWriter = searchIndexWriter)
-    override val noteRepository: NoteRepository = DefaultNoteRepository(database, imageStorage, searchIndexWriter = searchIndexWriter)
-    override val imageRepository: ImageRepository = DefaultImageRepository(database, imageStorage, searchIndexWriter = searchIndexWriter)
-    override val topicRepository: TopicRepository = DefaultTopicRepository(database, searchIndexWriter)
-    override val searchRepository: SearchRepository = DefaultSearchRepository(database, searchEngine, searchIndexRebuilder)
+        GateStudyWorkflowRepository(DefaultStudyWorkflowRepository(database, RuleBasedSummaryEngine(), IntentExpiryPolicy(), searchIndexWriter = searchIndexWriter), storageGate)
+    override val noteRepository: NoteRepository = GateNoteRepository(DefaultNoteRepository(database, imageStorage, searchIndexWriter = searchIndexWriter), storageGate)
+    override val imageRepository: ImageRepository = GateImageRepository(DefaultImageRepository(database, imageStorage, searchIndexWriter = searchIndexWriter), storageGate)
+    override val topicRepository: TopicRepository = GateTopicRepository(DefaultTopicRepository(database, searchIndexWriter), storageGate)
+    override val searchRepository: SearchRepository = GateSearchRepository(DefaultSearchRepository(database, searchEngine, searchIndexRebuilder), storageGate)
     override val readingAnalyticsRepository: ReadingAnalyticsRepository = DefaultReadingAnalyticsRepository(database)
     override val readingInsightRepository = com.guanyi.mirra.data.repository.DefaultReadingInsightRepository(readingAnalyticsRepository)
     override val readingRecordRepository = com.guanyi.mirra.data.repository.DefaultReadingRecordRepository(database)
     override val globalReadingHistoryRepository = com.guanyi.mirra.data.repository.DefaultGlobalReadingHistoryRepository(database)
     override val trendsRepository = com.guanyi.mirra.data.repository.DefaultTrendsRepository(database)
-    override val focusRepository: FocusRepository = DefaultFocusRepository(database)
-    private val dndStateStore = RoomDndStateStore(database)
+    override val focusRepository: FocusRepository = GateFocusRepository(DefaultFocusRepository(database), storageGate)
+    private val dndStateStore = GateDndStateStore(RoomDndStateStore(database), storageGate)
     private val androidDndGateway = AndroidDndGateway(context)
-    private val dndController = DndController(dndStateStore, AndroidDndSystem(context))
+    private val dndSystem = AndroidDndSystem(context)
+    private val dndController = DndController(dndStateStore, dndSystem)
     override val dndUserActions: DndUserActions = DefaultDndUserActions(
         preferences = appPreferencesRepository,
         activeRecordProvider = {
             studyWorkflowRepository.observeActiveSession().first()?.let { dndStateStore.get(it.id) }
         },
         pendingReleaseProvider = { dndStateStore.pendingAfterRecovery().isNotEmpty() },
-        applyDnd = { sessionId -> dndController.apply(sessionId, enabled = true) },
-        reconcileDnd = { dndController.reconcileAfterRecovery() },
+        applyDnd = { sessionId -> storageGate.writerOperation { markDndDeviceUse(); dndController.apply(sessionId, enabled = true) } },
+        reconcileDnd = { storageGate.writerOperation { dndController.reconcileAfterRecovery() } },
         policyAccessProvider = androidDndGateway::policyAccessGranted,
         apiLevel = Build.VERSION.SDK_INT,
         settingsIntentFactory = androidDndGateway::settingsIntent,
     )
     private suspend fun applyDndIfEnabled(sessionId: String) {
         withContext(Dispatchers.IO) {
-            runCatching { dndController.apply(sessionId, appPreferencesRepository.dndEnabled.first()) }
+            storageGate.writerOperation {
+                runCatching {
+                    val enabled = appPreferencesRepository.dndEnabled.first()
+                    if (enabled && dndSystem.hasAccess()) markDndDeviceUse()
+                    dndController.apply(sessionId, enabled)
+                }
+            }
         }
     }
     private suspend fun configureSessionPresentationAndDnd(sessionId: String) {
@@ -204,14 +231,15 @@ class DefaultAppContainer(context: Context, private val monitoringRuntime: Monit
             cleanup = { runCatching { monitoringRuntime.interventionChannels?.release(it) }; releaseDnd(it) })
     }
     private suspend fun releaseDnd(sessionId: String) {
-        withContext(Dispatchers.IO) { runCatching { dndController.release(sessionId) } }
+        withContext(Dispatchers.IO) { storageGate.writerOperation { runCatching { dndController.release(sessionId) } } }
     }
     init {
+        monitoringRuntime.attachMaintenance(storageGate)
         monitoringRuntime.attachFacts(focusRepository)
         monitoringRuntime.attachInterventionChannels(
-            com.guanyi.mirra.data.repository.InterventionReceiptRepository(database, {
+            GateInterventionReceiptRepository(com.guanyi.mirra.data.repository.InterventionReceiptRepository(database, {
                 monitoringRuntime.interventionChannels?.isCurrent(it) == true
-            }),
+            }), storageGate),
             { sessionId -> database.sessionDao().get(sessionId)?.let { database.learningItemDao().get(it.learningItemId)?.name }
                 ?: "本次学习" },
         )
@@ -229,23 +257,60 @@ class DefaultAppContainer(context: Context, private val monitoringRuntime: Monit
     override val readingAnalyticsService = ReadingAnalyticsService()
     override val completionPredictionService = CompletionPredictionService()
     override val analyticsTimeProvider = AnalyticsTimeProvider()
-    override val sessionManager: SessionManager = DefaultSessionManager(studyWorkflowRepository,
+    override val sessionManager: SessionManager = GateSessionManager(DefaultSessionManager(studyWorkflowRepository,
         onSessionCreated = { configureSessionPresentationAndDnd(it.id) },
         closeoutWithMonitoringFacts = { id, sample, block -> monitoringRuntime.closeoutWithMonitoringFacts(id, sample, block) },
         cleanupClosedSession = { id -> cleanupCloseoutSteps(
             { monitoringRuntime.interventionChannels?.release(id) },
             { monitoringRuntime.releaseSession(id) },
-            { releaseDnd(id) }) })
+            { releaseDnd(id) }) }), storageGate)
     override val sessionStartCoordinator: SessionStartCoordinator = SessionStartCoordinator(
         RepositoryMonitoredStartStore(studyWorkflowRepository, focusRepository), monitoringRuntime,
         onSessionCreated = { configureSessionPresentationAndDnd(it.id) },
+        operationAdmission = { action -> storageGate.writerOperation { action() } },
     )
     override val startup: Deferred<Unit> = applicationScope.async {
-        runCloseoutStartup(sessionManager::recoverInterruptedSession,
+        storageGate.writerOperation { runCloseoutStartup(sessionManager::recoverInterruptedSession,
             { monitoringRuntime.interventionChannels?.startupCleanup() },
             { dndController.reconcileAfterRecovery() },
             { imageRepository.reconcileStorage() },
             { searchIndexRebuilder.ensureConsistent() },
-            { android.util.Log.w("MirraStartup", "Bootstrap step requires retry: ${it.javaClass.simpleName}") })
+            { android.util.Log.w("MirraStartup", "Bootstrap step requires retry: ${it.javaClass.simpleName}") }) }
+    }
+    override val fullBackupService = backupHost?.let { DefaultFullBackupService(context, this, it) }
+
+    private fun markDndDeviceUse() {
+        // Device-local clue survives a portable restore; never exported or replayed as ownership.
+        androidDurableFiles().write(File(context.noBackupFilesDir, "dnd-device-used"), byteArrayOf(1))
+    }
+
+    override suspend fun assertRuntimeQuiescent() {
+        monitoringRuntime.assertMaintenanceQuiescent()
+        check(dndStateStore.pendingAfterRecovery().isEmpty()) { "Mirra 勿扰清理尚未完成" }
+        val knownOwner = File(context.noBackupFilesDir, "dnd-device-used").exists() ||
+            database.openHelper.readableDatabase.query("SELECT COUNT(*) FROM session_focus_contexts WHERE dndRuleId IS NOT NULL OR priorDndInterruptionFilter IS NOT NULL").use { it.moveToFirst(); it.getLong(0)>0 }
+        if (Build.VERSION.SDK_INT >= 29) {
+            if (!dndSystem.hasAccess()) check(!knownOwner) { "无法确认 Mirra 勿扰已释放，请先检查系统勿扰权限" }
+            else dndSystem.findOwnedRule()?.let { id ->
+                val manager = context.getSystemService(android.app.NotificationManager::class.java)
+                val rule = manager.getAutomaticZenRule(id)
+                check(rule == null || !rule.isEnabled || (Build.VERSION.SDK_INT >= 35 &&
+                    manager.getAutomaticZenRuleState(id) == android.service.notification.Condition.STATE_FALSE)) {
+                    "无法确认 Mirra 勿扰规则已停止，请在系统设置停用该规则后重试"
+                }
+            }
+        } else check(!dndSystem.legacyOwnershipIntact()) { "Mirra 勿扰清理尚未完成" }
+    }
+
+    override suspend fun closeStorageOwners() = withContext(NonCancellable) {
+        storageClose.withLock {
+            if (storageOwnersClosed) return@withLock
+            monitoringRuntime.closeMaintenanceOwners()
+            applicationScope.coroutineContext[Job]?.cancelAndJoin()
+            backupPreferences.close()
+            checkpointAndCloseDatabase(database)
+            // A failed step remains retryable; only a fully drained generation is closed.
+            storageOwnersClosed = true
+        }
     }
 }

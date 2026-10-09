@@ -102,8 +102,41 @@ class SessionCloseoutViewModelTest {
                 evidenceCalls++; refreshBarrier?.await()
             }
         }
-        fun vm() = SessionViewModel("s", workflow, notes, manager, focusActions = focus,
-            clockSample = { clockCalls++; sample }).also { models += it }
+        fun vm(pendingEdits: com.guanyi.mirra.domain.maintenance.PendingEditRegistry? = null) =
+            SessionViewModel("s", workflow, notes, manager, focusActions = focus,
+                clockSample = { clockCalls++; sample }, pendingEdits = pendingEdits).also { models += it }
+    }
+
+    @Test fun maintenanceFlushSavesLatestBufferedNoteAndPageWithoutEndingLearning() = closeoutTest {
+        val registry = com.guanyi.mirra.domain.maintenance.PendingEditRegistry()
+        val f = Fixture(); val vm = f.vm(registry); runCurrent(); vm.syncCurrentPage(40)
+        vm.changeContent("latest before maintenance"); vm.updatePage("42")
+        val freeze = registry.freezeAndFlush()
+        assertEquals("latest before maintenance", f.saved.single().content)
+        assertEquals(42, f.current.value!!.currentPage)
+        assertEquals(0, f.finishes); assertEquals(FocusCloseoutState.ACTIVE, f.state.value)
+        vm.changeContent("late note"); vm.updatePage("99"); vm.flushDraft()
+        advanceTimeBy(1_000); runCurrent()
+        assertEquals("latest before maintenance", vm.draftContent)
+        assertEquals(42, f.current.value!!.currentPage); assertEquals(1, f.saved.size)
+        freeze.release()
+    }
+
+    @Test fun maintenanceFlushFailureRejectsEntryAndClosedSessionDoesNotRetryOldDraft() = closeoutTest {
+        val registry = com.guanyi.mirra.domain.maintenance.PendingEditRegistry()
+        val f = Fixture(); val vm = f.vm(registry); runCurrent(); vm.changeContent("private draft")
+        f.failNote = true
+        assertNotNull(runCatching { registry.freezeAndFlush() }.exceptionOrNull())
+        assertTrue(registry.acceptingEdits.value)
+        assertEquals(FocusCloseoutState.ACTIVE, f.state.value)
+        f.failNote = false
+        registry.freezeAndFlush().release()
+        assertEquals("private draft", f.saved.last().content)
+        f.state.value = FocusCloseoutState.COMPLETED; runCurrent()
+        val before = f.saved.size
+        registry.freezeAndFlush().retire()
+        vm.changeContent("old callback"); vm.flushDraft(); advanceTimeBy(1_000); runCurrent()
+        assertEquals(before, f.saved.size)
     }
 
     @Test fun confirmationOpensBeforeSavesButFinalConfirmationWaitsForDraftAndPageWrites() = closeoutTest {

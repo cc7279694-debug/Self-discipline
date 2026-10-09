@@ -49,6 +49,13 @@ import com.guanyi.mirra.data.storage.CameraTarget
 import com.guanyi.mirra.domain.RuleBasedNoteTypeSuggester
 import java.util.UUID
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
@@ -71,6 +78,7 @@ class NoteEditorViewModel(
     private val topicRepository: TopicRepository,
     private val noteTypeSuggester: RuleBasedNoteTypeSuggester = RuleBasedNoteTypeSuggester(),
     newId: () -> String = { UUID.randomUUID().toString() },
+    private val pendingEdits: com.guanyi.mirra.domain.maintenance.PendingEditRegistry? = null,
 ) : ViewModel() {
     val learningItems = learningItems.observeAll().stateIn(
         viewModelScope,
@@ -120,14 +128,21 @@ class NoteEditorViewModel(
     private var typeManuallySelected = false
     private var saveJob: Job? = null
     private var revision = 0
+    private var savedRevision = 0
     private var deleted = false
     private val saveMutex = Mutex()
     private val captionJobs = mutableMapOf<String, Job>()
     private val pendingCaptions = mutableMapOf<String, String>()
+    private val captionSaveMutex = Mutex()
+    private val pendingWrites = mutableListOf<Deferred<Result<Unit>>>()
+    private val pendingActions = mutableListOf<Job>()
+    private var loadingJob: Job? = null
+    private val pendingRegistration = pendingEdits?.register(::freezeAndFlushForMaintenance)
+    val acceptingEdits = pendingEdits?.acceptingEdits ?: MutableStateFlow(true)
 
     init {
         if (initialNoteId != null) {
-            viewModelScope.launch {
+            loadingJob = viewModelScope.launch {
                 val note = notes.observe(initialNoteId).first()
                 if (note == null) {
                     error = "Note 不存在"
@@ -143,52 +158,52 @@ class NoteEditorViewModel(
         }
     }
 
-    fun changeContent(value: String) {
+    fun changeContent(value: String) = bufferedEdit {
         content = value
         if (!typeManuallySelected) semanticType = noteTypeSuggester.suggest(value)
         changed()
     }
 
-    fun changePage(value: String) {
+    fun changePage(value: String) = bufferedEdit {
         pageText = value.filter(Char::isDigit)
         changed()
     }
 
-    fun changeType(value: NoteSemanticType) {
+    fun changeType(value: NoteSemanticType) = bufferedEdit {
         semanticType = value
         typeManuallySelected = true
         changed()
     }
 
-    fun selectLearningItem(id: String) {
-        if (!canChooseLearningItem || persistedNoteId != null) return
+    fun selectLearningItem(id: String) = bufferedEdit {
+        if (!canChooseLearningItem || persistedNoteId != null) return@bufferedEdit
         selectedLearningItemId = id
         changed()
     }
 
-    fun flushDraft() {
-        if (deleted) return
+    fun flushDraft() = bufferedEdit {
+        if (deleted) return@bufferedEdit
         saveJob?.cancel()
-        viewModelScope.launch {
+        startPendingWrite {
             flushCaptionsNow()
-            runCatching { saveDraft(requireValid = false) }
-                .onFailure { error = it.message ?: "笔记保存失败" }
+            saveDraft(requireValid = false)
         }
     }
 
-    fun leave(onLeft: () -> Unit) {
+    fun leave(onLeft: () -> Unit) = bufferedEdit {
         if (deleted) {
             onLeft()
-            return
+            return@bufferedEdit
         }
         saveJob?.cancel()
         if (persistedNoteId == null && content.isBlank()) {
             onLeft()
-            return
+            return@bufferedEdit
         }
-        viewModelScope.launch {
+        launchTrackedAction {
             runCatching {
                 check(!isImageBusy) { "图片正在处理中，请稍候" }
+                awaitPendingWrites()
                 flushCaptionsNow()
                 saveDraft(requireValid = true)
             }
@@ -197,14 +212,14 @@ class NoteEditorViewModel(
         }
     }
 
-    fun delete(onDeleted: () -> Unit) {
-        val id = persistedNoteId ?: return
+    fun delete(onDeleted: () -> Unit) = bufferedEdit {
+        val id = persistedNoteId ?: return@bufferedEdit
         saveJob?.cancel()
         captionJobs.values.forEach(Job::cancel)
-        viewModelScope.launch {
+        launchTrackedAction {
             isSaving = true
             error = null
-            runCatching { notes.delete(id) }
+            runCatching { awaitPendingWrites(propagateFailures = false); notes.delete(id) }
                 .onSuccess {
                     deleted = true
                     onDeleted()
@@ -214,10 +229,10 @@ class NoteEditorViewModel(
         }
     }
 
-    fun importGallery(uris: List<Uri>) {
-        val noteId = persistedNoteId ?: return
-        if (isImageBusy) return
-        viewModelScope.launch {
+    fun importGallery(uris: List<Uri>) = bufferedEdit {
+        val noteId = persistedNoteId ?: return@bufferedEdit
+        if (isImageBusy) return@bufferedEdit
+        launchTrackedAction {
             isImageBusy = true
             imageMessage = "正在处理图片…"
             error = null
@@ -231,7 +246,7 @@ class NoteEditorViewModel(
     }
 
     suspend fun createCameraTarget(): CameraTarget? {
-        if (persistedNoteId == null || isImageBusy) return null
+        if (persistedNoteId == null || isImageBusy || !acceptingEdits.value) return null
         isImageBusy = true
         imageMessage = "正在打开相机…"
         return runCatching { imageRepository.createCameraTarget() }
@@ -244,12 +259,12 @@ class NoteEditorViewModel(
 
     fun finishCamera(target: CameraTarget, succeeded: Boolean) {
         val noteId = persistedNoteId
-        viewModelScope.launch {
+        launchTrackedAction {
             if (!succeeded || noteId == null) {
                 runCatching { imageRepository.cancelCameraTarget(target) }
                 imageMessage = ""
                 isImageBusy = false
-                return@launch
+                return@launchTrackedAction
             }
             imageMessage = "正在处理照片…"
             runCatching { imageRepository.completeCameraImport(noteId, target) }
@@ -260,7 +275,7 @@ class NoteEditorViewModel(
     }
 
     fun cameraUnavailable(target: CameraTarget) {
-        viewModelScope.launch {
+        launchTrackedAction {
             runCatching { imageRepository.cancelCameraTarget(target) }
             error = "此设备没有可用相机应用"
             imageMessage = ""
@@ -268,22 +283,22 @@ class NoteEditorViewModel(
         }
     }
 
-    fun changeCaption(imageId: String, value: String) {
+    fun changeCaption(imageId: String, value: String) = bufferedEdit {
         pendingCaptions[imageId] = value
         captionJobs.remove(imageId)?.cancel()
         captionJobs[imageId] = viewModelScope.launch {
             delay(500)
-            saveCaption(imageId)
+            bufferedEdit { startPendingWrite { saveCaption(imageId) } }
         }
     }
 
-    fun deleteImage(imageId: String) {
-        if (isImageBusy) return
+    fun deleteImage(imageId: String) = bufferedEdit {
+        if (isImageBusy) return@bufferedEdit
         captionJobs.remove(imageId)?.cancel()
         pendingCaptions.remove(imageId)
-        viewModelScope.launch {
+        launchTrackedAction {
             isImageBusy = true
-            runCatching { imageRepository.deleteImage(imageId) }
+            runCatching { awaitPendingWrites(propagateFailures = false); imageRepository.deleteImage(imageId) }
                 .onSuccess { imageMessage = "图片已删除" }
                 .onFailure { error = it.message ?: "图片删除失败" }
             isImageBusy = false
@@ -299,27 +314,27 @@ class NoteEditorViewModel(
         }
     }
 
-    fun createTopicAndLink(name: String) {
-        val noteId = persistedNoteId ?: return
-        viewModelScope.launch {
+    fun createTopicAndLink(name: String) = bufferedEdit {
+        val noteId = persistedNoteId ?: return@bufferedEdit
+        launchTrackedAction {
             runCatching { topicRepository.createAndLink(noteId, name) }
                 .onSuccess { topicMessage = "Topic 已关联"; refreshTopicSuggestions() }
                 .onFailure { topicMessage = it.message ?: "Topic 创建失败" }
         }
     }
 
-    fun linkTopic(topicId: String) {
-        val noteId = persistedNoteId ?: return
-        viewModelScope.launch {
+    fun linkTopic(topicId: String) = bufferedEdit {
+        val noteId = persistedNoteId ?: return@bufferedEdit
+        launchTrackedAction {
             runCatching { topicRepository.link(noteId, topicId) }
                 .onSuccess { topicMessage = "Topic 已关联"; refreshTopicSuggestions() }
                 .onFailure { topicMessage = it.message ?: "关联失败" }
         }
     }
 
-    fun unlinkTopic(topicId: String) {
-        val noteId = persistedNoteId ?: return
-        viewModelScope.launch {
+    fun unlinkTopic(topicId: String) = bufferedEdit {
+        val noteId = persistedNoteId ?: return@bufferedEdit
+        launchTrackedAction {
             runCatching { topicRepository.unlink(noteId, topicId) }
                 .onSuccess { topicMessage = "已解除关联"; refreshTopicSuggestions() }
                 .onFailure { topicMessage = it.message ?: "解除关联失败" }
@@ -338,8 +353,7 @@ class NoteEditorViewModel(
         if (content.isBlank() || selectedLearningItemId == null) return
         saveJob = viewModelScope.launch {
             delay(500)
-            runCatching { saveDraft(requireValid = false) }
-                .onFailure { error = it.message ?: "笔记保存失败" }
+            bufferedEdit { startPendingWrite { saveDraft(requireValid = false) } }
         }
     }
 
@@ -372,21 +386,73 @@ class NoteEditorViewModel(
         persistedNoteId = saved.id
         noteIdState.value = saved.id
         canDelete = true
+        savedRevision = savingRevision
         if (savingRevision == revision) savedMessage = "已自动保存"
         true
     }
 
-    private suspend fun saveCaption(imageId: String) {
-        val value = pendingCaptions.remove(imageId) ?: return
-        runCatching { imageRepository.updateCaption(imageId, value) }
-            .onFailure { error = it.message ?: "Caption 保存失败" }
-        captionJobs.remove(imageId)
+    private suspend fun saveCaption(imageId: String) = captionSaveMutex.withLock {
+        val value = pendingCaptions[imageId] ?: return@withLock
+        imageRepository.updateCaption(imageId, value)
+        if (pendingCaptions[imageId] == value) pendingCaptions.remove(imageId)
     }
 
     private suspend fun flushCaptionsNow() {
-        captionJobs.values.forEach(Job::cancel)
+        captionJobs.values.toList().forEach { it.cancelAndJoin() }
         captionJobs.clear()
         pendingCaptions.keys.toList().forEach { saveCaption(it) }
+    }
+
+    private fun bufferedEdit(block: () -> Unit) {
+        if (pendingRegistration == null) block() else pendingRegistration.edit(block)
+    }
+
+    private fun launchTrackedAction(block: suspend CoroutineScope.() -> Unit): Job =
+        viewModelScope.launch(block = block).also { pendingActions += it }
+
+    private fun startPendingWrite(block: suspend () -> Unit) {
+        pendingWrites += viewModelScope.async {
+            try { block(); Result.success(Unit) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: Exception) {
+                error = failure.message ?: "笔记保存失败"
+                Result.failure(failure)
+            }
+        }
+    }
+
+    private suspend fun awaitPendingWrites(propagateFailures: Boolean = true) {
+        val writes = pendingWrites.toList()
+        val results = writes.map { pending ->
+            try { pending.await() }
+            catch (cancelled: CancellationException) {
+                currentCoroutineContext().ensureActive()
+                Result.failure<Unit>(cancelled)
+            }
+        }
+        pendingWrites.removeAll(writes.toSet())
+        if (propagateFailures) results.forEach { it.getOrThrow() }
+    }
+
+    private suspend fun freezeAndFlushForMaintenance() {
+        loadingJob?.join()
+        saveJob?.cancelAndJoin()
+        captionJobs.values.toList().forEach { it.cancelAndJoin() }
+        captionJobs.clear()
+        pendingActions.toList().forEach { it.join() }
+        pendingActions.removeAll { it.isCompleted }
+        awaitPendingWrites()
+        if (deleted) return
+        flushCaptionsNow()
+        if (revision != savedRevision && (persistedNoteId != null || content.isNotBlank())) {
+            check(isLoaded) { "笔记尚未完成读取" }
+            check(saveDraft(requireValid = true)) { "笔记尚未保存" }
+        }
+    }
+
+    override fun onCleared() {
+        pendingRegistration?.close()
+        super.onCleared()
     }
 }
 
@@ -415,6 +481,7 @@ fun NoteEditorScreen(
     var confirmUnlinkTopic by remember { mutableStateOf<TopicEntity?>(null) }
     val selectedItemName = learningItems.firstOrNull { it.id == viewModel.selectedLearningItemId }?.name
     val lifecycleOwner = LocalLifecycleOwner.current
+    val acceptingEdits by viewModel.acceptingEdits.collectAsStateWithLifecycle()
 
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
@@ -465,6 +532,7 @@ fun NoteEditorScreen(
             NoteSemanticType.entries.forEach { type ->
                 FilterChip(
                     selected = viewModel.semanticType == type,
+                    enabled = acceptingEdits,
                     onClick = { viewModel.changeType(type) },
                     label = { Text(type.displayName) },
                 )
@@ -475,6 +543,7 @@ fun NoteEditorScreen(
             onValueChange = viewModel::changeContent,
             label = { Text("笔记内容") },
             minLines = 6,
+            enabled = acceptingEdits,
             modifier = Modifier.fillMaxWidth(),
         )
         if (viewModel.canDelete) {
@@ -498,7 +567,7 @@ fun NoteEditorScreen(
             NoteImageSection(
                 images = images,
                 imageFile = viewModel::imageFile,
-                isBusy = viewModel.isImageBusy,
+                isBusy = viewModel.isImageBusy || !acceptingEdits,
                 message = viewModel.imageMessage,
                 onGalleryResult = viewModel::importGallery,
                 onCreateCameraTarget = viewModel::createCameraTarget,
@@ -515,6 +584,7 @@ fun NoteEditorScreen(
             value = viewModel.pageText,
             onValueChange = viewModel::changePage,
             label = { Text("页码（可选）") },
+            enabled = acceptingEdits,
             modifier = Modifier.fillMaxWidth(),
         )
         if (viewModel.isSaving) Text("正在保存…", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -523,7 +593,7 @@ fun NoteEditorScreen(
         if (viewModel.canDelete) {
             TextButton(
                 onClick = { confirmDelete = true },
-                enabled = !viewModel.isSaving && !viewModel.isImageBusy,
+                enabled = acceptingEdits && !viewModel.isSaving && !viewModel.isImageBusy,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("删除笔记") }
         }

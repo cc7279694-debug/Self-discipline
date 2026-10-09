@@ -32,11 +32,24 @@ import kotlinx.coroutines.withContext
 /** A short-lived platform container; it never creates or mutates a Study Session. */
 class FocusMonitoringService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val runtime get() = (application as MirraApplication).monitoringPlatform
+    private var capturedRuntime: MonitoringPlatformRuntime? = null
+    private val runtime get() = checkNotNull(capturedRuntime)
     private var pollingJob: Job? = null
     private var watchdogJob: Job? = null
     private var monitor: UsageMonitor? = null
     private var registered = false
+
+    override fun onCreate() {
+        super.onCreate()
+        // A late callback can never look up the replacement container's runtime.
+        val app = application as MirraApplication
+        val selected = app.monitoringPlatformOrNull.takeIf {
+            app.storageState.value.phase in setOf(com.guanyi.mirra.StoragePresentation.OPEN, com.guanyi.mirra.StoragePresentation.BUSY)
+        }
+        if (selected == null) { scope.cancel(); stopSelf(); return }
+        try { selected.registerServiceOwner(checkNotNull(scope.coroutineContext[Job])); capturedRuntime = selected }
+        catch (_: IllegalStateException) { scope.cancel(); stopSelf() }
+    }
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -58,6 +71,7 @@ class FocusMonitoringService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (capturedRuntime == null) { stopSelf(startId); return START_NOT_STICKY }
         val generation = intent?.getStringExtra(EXTRA_GENERATION)
         if (intent?.action == ACTION_STOP) {
             if (generation != null && runtime.lifecycle.state.value.generation == generation) {
@@ -197,6 +211,7 @@ class FocusMonitoringService : Service() {
     }
 
     override fun onDestroy() {
+        if (capturedRuntime == null) { scope.cancel(); super.onDestroy(); return }
         val generation = runtime.lifecycle.state.value.generation
         pollingJob?.cancel()
         pollingJob = null

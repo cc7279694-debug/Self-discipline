@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import com.guanyi.mirra.data.local.entity.ImageAssetEntity
 import com.guanyi.mirra.data.storage.CameraTarget
+import com.guanyi.mirra.ui.media.rememberStorageImageRequest
 import java.io.File
 import kotlinx.coroutines.launch
 
@@ -107,7 +108,7 @@ fun NoteImageSection(
                     Card(modifier = Modifier.fillParentMaxWidth(0.78f)) {
                         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             SubcomposeAsyncImage(
-                                model = imageFile(image.localPath),
+                                model = rememberStorageImageRequest(imageFile(image.localPath)),
                                 contentDescription = image.caption ?: "笔记图片",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxWidth().height(180.dp).clickable { onOpen(image) },
@@ -122,7 +123,7 @@ fun NoteImageSection(
                                     }
                                 },
                             )
-                            CaptionField(image, onCaptionChanged)
+                            CaptionField(image, onCaptionChanged, enabled = !isBusy)
                             TextButton(
                                 onClick = { deleteImageId = image.id },
                                 enabled = !isBusy,
@@ -155,6 +156,7 @@ fun NoteImageSection(
 private fun CaptionField(
     image: ImageAssetEntity,
     onCaptionChanged: (String, String) -> Unit,
+    enabled: Boolean = true,
 ) {
     var value by rememberSaveable(image.id) { mutableStateOf(image.caption.orEmpty()) }
     OutlinedTextField(
@@ -164,6 +166,7 @@ private fun CaptionField(
             onCaptionChanged(image.id, it)
         },
         label = { Text("Caption（可选）") },
+        enabled = enabled,
         modifier = Modifier.fillMaxWidth(),
     )
 }

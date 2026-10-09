@@ -63,6 +63,8 @@ ksp {
 }
 
 dependencies {
+    // Reuse the existing serialization runtime version for the strict portable backup format.
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
     androidTestImplementation(composeBom)
