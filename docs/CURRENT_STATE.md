@@ -2,7 +2,21 @@
 
 更新日期：2026-10-09
 
-## Current Stage — Phase 4E
+## Current delivery — V1 trends and explicit First Action
+
+Branch `codex/v1-trends-first-action`, base `b005ed1d85afd8f7abef15d6be65d39898f637fc`. The user authorized the complete UI delivery and commit/Push after verification, not main merge/release/V2. Mine now directly exposes a real recent-seven-day chart and priority facts; Trends retains its frozen range/qualifications in three readable sections. New book/new Intent requires an explicitly filled or selected First Action, with safe legacy repair and legal existing-Intent continuation. Preparation requires active completion confirmation before Session start.
+
+Implementation + tests commit: `b1035becfdeca6ac9b99928375e1e032f779ab79`. Validation/evidence is a separate subsequent commit; exact remote/local SHA equality and clean-tree verification are reported in the final handoff, not confused with the production SHA.
+
+**V1 experience delivery complete / awaiting independent review, not accepted/frozen.** Final-source JVM 637/637, zero failure/error/skip; lint 0 errors / 18 warnings / 1 hint; both APK builds passed. A fresh single unfiltered Android run completed in 17m34s: **470 discovered / 456 actual PASS / 14 unmet assumptions / 0 actual failure/error/unfinished**, not 470/470 PASS. Same-run original installed baseline restoration passed via the formal service, comparing all 12 authoritative tables, JPEG bytes and four portable preference values/presence; its owned cache was removed. The [single UX checkpoint](checkpoints/2026-10-09-v1-trends-first-action.md) preserves four failed full attempts, RED/environment history and bounded proof; the [evidence index](evidence/v1-experience/README.md) distinguishes controlled screenshots from installed use.
+
+Final Debug APK `build/deliveries/v1-experience/Mirra-0.2.0-trends-first-action-debug.apk`: **16,853,161 bytes**, SHA-256 `76CA0BA8D03D44A22BAE03D49131D7A97F3A55E9274E8402A06DBE4AF7CA14C9`. Cover install preserved three measured current files; post-restore final-source COLD launch was 3,073ms. Original permissions/network/display were read back unchanged; no active learning/PENDING, monitoring FGS, overlay/intervention notification or unresolved Restore Journal remained. Original preferences were not changed by another navigation tour after recovery.
+
+The 14 assumptions are nine opt-in methods and five permission prerequisites. The installed-baseline fixture's prepare/restore each separately passed once; the other eight opt-in methods and five permission-blocked platform methods remain NOT RUN this delivery. No new manual SAF backup/export round-trip is claimed; existing full-suite backup/restore/export assertions passed and baseline recovery used the production service. No physical device was operated.
+
+Version `0.2.0` / code `2`; Room v4 / schemas 1–4 / migrations unchanged. No new chart dependency, permission, cloud, score or branding change. READY/Monitoring/DND/Closeout domain/Backup/export implementations remain inherited. A controlled late-PENDING regression established and corrected one narrow result-navigation guard in `MirraApp`, without changing the ended fact or cold-start PENDING recovery. Logo original-art correction remains independent. Physical/OEM/API23–36/TalkBack/release/transport/real power-loss/manual-clock limits continue NOT RUN.
+
+## Inherited Phase 4E delivery
 
 **Phase 4E — complete / awaiting independent review, not accepted/frozen.** Branch `codex/phase-4e-v1-final-validation`, parent `4066b898620b375303a4c1fb27e4bea64caae808`. Implementation + tests: `bc2efd27f8b2e8a53f56102b4c031c2acdfaaa1d`. The separate validation commit/remote equality is reported in the final handoff. No Phase 4 replanning, main merge, release or V2 work; no physical device operation or existing-AVD reset.
 
@@ -385,7 +399,7 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Pending
 
-- Phase 4D 整包功能与验证已交付，等待 ChatGPT 独立审阅；不自行 accepted/frozen。4C 已由用户报告独立审阅 PASS WITH NOTES，其安全流程保持不变。4E 尚未授权，不自动进入。
+- 当前 V1 趋势可视化与显式 First Action 已交付，最终 Android 全量验证和原安装基线恢复通过，等待独立审阅，不自行 accepted/frozen。4C / 4D 已由用户报告独立审阅 PASS WITH NOTES；4E 已完成交付，其历史记录见顶部，不再视为尚未授权。不得进入 V2。
 - Phase 4A / 4B、4C-0 audit / 1A foundation、Phase 3D / Closeout Revision 保持既有独立接受状态与 PASS WITH NOTES；Brand Refresh v1 不冒称独立冻结。旧 v4 精确恢复偏好/risk、STOPPED_FULL_FAILURE / UNCONSUMED / SEEDED、v2 FAILED_PREFERENCES_RESTORED、v3 INTERRUPTED / UNCONSUMED 和缺图历史继续保留，不等同于旧安装数据现在仍完整，也不被本轮安全恢复测试删除或重新分类。
 - Phase 3｜Module 3B Task 6 仍待最终独立验收。Task Manager Stop、reboot、完整 risk/lock/revocation 矩阵、API 23/29/33/34/35 与实体/OEM 设备继续为 `NOT RUN`，不用 API 37 AVD 结果代替。
 
@@ -411,7 +425,8 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Git
 
-- Current branch: `codex/phase-4d-export-android-backup`；4C 最终验证父 HEAD `62ce659029fb2269902a07145c8cdc87379016f5`。本轮是 JSON/CSV 与系统备份策略实现/验证交付，**不是 Acceptance Freeze**；implementation / validation SHA 和最终 remote/local equality/clean tree 在交付报告中分别列示。不 merge main、不 force push、不 release。
+- Current branch: `codex/v1-trends-first-action`；当前交付父 HEAD `b005ed1d85afd8f7abef15d6be65d39898f637fc`。本轮是趋势可视化与显式 First Action 的完整体验交付，**不是 Acceptance Freeze**；implementation / validation SHA 和最终 remote/local equality/clean tree 在交付报告中分别列示。不 merge main、不 force push、不 release。
+- Historical 4D delivery branch: `codex/phase-4d-export-android-backup`；4C 最终验证父 HEAD `62ce659029fb2269902a07145c8cdc87379016f5` → implementation `5a5cbde268791d828f70a4126a872aaead455aca` → validation `4066b898620b375303a4c1fb27e4bea64caae808`。当时等待独立审阅；后续用户报告 PASS WITH NOTES，不改写历史执行证据。
 - Historical 4C delivery branch: `codex/phase-4c-full-backup`；父 `3579cb74f327b6e243771285d901f639452bcd07` → implementation/tests `1c1648c7ce98aae4d1e45ca343fde26b8dc0798f` → validation `62ce659029fb2269902a07145c8cdc87379016f5`。
 - Historical 4C foundation chain: 4B Freeze `cd13953cb3ac132ee64493fe688a3ac0f3cf8e74` → 4C-0 audit `7499ba50cc775d801711eecae38801099f6c66f9` → audit acceptance docs `a14c073c2febc239dfce55e8c4a556550653e0a9` → 4C-1A Accepted Implementation + Tests `8e50545417f8854caee366b70426b9cf56058ae0` → Accepted Validation Documentation `bf5e423536b93623eaec1e8cf03261879c3154a1` → inherited 1A freeze `3579cb74f327b6e243771285d901f639452bcd07`。这些 SHA 保留各自历史职责，不代替本轮 Full Backup/Restore。
 - Historical Phase 4B branch: `codex/phase-4b-descriptive-insights`；父 Phase 4A Freeze 为 `a57a7807b7acd0e1d7b8e49f29ef84d639a471b1`。Task 1 / 2 / 3 提交为 `f46b5a7679e52c084a55e72739f27af3343639cf` / `fd7b86d93a2d22fa90de646536540ba1f39c87fe` / `5cbff38853c069b02772b6062d5a7e96a1f9fb13`；Accepted production HEAD 为 Task 3。Accepted test-only stabilization SHA 为 `f000ca03d5eb03646d76f199fe2cb899979dfe68`，Accepted validation SHA 为 `2f1b271e6b958e0cc9b21153e168c91a970ac500`，两者已独立 Push，不代替 production SHA。Phase4B accepted/frozen — PASS WITH NOTES；当时仅 `docs(insights): freeze phase 4b` 文档提交，精确 Freeze SHA/local-remote 核对以交付报告与 Git 为准。当时不合并 main、不发布、不进入 4C。
@@ -436,4 +451,4 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Next Recommended Task
 
-停在 **`PHASE_4D_COMPLETE_AWAITING_REVIEW`**，下一步仅为 ChatGPT 独立审阅本轮实现与实际证据；不自行 accepted/frozen，不进入 4E。冻结业务、Room v4 / schemas 1–4 与历史失败保留；API23–36 / OEM / physical / TalkBack / release-Play / 真实断电 / 手动时钟修改和系统 transport 继续 NOT RUN，一加反馈仍只属个人试用。
+停在本轮 V1 体验的 ChatGPT 独立审阅边界，提供新版 Debug APK 与已提交执行证据。不得自称 accepted/frozen，不进入 V2。冻结业务、Room v4 / schemas 1–4 与历史失败保留；API23–36 / OEM / physical / TalkBack / release-Play / 真实断电 / 手动时钟修改和系统 transport 继续 NOT RUN，一加反馈仍只属个人试用。
