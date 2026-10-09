@@ -3,6 +3,9 @@ package com.guanyi.mirra.feature.datamanagement
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.guanyi.mirra.domain.backup.DataExportFormat
+import com.guanyi.mirra.domain.backup.DataExportService
+import com.guanyi.mirra.domain.backup.PreparedDataExport
 import com.guanyi.mirra.domain.backup.FullBackupService
 import com.guanyi.mirra.domain.backup.PreparedBackup
 import com.guanyi.mirra.domain.backup.RestoreCandidate
@@ -12,6 +15,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -26,9 +30,10 @@ import kotlinx.coroutines.withContext
 enum class DataManagementOperation {
     IDLE, PREPARING_BACKUP, AWAITING_EXPORT_LOCATION, SAVING_BACKUP,
     AWAITING_IMPORT_LOCATION, VERIFYING_BACKUP, RESTORING, CANCELLING,
+    PREPARING_DATA_EXPORT, AWAITING_DATA_EXPORT_LOCATION, SAVING_DATA_EXPORT, CLEANING_DATA_EXPORT,
 }
 
-data class ExportDocumentRequest(val id: Long, val fileName: String)
+data class ExportDocumentRequest(val id: Long, val fileName: String, val mimeType: String = "application/zip")
 
 data class DataManagementUiState(
     val available: Boolean = true,
@@ -42,21 +47,119 @@ data class DataManagementUiState(
     val maintenanceBlocked: Boolean = false,
     val error: String? = null,
     val result: String? = null,
+    val dataExportAvailable: Boolean = false,
+    val pendingDataExportFormat: DataExportFormat? = null,
+    val preparedDataExport: PreparedDataExport? = null,
+    val dataExportRequest: ExportDocumentRequest? = null,
+    val activeDataExportRequest: ExportDocumentRequest? = null,
 ) {
     val isBusy: Boolean get() = operation != DataManagementOperation.IDLE
     val canCancel: Boolean get() = operation in setOf(
         DataManagementOperation.PREPARING_BACKUP,
         DataManagementOperation.SAVING_BACKUP,
         DataManagementOperation.VERIFYING_BACKUP,
+        DataManagementOperation.PREPARING_DATA_EXPORT,
+        DataManagementOperation.SAVING_DATA_EXPORT,
     )
-    val canStartOperation: Boolean get() = available && !isBusy && restoreCandidate == null
+    val canStartOperation: Boolean get() = available && !isBusy && restoreCandidate == null && pendingDataExportFormat == null
 }
 
-class DataManagementViewModel(private val service: FullBackupService?) : ViewModel() {
-    private val state = MutableStateFlow(DataManagementUiState(available = service != null))
+class DataManagementViewModel(
+    private val service: FullBackupService?,
+    private val exportService: DataExportService? = null,
+) : ViewModel() {
+    private val state = MutableStateFlow(DataManagementUiState(
+        available = service != null, dataExportAvailable = exportService != null,
+    ))
     val uiState: StateFlow<DataManagementUiState> = state.asStateFlow()
     private var operationJob: Job? = null
     private var requestSequence = 0L
+    private var dataExportDestination: CompletableDeferred<Uri?>? = null
+
+    fun requestDataExport(format: DataExportFormat) {
+        if (exportService == null || !state.value.canStartOperation) return
+        state.value = state.value.copy(pendingDataExportFormat = format, error = null, result = null)
+    }
+
+    fun dismissDataExportConfirmation() {
+        state.value = state.value.copy(pendingDataExportFormat = null)
+    }
+
+    fun confirmDataExport() {
+        val owner = exportService ?: return
+        val format = state.value.pendingDataExportFormat ?: return
+        if (!state.value.available || state.value.isBusy || state.value.restoreCandidate != null) return
+        val selection = CompletableDeferred<Uri?>()
+        dataExportDestination = selection
+        begin(DataManagementOperation.PREPARING_DATA_EXPORT)
+        operationJob = viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            var prepared: PreparedDataExport? = null
+            var saved = false
+            var saveStarted = false
+            try {
+                val packageToSave = owner.prepareExport(format)
+                prepared = packageToSave
+                currentCoroutineContext().ensureActive()
+                check(packageToSave.format == format)
+                val request = ExportDocumentRequest(++requestSequence,
+                    dataExportFileName(packageToSave.createdAt, format), format.mimeType)
+                state.value = state.value.copy(
+                    operation = DataManagementOperation.AWAITING_DATA_EXPORT_LOCATION,
+                    preparedDataExport = packageToSave, dataExportRequest = request,
+                    activeDataExportRequest = request,
+                )
+                val destination = selection.await()
+                if (destination == null) cancelled("已取消保存导出，当前数据未改变。")
+                else {
+                    saveStarted = true
+                    owner.saveExport(packageToSave, destination)
+                    currentCoroutineContext().ensureActive()
+                    saved = true
+                }
+            } catch (cancellation: CancellationException) {
+                cancelled(if (saveStarted) "保存已取消。所选位置可能留有不完整文件；当前数据未改变。"
+                    else "导出已取消，当前数据未改变。")
+                throw cancellation
+            } catch (_: DataExportPickerException) {
+                failed("无法打开文件保存位置。请重试；当前数据未改变。")
+            } catch (failure: Exception) {
+                rejectedDataExport(failure, if (saveStarted)
+                    "导出未能保存。所选位置可能留有不完整文件，请检查后重试；当前数据未改变。"
+                    else "无法准备导出数据。请先结束学习并确认可用空间后重试；当前数据未改变。")
+            } finally {
+                state.value = state.value.copy(operation = if (saved) DataManagementOperation.CLEANING_DATA_EXPORT
+                    else DataManagementOperation.CANCELLING,
+                    dataExportRequest = null)
+                val cleaned = prepared?.let { discardDataExport(it) } ?: true
+                state.value = state.value.copy(operation = DataManagementOperation.IDLE,
+                    preparedDataExport = null, dataExportRequest = null, activeDataExportRequest = null,
+                    result = if (saved && cleaned && !state.value.maintenanceBlocked)
+                        "${if (format == DataExportFormat.JSON) "JSON 数据" else "CSV 数据包"}已保存。仅供查看和分析，不能用于完整恢复。"
+                    else state.value.result)
+                dataExportDestination = null
+                operationJob = null
+            }
+        }
+    }
+
+    fun dataExportPickerLaunched(id: Long) {
+        if (state.value.dataExportRequest?.id == id) state.value = state.value.copy(dataExportRequest = null)
+    }
+
+    fun dataExportDestinationSelected(id: Long, destination: Uri?) {
+        if (state.value.activeDataExportRequest?.id != id ||
+            state.value.operation != DataManagementOperation.AWAITING_DATA_EXPORT_LOCATION) return
+        val selection = dataExportDestination ?: return
+        begin(if (destination == null) DataManagementOperation.CANCELLING else DataManagementOperation.SAVING_DATA_EXPORT)
+        selection.complete(destination)
+    }
+
+    fun dataExportPickerLaunchFailed(id: Long) {
+        if (state.value.activeDataExportRequest?.id != id ||
+            state.value.operation != DataManagementOperation.AWAITING_DATA_EXPORT_LOCATION) return
+        begin(DataManagementOperation.CANCELLING)
+        dataExportDestination?.completeExceptionally(DataExportPickerException())
+    }
 
     fun createBackup() {
         val owner = service ?: return
@@ -250,12 +353,13 @@ class DataManagementViewModel(private val service: FullBackupService?) : ViewMod
     private fun begin(operation: DataManagementOperation) {
         state.value = state.value.copy(operation = operation, error = null, result = null,
             exportRequest = null, importRequest = null, showRestoreConfirmation = false,
-            restoreCompleted = false)
+            restoreCompleted = false, pendingDataExportFormat = null, dataExportRequest = null)
     }
 
     private fun cancelled(message: String) {
         val operation = if (state.value.operation in setOf(DataManagementOperation.PREPARING_BACKUP,
                 DataManagementOperation.SAVING_BACKUP, DataManagementOperation.VERIFYING_BACKUP,
+                DataManagementOperation.PREPARING_DATA_EXPORT, DataManagementOperation.SAVING_DATA_EXPORT,
                 DataManagementOperation.CANCELLING)) DataManagementOperation.CANCELLING else DataManagementOperation.IDLE
         state.value = state.value.copy(operation = operation,
             exportRequest = null, importRequest = null, result = message, error = null)
@@ -264,6 +368,7 @@ class DataManagementViewModel(private val service: FullBackupService?) : ViewMod
     private fun failed(message: String) {
         val operation = if (state.value.operation in setOf(DataManagementOperation.PREPARING_BACKUP,
                 DataManagementOperation.SAVING_BACKUP, DataManagementOperation.VERIFYING_BACKUP,
+                DataManagementOperation.PREPARING_DATA_EXPORT, DataManagementOperation.SAVING_DATA_EXPORT,
                 DataManagementOperation.RESTORING)) state.value.operation else DataManagementOperation.IDLE
         state.value = state.value.copy(operation = operation,
             exportRequest = null, importRequest = null, showRestoreConfirmation = false,
@@ -276,6 +381,25 @@ class DataManagementViewModel(private val service: FullBackupService?) : ViewMod
         if (code == FullBackupErrorCode.RESTORE_BLOCKED) {
             state.value = state.value.copy(available = false, maintenanceBlocked = true,
                 showRestoreConfirmation = false, restoreCompleted = false)
+        }
+    }
+
+    private fun rejectedDataExport(failure: Exception, fallback: String) {
+        when ((failure as? FullBackupException)?.code) {
+            FullBackupErrorCode.ACTIVE_LEARNING ->
+                failed("请先结束当前学习或取消启动，再导出数据；当前数据未改变。")
+            FullBackupErrorCode.WRITE_OR_READ_FAILED -> failed(fallback)
+            FullBackupErrorCode.INVALID_ARCHIVE ->
+                failed("导出暂存文件已变化或失效。请重新导出；当前数据未改变。")
+            else -> rejected(failure, fallback)
+        }
+    }
+
+    private suspend fun discardDataExport(prepared: PreparedDataExport): Boolean = withContext(NonCancellable) {
+        try { exportService?.discardPreparedExport(prepared); true }
+        catch (failure: Exception) {
+            rejectedDataExport(failure, "临时导出文件清理未完成，文件可能仍留在本机。请重新打开应用后再试；当前数据未改变。")
+            false
         }
     }
 
@@ -294,6 +418,13 @@ class DataManagementViewModel(private val service: FullBackupService?) : ViewMod
             false
         }
     }
+}
+
+private class DataExportPickerException : Exception()
+
+private fun dataExportFileName(createdAt: Long, format: DataExportFormat): String {
+    val date = Instant.ofEpochMilli(createdAt).atZone(ZoneId.systemDefault())
+    return "Mirra-export-${DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmmss").format(date)}.${format.extension}"
 }
 
 private fun backupFileName(createdAt: Long): String {

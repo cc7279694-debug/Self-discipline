@@ -234,7 +234,8 @@ fun MirraApp(
                 entry<DataManagementRoute> {
                     com.guanyi.mirra.feature.datamanagement.DataManagementScreen(
                         viewModel = viewModel(factory = viewModelFactory {
-                            com.guanyi.mirra.feature.datamanagement.DataManagementViewModel(container.fullBackupService)
+                            com.guanyi.mirra.feature.datamanagement.DataManagementViewModel(
+                                container.fullBackupService, container.dataExportService)
                         }),
                         onBack = ::back,
                         onRestoreComplete = {

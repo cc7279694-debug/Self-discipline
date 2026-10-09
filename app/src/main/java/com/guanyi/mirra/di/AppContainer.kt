@@ -49,6 +49,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
@@ -118,6 +119,7 @@ internal suspend fun configureActiveSessionPresentationAndDnd(
 
 interface AppContainer {
     val fullBackupService: com.guanyi.mirra.domain.backup.FullBackupService? get() = null
+    val dataExportService: com.guanyi.mirra.domain.backup.DataExportService? get() = null
     val pendingEdits: PendingEditRegistry? get() = null
     val appPreferencesRepository: AppPreferencesRepository
     val learningItemRepository: LearningItemRepository
@@ -278,6 +280,20 @@ class DefaultAppContainer(
             { android.util.Log.w("MirraStartup", "Bootstrap step requires retry: ${it.javaClass.simpleName}") }) }
     }
     override val fullBackupService = backupHost?.let { DefaultFullBackupService(context, this, it) }
+    override val dataExportService = fullBackupService?.let { service ->
+        com.guanyi.mirra.data.export.DefaultDataExportService(context, service,
+            requireCurrent = { checkNotNull(backupHost).requireCurrent(this) }).also { export ->
+            // Only the new export workspace is touched. Process identity protects other
+            // current containers; preparation retries cleanup if startup cannot complete it.
+            applicationScope.launch(Dispatchers.IO) {
+                try { export.reclaimPreviousProcesses() }
+                catch (cancelled: CancellationException) { throw cancelled }
+                catch (failure: Exception) {
+                    android.util.Log.w("MirraExport", "Private export cleanup requires retry: ${failure.javaClass.simpleName}")
+                }
+            }
+        }
+    }
 
     private fun markDndDeviceUse() {
         // Device-local clue survives a portable restore; never exported or replayed as ownership.

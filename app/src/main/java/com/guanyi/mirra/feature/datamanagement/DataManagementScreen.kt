@@ -21,11 +21,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.guanyi.mirra.domain.backup.DataExportFormat
 import com.guanyi.mirra.domain.backup.RestoreCandidate
 import com.guanyi.mirra.ui.components.MirraPrimaryButton
 import com.guanyi.mirra.ui.components.MirraSecondaryButton
@@ -62,6 +64,13 @@ fun DataManagementScreen(
             // Some document providers do not report ZIP MIME types consistently; validation owns acceptance.
             try { openDocument.launch(arrayOf("application/zip", "application/octet-stream", "application/x-zip-compressed")) }
             catch (_: Exception) { viewModel.pickerLaunchFailed(export = false) }
+        }
+    }
+    state.activeDataExportRequest?.let { request ->
+        key(request.id) {
+            DataExportDocumentPicker(request, state.dataExportRequest?.id == request.id,
+                viewModel::dataExportPickerLaunched, viewModel::dataExportDestinationSelected,
+                viewModel::dataExportPickerLaunchFailed)
         }
     }
     LaunchedEffect(state.restoreCompleted) {
@@ -104,11 +113,26 @@ fun DataManagementScreen(
             MirraSecondaryButton(viewModel::requestImport, Modifier.fillMaxWidth().testTag("data-inspect-backup"),
                 enabled = state.canStartOperation) { Text("选择并验证备份") }
         }
+        item("export-scope") {
+            Text("JSON 与 CSV 是可读数据导出，不能用于完整恢复，也不包含 JPEG 图片。完整恢复请使用上面的完整备份。",
+                color = MirraTheme.colors.textSecondary)
+        }
+        item("json-action") {
+            MirraSecondaryButton({ viewModel.requestDataExport(DataExportFormat.JSON) },
+                Modifier.fillMaxWidth().testTag("data-export-json"),
+                enabled = state.canStartOperation && state.dataExportAvailable) { Text("导出 JSON") }
+        }
+        item("csv-action") {
+            MirraSecondaryButton({ viewModel.requestDataExport(DataExportFormat.CSV_ZIP) },
+                Modifier.fillMaxWidth().testTag("data-export-csv"),
+                enabled = state.canStartOperation && state.dataExportAvailable) { Text("导出 CSV") }
+        }
         if (state.isBusy) {
             item("progress") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(state.operation.message, color = MirraTheme.colors.textPrimary)
                     if (state.operation !in setOf(DataManagementOperation.AWAITING_EXPORT_LOCATION,
+                            DataManagementOperation.AWAITING_DATA_EXPORT_LOCATION,
                             DataManagementOperation.AWAITING_IMPORT_LOCATION)) {
                         LinearProgressIndicator(Modifier.fillMaxWidth(), color = MirraTheme.colors.accentStrong,
                             trackColor = MirraTheme.colors.accentSoft)
@@ -159,6 +183,40 @@ fun DataManagementScreen(
             dismissButton = { MirraTextAction(viewModel::dismissRestoreConfirmation) { Text("取消") } },
         )
     }
+    if (state.pendingDataExportFormat != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissDataExportConfirmation,
+            title = { Text("导出可读数据？") },
+            text = { Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("导出包含私人笔记、学习与历史记录，以及历史风险 App 的名称和包名。文件未加密，可能暴露个人信息，请妥善保管。")
+                Text("JSON 与 CSV 仅供查看和分析，不包含 JPEG 图片，也不能用于完整恢复。Mirra 不会自动上传；保存位置由你选择，所选服务可能联网。")
+            } },
+            confirmButton = { MirraTextAction(viewModel::confirmDataExport,
+                Modifier.testTag("data-confirm-export")) { Text("确认导出") } },
+            dismissButton = { MirraTextAction(viewModel::dismissDataExportConfirmation) { Text("取消") } },
+        )
+    }
+}
+
+@Composable
+private fun DataExportDocumentPicker(
+    request: ExportDocumentRequest,
+    launchRequested: Boolean,
+    onLaunched: (Long) -> Unit,
+    onSelected: (Long, android.net.Uri?) -> Unit,
+    onFailure: (Long) -> Unit,
+) {
+    val createDocument = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(request.mimeType)) {
+        onSelected(request.id, it)
+    }
+    LaunchedEffect(request.id, launchRequested) {
+        if (launchRequested) {
+            onLaunched(request.id)
+            try { createDocument.launch(request.fileName) }
+            catch (_: Exception) { onFailure(request.id) }
+        }
+    }
 }
 
 @Composable
@@ -186,6 +244,10 @@ private val DataManagementOperation.message: String get() = when (this) {
     DataManagementOperation.VERIFYING_BACKUP -> "正在验证备份…"
     DataManagementOperation.RESTORING -> "正在恢复完整备份…"
     DataManagementOperation.CANCELLING -> "正在取消并清理临时文件…"
+    DataManagementOperation.PREPARING_DATA_EXPORT -> "正在准备可读数据导出…"
+    DataManagementOperation.AWAITING_DATA_EXPORT_LOCATION -> "请选择导出文件保存位置。"
+    DataManagementOperation.SAVING_DATA_EXPORT -> "正在保存导出文件…"
+    DataManagementOperation.CLEANING_DATA_EXPORT -> "正在清理导出临时文件…"
 }
 
 private fun formatBackupTime(createdAt: Long): String =
