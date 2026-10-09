@@ -1,0 +1,42 @@
+# Phase 4E — V1 final-validation evidence index
+
+Status: **complete / awaiting independent review, not accepted/frozen**. This index records actual evidence and limits; it does not announce release, main merge or V2 work. Implementation/tests: `bc2efd27f8b2e8a53f56102b4c031c2acdfaaa1d`.
+
+- [Validation checkpoint](../../checkpoints/2026-10-09-phase-4e-v1-final-validation.md): chronological execution, RED history, corrections and exact proof boundaries.
+- [Compact performance measurements](performance.tsv): stage timings, dataset scales, Java heap/PSS and measurement limitations. A dash means unreported, not zero.
+- [Actual Recovery and preserved draft](screenshots/actual-recovery-note.png): installed synthetic journey, captured while genuinely recovering, before the later compatibility-only patch. It is not a fabricated fixture screen, a threshold-completion screenshot, or the entire viewport matrix.
+
+## Actual evidence available
+
+| Evidence | Completed scope and boundary |
+|---|---|
+| Temporary-resource cleanup | Service/lifecycle regression reproduced before repair; corrected targeted run: **18 actual PASS, 0 failures/assumptions**. Official backup picker → process stop → cold launch reclaimed **8 temporary files → 0**, without deleting the separate restore Journal or protected baseline. |
+| Legacy backup compatibility | A legitimate ended pre-3D NORMAL/ACTIVE/double-null history was rejected by backup admission. New formal round-trip reproduced **1 expected RED failure**, then the corrected backup/lifecycle classes passed **20 actual cases** including the legacy positive and 11 malformed-state checks. No historical field, trust algorithm or live-state safety rule was rewritten. |
+| Offline official SAF backup/export | Actual DocumentsUI save/cancel, privacy warning and full-replacement confirmation. Saved JSON/CSV matched read-only SQLite: **12 tables, 12 synthetic rows, 105 fields per format, 13 relationships, 8 NULLs**. CSV ZIP has 15 expected entries, no JPEG bytes/internal paths/runtime ownership. This small UI sample has no formula/special-text cases. |
+| Installed synthetic restore | Inspection/confirmation cancellation retained controlled mutated data; confirmed restore matched every authoritative column/ID, JPEG bytes, four portable preference values/presence and rebuilt FTS. Both AVD original baselines were subsequently restored/verified through the production service; permissions/network/display restored and disks retained. Further offline smoke had its own protected/restored baseline to preserve preference presence. |
+| Sandbox media round-trip | **1,000 long Chinese notes, 16 real 256×256 JPEGs, 1,026 rows/12 tables**; formal backup, inspect, JSON/CSV and replacement restore matched original facts/bytes/preferences and Chinese FTS. Formula-prefix/quote/newline cases belong to this controlled fixture, not the small official UI export. |
+| Large-history reads | Actual Trends/Insights/media targeted run: **3 PASS, 78.55 s**. Separate Global History target: **1 actual PASS**, 10,001 records, three first-page reads and exact **201-page/201-SELECT** traversal. Timings and endpoint-memory boundaries are in the TSV. |
+| Process interruption | **22 actual sandbox prepare/assert invocations** over 11 Journal boundaries; installed bootstrap **4**, PENDING **2**, and cover-preservation **2** actual invocations passed. These are Android process transitions, not physical power-loss proof. |
+| Installed learning journey | Official book/mainline/pause/resume → Intent/First Action/Session; monotonic progress with older-page Note; Break/Recovery/Focus, threshold-confirmed distraction, allowance extension and Usage Access downgrade. Normal closeout retained the stored boundary, released DND and honestly withheld effective-focus metrics for incomplete monitoring. See checkpoint for detailed readback. |
+| Final-source JVM/build | Post-compatibility unfiltered JVM **607/607 PASS**, zero failures/errors/skips; lint **0 errors/18 warnings/1 hint**; debug/test APK builds passed. The additional lifecycle warning is not relabeled historical. |
+| Final complete connected | Fresh single unfiltered run, Gradle exit 0 / 16m02s: **435 discovered and unique / 426 actual PASS / 9 opt-in assumptions / 0 actual failure / error / other skip / unfinished**. All eight DND/intervention tests actually passed, including all five permission prerequisites. Nine default opt-in assumptions are separate from their actual safe specialized execution this phase. |
+| Final cover/lifecycle | 14 measured current private-file hashes unchanged before launch. Normal COLD 7,374 ms; offline COLD 3,186 ms, three main pages/Data Management/Back reachable. Original baselines restored, no active workflow/PENDING/service/overlay/notification/owned rule or Journal/work files. Both environments closed without data reset. |
+| Compiled Android backup policy | Actual APK decoding confirmed `allowBackup=false`, legacy `fullBackupContent=false`, and 27 whole-domain cloud/D2D/ios exclusions. Room v4, schemas 1–4 and migrations remain unchanged from the 4D baseline. Parsing rules does not execute transports. |
+
+## Deliverable and handoff
+
+- Local Debug APK: `build/deliveries/v1/Mirra-v1-debug-20261009.apk`, **17,473,097 bytes**, SHA-256 `185A1635DC81C1B1538116F891ED1F929E20188B39786E272CA4907BE9502F4F`. Matches final production source; not committed/released.
+- Validation-document commit, verified remote HEAD and clean working tree are reported in the final Git handoff. Neither a peer review nor this index self-declares independent acceptance.
+- Actual Photo Picker/JPEG preview, DocumentsUI save/cancel/confirm and Back are recorded in the checkpoint. Controlled Compose matrix is not external Camera/OEM or a full clean pixel screenshot matrix.
+
+## Limits and NOT RUN
+
+- Measurements are Debug/API37 AVD observations, not production/OEM or arbitrary-scale SLAs. Process-wide memory is GC-sensitive; the media sampler targets 100 ms, while Global History logs heap endpoints only. Neither measures true peak memory. Global History's reported running heap maximum includes seed/first-page/traversal endpoints; total traversal time includes checks and per-page logging.
+- Bounded pages/child cohorts do not mean constant space: **ALL exact medians retain O(N) scalar samples**; observed SQL scans and temporary sorts remain.
+- API23–36, physical devices/OEM compatibility, TalkBack, release/Play, physical power loss, manual system-clock changes and actual cloud/D2D/cross-platform/ADB/OEM backup transports remain **NOT RUN**.
+- Peer focused source review found no blocking cleanup issue, but **Codex peer review is not independent ChatGPT acceptance**. Historical user-reported 4C/4D acceptance does not accept Phase 4E.
+- Raw logs, device identifiers, private row/package values, database/preferences, actual backup/export archives and protected installed baselines remain local/ignored; none is committed through this index.
+- Low-space and service/IO failures are deterministic test inputs, not a claim of physically filling the AVD disk. Android process-stop boundaries do not prove physical power-loss durability. Cleanup removes owned temporary copies, not a claim of cryptographic secure erasure; unknown resources remain untouched.
+- Two interrupted unfiltered attempts are retained: 73 partial nodes with system-server/zygote termination and external-output transport error; then 106 partial nodes with native renderer destruction/ART watchdog failure during an unchanged UI test's finally. Neither is full PASS; the lower-level renderer root cause remains unconfirmed. No assertions or deadlines were changed. A separate fresh AVD's result must stand on its own complete report.
+- Actual installed learning/SAF, external-process fixtures and performance measurements belong to the retained 2 GiB `Mirra_API_37_Phase4B_Final`. The new gate uses `Mirra_API_37_Phase4E_Final`, explicit SwiftShader/Vulkan-disabled and runtime hardware 4,096 MB RAM / 4 cores / 576 MB heap; emulator adjusted the 3,072 MB launch request. The new environment is an environment comparison, not proof of a unique cause or OEM compatibility.
+- Manual Deep Focus threshold waiting and a separate installed controlled-service-stop/query-gap-near-closeout journey were not run this phase. Frozen rule tests are separate evidence. Actual pixels are not a full six-viewport screenshot matrix.

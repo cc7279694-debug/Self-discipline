@@ -2,9 +2,27 @@
 
 更新日期：2026-10-09
 
-## Current Stage — Phase 4D
+## Current Stage — Phase 4E
 
-**Phase 4D — complete / awaiting independent review.** Branch `codex/phase-4d-export-android-backup`, parent `62ce659029fb2269902a07145c8cdc87379016f5`. User authorized one complete JSON/CSV export and conservative Android system-backup delivery; no internal acceptance gates. Do not enter 4E, merge main or release. Mine → 数据管理 exposes working JSON and CSV ZIP export with private-data confirmation and SAF. This delivery is not independent acceptance/freeze.
+**Phase 4E — complete / awaiting independent review, not accepted/frozen.** Branch `codex/phase-4e-v1-final-validation`, parent `4066b898620b375303a4c1fb27e4bea64caae808`. Implementation + tests: `bc2efd27f8b2e8a53f56102b4c031c2acdfaaa1d`. The separate validation commit/remote equality is reported in the final handoff. No Phase 4 replanning, main merge, release or V2 work; no physical device operation or existing-AVD reset.
+
+Phase 4A/4B remain accepted/frozen. The user reports independent acceptance **REVIEW_COMPLETE — PASS WITH NOTES** for both 4C and 4D; this does not independently accept 4E. Room v4, Schema 1–4, Migration and formal Backup Format v1 remain unchanged.
+
+The [single V1 checkpoint](checkpoints/2026-10-09-phase-4e-v1-final-validation.md) and [sanitized evidence index](evidence/phase4e/README.md) retain RED history, two interrupted full attempts, corrections, actual data protection and final limits.
+
+- Delivered actual installed learning/Note/image/Topic/search/record journeys, offline official SAF full-backup/restore and JSON/CSV save/cancel; original raw facts, IDs, JPEG bytes, four portable preference values/presence and FTS verified. Real Recovery 91,260 ms and Stable Start 123,005 ms, FULL/PARTIAL/NONE and abnormal recovery were observed without changing frozen rules.
+- Reproduced and fixed two narrow V1 regressions: undisclosed/abandoned backup candidate resource retention, and legitimate pre-3D NORMAL/ACTIVE/null-boundary history incorrectly rejected by backup validation. Frozen runtime ownership, Journal selection, schema, learning, closeout, monitoring, DND, metrics and export rules remain unchanged.
+- Final-source full JVM **607/607 PASS**, zero failure/error/skip. Fresh complete unfiltered connected **435 discovered / 426 actual PASS / 9 opt-in assumptions / 0 actual failure / error / unfinished**, 16m02s. All eight platform DND/intervention methods actually passed; the nine opt-in methods have separate safe specialized execution, not extra PASS added to the full total. Lint **0 errors / 18 warnings / 1 hint** includes the new nonfunctional lifecycle `EmptySuperCall` warning; both APK builds passed.
+- Old retained 2 GiB API37 AVD owns installed SAF/learning/process/performance evidence. New dedicated API37 AVD owns the complete gate: generated runtime 4,096 MB RAM / 4 cores / SwiftShader / Vulkan disabled (3,072 MB launch request was adjusted by emulator). Fresh success does not establish the native renderer root cause or erase either incomplete attempt.
+- Both original baselines were restored/verified through the production service. Permissions/network/display restored; no active learning/PENDING/FGS/overlay/intervention/current active owned rule or unresolved Journal; both AVD disks retained and environments closed. Final cover install preserved 14 measured current private-file hashes. Normal COLD 7,374 ms and offline COLD 3,186 ms / three main pages / Data Management/Back passed; smoke's preference changes were separately protected and restored.
+- Performance measured 10,001-record cohorts/keyset history and 1,000 long notes/16 JPEGs formal round-trip. ALL medians remain O(N) scalar samples; memory is sampled/endpoint process observation, not peak or arbitrary-scale/OEM guarantee. Actual system transports, release/Play, API23–36, physical/OEM matrix, TalkBack, real power loss/manual clock remain NOT RUN. Manual Deep Focus waiting and separate actual controlled-service-stop/query-gap-near-closeout were not executed this phase. Semantic layouts and actual 320dp/font2 Data Management are not a full six-viewport pixel matrix.
+- Final local Debug APK: `build/deliveries/v1/Mirra-v1-debug-20261009.apk`, **17,473,097 bytes**, SHA-256 `185A1635DC81C1B1538116F891ED1F929E20188B39786E272CA4907BE9502F4F`. Not committed/released. Room v4, schemas 1–4/migrations and Backup Format v1 unchanged; compiled automatic-backup restrictions verified, transport execution NOT RUN.
+
+**MIRRA_V1_FINAL_VALIDATION_COMPLETE_AWAITING_REVIEW.** Stop at independent ChatGPT review, not V2 or self-declared acceptance/freeze.
+
+## Inherited Phase 4D delivery and independent review
+
+**Phase 4D — delivered / independent review PASS WITH NOTES (user reported).** Branch `codex/phase-4d-export-android-backup`, parent `62ce659029fb2269902a07145c8cdc87379016f5`, final validation `4066b898620b375303a4c1fb27e4bea64caae808`. The following execution record is retained as 4D history, not re-executed 4E evidence. Mine → 数据管理 exposes JSON and CSV ZIP export with private-data confirmation and SAF. 4E is separately authorized above; main merge and release remain prohibited.
 
 Implementation + tests HEAD: `5a5cbde268791d828f70a4126a872aaead455aca` (`feat(data): add readable exports and safe android backup policy`). Validation documentation is a separate subsequent commit; its SHA and verified local/remote equality are reported in the delivery report, not substituted for implementation HEAD.
 
