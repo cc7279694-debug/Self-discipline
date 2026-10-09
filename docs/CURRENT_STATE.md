@@ -1,20 +1,49 @@
 # Current State
 
-更新日期：2026-10-08
+更新日期：2026-10-09
 
 ## Current Stage — Phase 4C
 
-Phase 4C-0 — **accepted safety audit / PASS WITH NOTES**。ChatGPT 独立源码与安全合同审阅已完成；审计文档 HEAD 为 `7499ba50cc775d801711eecae38801099f6c66f9`，继承 Phase 4B Freeze `cd13953cb3ac132ee64493fe688a3ac0f3cf8e74`。这只是安全审计接受，不是 Backup / Restore 功能接受。SB1–SB5 五类 `ARCHITECTURE_SAFETY_BLOCKER` 尚未解除；新增 FileProvider 早于 Application.onCreate 初始化的启动门禁审阅提示。详见 [安全合同](plans/MIRRA_PHASE_4C_BACKUP_SAFETY_CONTRACT.md)。
+**Phase 4C — complete / awaiting independent review.** Implementation and tests: `1c1648c7ce98aae4d1e45ca343fde26b8dc0798f`, from freeze `3579cb74f327b6e243771285d901f639452bcd07`. The user authorized the complete usable Full Backup & Restore feature and all internal engineering steps. There is no longer a separate 4C-1B/1C/2 authorization gate. This is delivery, not accepted/frozen; do not start 4D, merge main or release.
+
+**Current Module:** Phase 4C Full Backup & Restore — delivered for independent review. Final corrected-APK bootstrap, installed offline round-trip, full regression, cover-install, smoke and quiescence checks are complete. The [single delivery checkpoint](checkpoints/2026-10-08-phase-4c-full-backup.md) and [evidence index](evidence/phase4c/README.md) retain the detailed implementation, RED history and evidence boundaries. Final validation-document commit / remote HEAD are reported in the delivery response and current branch, not substituted for the implementation SHA.
+
+### Current implemented capabilities
+
+- Mine → **数据管理** → create complete backup → Android SAF save → select/validate backup → separate full-replacement confirmation → safe restore → reopen the selected application generation. Privacy/error/cancel UI is present; no account, automatic upload or encryption feature is added.
+- Captured resource-generation admission covers the audited 52 public writers, pending editor freeze/flush, Camera leases, search repair, startup and runtime work. Retired writer/reader owners cannot reopen a new generation; activity compositions/ViewModels, Room and the single DataStore owner are closed before switching.
+- Format v1 contains the 12 authoritative Room tables, referenced JPEG bytes and the four portable preferences with value/presence. It rejects unsupported packages/relations/schema/hash/ZIP limits, rebuilds derived FTS and excludes runtime ownership. No live SQLite main-file copy is presented as a consistent snapshot.
+- Staging, immutable complete OLD/NEW safety resources, checksummed durable Restore Journal, rollback and Application-before-storage recovery are implemented. Uncertain selection remains fail closed; pointer absence is not treated as proof of rollback. FileProvider checks the early gate too.
+- Active Intent / Session / PENDING / unresolved owned cleanup refuses backup or restore without automatically ending learning. Room stays **v4**, schemas 1–4 and Migration 1→2→3→4 unchanged. V4 schema **file SHA-256** remains `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`, not Room identityHash.
+
+### Current actual evidence and final gate
+
+- Actual dedicated API37 installed SAF round-trip completed: export/cancel, synthetic mutation, import/cancel, package validation, confirmed full replacement, all 12-table columns/IDs, JPEG bytes, portable preference value/presence and search checked. Original installed baseline restoration passed and only fixture-owned cache was removed.
+- Sandbox 11 external prepare → force-stop → cold-start → assert cycles: **22/22 actual PASS**. Final corrected APK production Application bootstrap at precommit images-published → OLD and COMMITTED → NEW: **4/4 actual invocations PASS again**, followed by verified original-resource restoration. Final offline installed SAF round-trip and original-baseline cleanup: **5/5 actual invocations PASS**. These are actual process tests, not physical power-loss proof.
+- Final post-bootstrap/cache-correction full JVM **553/553 PASS**, zero failure/error/skipped. Earlier 542/542 is retained as intermediate history, not the final production count. Targeted snapshot Android 14/14, archive JVM 13/13, text-budget JVM 4/4, direct Android 24/24 and final real restored-image pixel test 1/1 retain their specific execution scope.
+- Final unfiltered connected: **397 discovered / 383 actual executed and PASS / 14 unmet assumptions / 0 actual business assertion failures or errors**, 19m28s / Gradle exit 0. XML has 14 assumption failure nodes and zero native skipped nodes; assumptions are not PASS. Nine opt-in methods (four historical, five 4C) and five permission prerequisites are separate. The five 4C opt-in methods were actually executed in the installed/sandbox journeys above; the four historical opt-in and five permission cases remain NOT RUN in this full run. Intermediate 396/382/14 and interrupted attempts remain historical, not final evidence.
+- Final post-correction lint/build passed: 0 errors / 15 warnings / 1 hint and both debug/test APKs built; the six added warnings are recorded, not relabeled historical. The prior execution-session/environment reset interrupted a connected attempt without complete XML; it is not PASS or an identified business failure.
+- Final cover-install PASS: 16 measured current DB/files hashes unchanged before launch. Normal/offline cold start and Start–Knowledge–Mine were observed; original network settings restored and read back as 0/1/1. Post-connected cold start and actual Data Management preparation → CreateDocument → cancellation returned normally, proving the formal active-state/runtime guard admitted the quiet state. Readback: no pending Journal, monitoring service, Mirra Overlay, active notification or owned-rule record; no ANR since the final AVD boot.
+- Final APK: `build/deliverables/Mirra-Phase4C-debug.apk`, 17,258,080 bytes, SHA-256 `877E5E521C363E8EEF719F4C75B158FA336E3CABEF2A584CFC8ED1180548AA35`. Implementation/test commit `1c1648c7ce98aae4d1e45ca343fde26b8dc0798f`; this validation-document commit and final push/local-remote/clean result are separately identified in the delivery report.
+- API23–36, full OEM / physical compatibility, OnePlus 13T, TalkBack, release / Play, real hardware power loss and manual system-clock changes remain **NOT RUN**. No user physical device is operated; API37 cannot upgrade these boundaries.
+
+## Inherited Phase 4C-0 / 1A foundation — historical snapshot only
+
+The following 4C-0 / 1A facts and limitations describe their original audit/freeze, not current full-feature implementation or current authorization. Their lack of writer integration/backup/recovery at that time is retained as history; the full-feature delta and remaining final gate are above.
+
+Phase 4C-0 — **accepted safety audit / PASS WITH NOTES**。ChatGPT 独立源码与安全合同审阅已完成；审计文档 HEAD 为 `7499ba50cc775d801711eecae38801099f6c66f9`，继承 Phase 4B Freeze `cd13953cb3ac132ee64493fe688a3ac0f3cf8e74`。这只是安全审计接受，不是 Backup / Restore 功能接受。**该审计基线当时** SB1–SB5 五类 `ARCHITECTURE_SAFETY_BLOCKER` 尚未解除；新增 FileProvider 早于 Application.onCreate 初始化的启动门禁审阅提示。详见 [安全合同](plans/MIRRA_PHASE_4C_BACKUP_SAFETY_CONTRACT.md) 与本轮完整功能 checkpoint 的解除证据，不把历史未接入结论冒充当前源码状态。
 
 当前分支 `codex/phase-4c-full-backup`。Phase 4C-1A — **accepted / frozen — PASS WITH NOTES**。用户已确认 ChatGPT 独立代码与证据审阅完成，结论为 `REVIEW_COMPLETE — PASS WITH NOTES`。Accepted Implementation + Tests `8e50545417f8854caee366b70426b9cf56058ae0`；Accepted Validation Documentation `bf5e423536b93623eaec1e8cf03261879c3154a1`，两者职责分开；4C-0 acceptance docs `a14c073c2febc239dfce55e8c4a556550653e0a9`。
 
-冻结对象仅为 MaintenanceCoordinator 基础协议（OPEN/DRAINING/EXCLUSIVE/BLOCKED、Operation Permit、显式 Nested Operation、同一同步边界准入/排空、结构化子任务完成后释放登记、重复 release 不提前结束登记、取消/异常、generation identity、不确定保持 BLOCKED）和 Strict Preferences Foundation（同一 DataStore、单次严格读取、四项 portable 的 value+presence、完整 original/未知 key 和类型、防御复制、读取失败传播、原 UI fallback 不变）。没有生产 UI EXCLUSIVE 入口，没有任何全 App Writer 接线、备份生成、资源替换或 Restore/Journal；不是完整 Backup/Restore 功能接受。
+1A 当时的冻结对象仅为 MaintenanceCoordinator 基础协议（OPEN/DRAINING/EXCLUSIVE/BLOCKED、Operation Permit、显式 Nested Operation、同一同步边界准入/排空、结构化子任务完成后释放登记、重复 release 不提前结束登记、取消/异常、generation identity、不确定保持 BLOCKED）和 Strict Preferences Foundation（同一 DataStore、单次严格读取、四项 portable 的 value+presence、完整 original/未知 key 和类型、防御复制、读取失败传播、原 UI fallback 不变）。**1A 当时**没有生产 UI EXCLUSIVE 入口，没有任何全 App Writer 接线、备份生成、资源替换或 Restore/Journal；那次不是完整 Backup/Restore 功能接受，不代表本轮仍未实现。
 
 已接受的实现/验证轮次执行证据：新增定向 JVM 44/44（Maintenance 25 + Strict Preferences 19）；最终完整未过滤 JVM 475/475、0 failure/error/skipped。lintDebug PASS：0 errors / 9 existing warnings / 1 hint；assembleDebug PASS。此前 TDD RED（22 coordination failures、17 preferences / 16 failures）及中间 472/472 full GREEN 保留，最终数字不拼接定向运行。本次 Acceptance Freeze 仅同步文档，不重新运行测试、Gradle、AVD 或设备，不产生新的 PASS 数字。完整证据和未接线清单见 [4C-1A checkpoint](checkpoints/2026-10-08-phase-4c-1a-maintenance-foundation.md)。
 
-### Phase 4C-1A PASS WITH NOTES — retained, not resolved
+### Phase 4C-1A PASS WITH NOTES — retained historical limits at 1A
 
-1. 52 个现有公共 Writer 接线数量仍为 **0**，不能称 App-wide Maintenance Barrier 已实现。
+以下均为 **1A 当时**的边界。当前实现与新增验证见顶部，不删除历史记录，也不拿历史 1A PASS 代替本轮验证。
+
+1. 1A 时 52 个现有公共 Writer 接线数量为 **0**，不能称当时 App-wide Maintenance Barrier 已实现。
 2. 异步回调必须携带原 generation 或有效 permit；不能通过默认读取最新 generation 绕过代际隔离。
 3. 当前 EXCLUSIVE 仅适用于尚未执行资源切换的基础协议；实际切换前必须建立持久化 Journal 与安全切换协议。
 4. DataStore 尚无整组原子导入、完整原始偏好回滚及实例生命周期证明。
@@ -22,7 +51,7 @@ Phase 4C-0 — **accepted safety audit / PASS WITH NOTES**。ChatGPT 独立源�
 6. JVM / fake 测试不证明 Android 文件持久性、系统服务静止或真实断电安全，也不是完整全局屏障证明。
 7. connected / AVD / ADB / 真机 / 覆盖安装 / 运行态 smoke 均 NOT RUN；不引用历史设备结果冒充本轮执行。
 
-Room v4 / Schema 1–4 / Migration 1→2→3→4 和 Phase 1–3、4A、4B 冻结语义继续保持。v4 Schema **文件 SHA-256** 为 `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`，不是 Room identityHash。4C-1B 未开始，等待单独明确授权；未实现完整备份或恢复，不会生成或恢复任何用户数据。
+Room v4 / Schema 1–4 / Migration 1→2→3→4 和 Phase 1–3、4A、4B 冻结语义继续保持。v4 Schema **文件 SHA-256** 为 `EDCD0867D643CFE12CDB8906FDE859C8B1929B5BCDFA4AC11B5BDCD31A4C11B9`，不是 Room identityHash。1A 冻结时后续接线与完整功能尚未授权/实现；**该等待已由本轮完整 Phase 4C 开发授权替代**，不再要求单独授权 4C-1B。
 
 以下 4B / 4A 内容保留为历史冻结基线，过去“4C 未开始”描述指对应历史轮次，不覆盖上面的当前授权状态。
 
@@ -173,6 +202,7 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Verified Completed
 
+- 当前 Phase 4C 的已实现用户功能：Mine 平面数据管理入口、正式 SAF 创建/保存/验证、完整替换确认、staging / Journal / 回滚 / early bootstrap / fail-closed UI；实际合成数据 SAF 往返与原 baseline 还原已有执行证据。完整交付仍处于 final validation，未 independently accepted/frozen；最终回归/APK/Git 不以中间结果代替。
 - GitHub 仓库已创建，远程 main 原始状态仅包含 README。
 - V1 产品定位、功能边界、技术架构、数据模型、阶段计划与验收原则已保存到 docs/PRODUCT_SPEC.md。
 - 稳定项目身份与边界已提炼到 PROJECT.md。
@@ -323,11 +353,13 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Pending
 
-- Phase 4A 与 Phase 4B 均已独立验收并正式冻结，结论均为 PASS WITH NOTES；4B 的最终验证分类 `VALIDATION_RECOVERED` 与历史失败继续保留。Phase 4C-0 audit 已接受，4C-1A foundation 已独立验收并正式冻结（PASS WITH NOTES）；4C-1B / Backup / Restore / 4D / 4E 尚未开始，等待单独明确授权。Phase 3D-1 Closeout Revision 已独立验收并正式冻结；历史 Phase 3D Formal Freeze 保留，独立 Brand Refresh v1 已完成但不冒称品牌独立冻结。不重新进入 3D-2 / 3D-3 / 3D-4。旧 v4 精确恢复偏好/risk、STOPPED_FULL_FAILURE / UNCONSUMED / SEEDED，以及 v2 FAILED_PREFERENCES_RESTORED、v3 INTERRUPTED / UNCONSUMED、旧缺图等历史证据与失败记录继续保留；不将这些历史记录等同于旧安装数据当前仍完整的证明。
+- Phase 4C 完整功能已完成并交付待独立审阅。最终 JVM/build、完整 connected、安装/bootstrap/离线完整恢复、APK 和末次静止检查已验证；不是等待 4C-1B 授权，也不是未开始 Backup/Restore。4D / 4E 尚未授权实施，不自动进入。
+- Phase 4A / 4B、4C-0 audit / 1A foundation、Phase 3D / Closeout Revision 保持既有独立接受状态与 PASS WITH NOTES；Brand Refresh v1 不冒称独立冻结。旧 v4 精确恢复偏好/risk、STOPPED_FULL_FAILURE / UNCONSUMED / SEEDED、v2 FAILED_PREFERENCES_RESTORED、v3 INTERRUPTED / UNCONSUMED 和缺图历史继续保留，不等同于旧安装数据现在仍完整，也不被本轮安全恢复测试删除或重新分类。
 - Phase 3｜Module 3B Task 6 仍待最终独立验收。Task Manager Stop、reboot、完整 risk/lock/revocation 矩阵、API 23/29/33/34/35 与实体/OEM 设备继续为 `NOT RUN`，不用 API 37 AVD 结果代替。
 
 ## Known Risks / Unknowns
 
+- Phase 4C：最终 JVM 553/553、connected 397 discovered / 383 actual PASS / 14 assumptions、安装 smoke 和真实恢复已验证；542 JVM / 396 connected 是中间源码证据，不替代最终验证。Journal 跨 DB/偏好/images 没有硬件级跨资源原子事务，安全来自关闭所有 owner、完整安全副本、durable decision、验证与 fail closed。SAF readback 不保证 transport 永久保存；测试受控低空间不是实测物理磁盘耗尽；真实断电/OEM/全 API 矩阵仍 NOT RUN。更早 private cleanup orphan 的边界和后续 cache/bootstrap 修补验证见本轮 checkpoint，不宣称未测故障均已解决。
 - Phase 4B PASS WITH NOTES：历史 complete FAIL、incomplete retry、stale-title failure 和旧 AVD 退出均保留；fresh full clean Gate 不确认这些旧事件的单一根因，也不证明旧根因全部已解决。既有 test-only async readiness fix 保留原业务断言，本次 Freeze 不改源码/断言/超时。90日源仍加载 O(N) 匹配事实、不是只读13条或 constant-space；10001样本的1737/1086/1705ms和27查询只是早期专用 AVD 合成证据，不能外推任意规模/OEM/production SLA。新人工安装数据hash链、新4B pixel截图、4 opt-in fixture、5权限平台用例和真机兼容性在最终验证轮次均未执行；fresh AVD/覆盖安装成功不能证明旧安装用户数据保留。API23–36/full OEM/physical matrix/TalkBack/release-Play 继续 NOT RUN；一加日常反馈不是兼容性 PASS。
 - Phase 4A：Intent/Session cohort 页仍需扫描/临时排序；大于当前 10k+ 测量规模的性能未证明。Heap delta 为 GC 敏感的采样差，不是峰值内存。AVD 首次进入相关累计 gfxinfo 为 18 frames / 17 janky（并非隔离趋势页的测量），冷启动 5,249/6,274ms；不能将 DAO 不在主线程执行外推为 UI 零卡顿，未确认必要索引或生产根因。初次 ANR 遮挡、空白/错帧截图、null UI bridge 与未完成的额外 ADB 建记录均保留；可确认截图与语义测试分别记录。
 - UI 专项设计 Skill 的共享 Playbook 文件未安装在预期路径；Module 0 仅实现克制的 Material 3 导航骨架。
@@ -347,7 +379,8 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Git
 
-- Current branch: `codex/phase-4c-full-backup`；4B Freeze `cd13953cb3ac132ee64493fe688a3ac0f3cf8e74` → 4C-0 audit `7499ba50cc775d801711eecae38801099f6c66f9` → audit acceptance docs `a14c073c2febc239dfce55e8c4a556550653e0a9` → 4C-1A Accepted Implementation + Tests `8e50545417f8854caee366b70426b9cf56058ae0` → Accepted Validation Documentation `bf5e423536b93623eaec1e8cf03261879c3154a1`。本次独立 Acceptance Freeze 只提交授权的三份文档，Freeze SHA 以交付报告和 Git 为准，不代替 implementation 或 validation SHA。不 merge main、不 force push、不 release。
+- Current branch: `codex/phase-4c-full-backup`；完整功能授权父 HEAD `3579cb74f327b6e243771285d901f639452bcd07` → implementation/tests `1c1648c7ce98aae4d1e45ca343fde26b8dc0798f` → this validation-document delivery commit。本轮包含实现、测试、UI、平台接线及交付证据，**不是 Acceptance Freeze**。最终 remote SHA/local equality/clean tree 以本轮交付报告与 Git 分支为准，不将文档 SHA 冒充生产实现 SHA。不 merge main、不 force push、不 release。
+- Historical 4C foundation chain: 4B Freeze `cd13953cb3ac132ee64493fe688a3ac0f3cf8e74` → 4C-0 audit `7499ba50cc775d801711eecae38801099f6c66f9` → audit acceptance docs `a14c073c2febc239dfce55e8c4a556550653e0a9` → 4C-1A Accepted Implementation + Tests `8e50545417f8854caee366b70426b9cf56058ae0` → Accepted Validation Documentation `bf5e423536b93623eaec1e8cf03261879c3154a1` → inherited 1A freeze `3579cb74f327b6e243771285d901f639452bcd07`。这些 SHA 保留各自历史职责，不代替本轮 Full Backup/Restore。
 - Historical Phase 4B branch: `codex/phase-4b-descriptive-insights`；父 Phase 4A Freeze 为 `a57a7807b7acd0e1d7b8e49f29ef84d639a471b1`。Task 1 / 2 / 3 提交为 `f46b5a7679e52c084a55e72739f27af3343639cf` / `fd7b86d93a2d22fa90de646536540ba1f39c87fe` / `5cbff38853c069b02772b6062d5a7e96a1f9fb13`；Accepted production HEAD 为 Task 3。Accepted test-only stabilization SHA 为 `f000ca03d5eb03646d76f199fe2cb899979dfe68`，Accepted validation SHA 为 `2f1b271e6b958e0cc9b21153e168c91a970ac500`，两者已独立 Push，不代替 production SHA。Phase4B accepted/frozen — PASS WITH NOTES；当时仅 `docs(insights): freeze phase 4b` 文档提交，精确 Freeze SHA/local-remote 核对以交付报告与 Git 为准。当时不合并 main、不发布、不进入 4C。
 - Historical Phase 4A branch: `codex/phase-4a-trends-foundation`；父 Planning Freeze 为 `cc5180762d9f735754ce3a5b0759089aefe6dcc9`。Task 1–4 分别为 `e533c04e3562087b7ab58270d83cf4bddea6a5d8` / `76a53540c0365dba4106d81a7c3fd2f41c4a55b8` / `8e692354506e0caaa306fed0229f709f775a2eb8` / `e799997002d7c8d4dbb833c7452d194e8bad5d9f`。Accepted production HEAD 为 Task 4 `e799997002d7c8d4dbb833c7452d194e8bad5d9f`；Accepted validation HEAD 为 Task 5 `614c61b89fb3cb0d7aa3bac491e5cb80f4aa1693`，两者职责分开。4A Freeze 为 `a57a7807b7acd0e1d7b8e49f29ef84d639a471b1`；当时没有进入 4B，其后本轮独立授权不改写当时事实。
 - Historical Closeout Revision branch: `codex/phase-3d-closeout-v2`；实际起点为品牌本地提交 `c39f135e09d48e27573dbb331c0bf57a9e075499`，继承历史 Phase 3D Formal Freeze `096af8e5e943b8efbca8aa47b10ab2b7d2f53e18` 及其后续合法实现。Accepted implementation HEAD 为 `085543ffd0b5d03859565577a8ee277036fc50f9`，保持正式冻结；不由本次 4A 重新冻结。
@@ -370,4 +403,4 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 
 ## Next Recommended Task
 
-Phase 4C-1A Maintenance / Strict Preferences Foundation 已独立验收并正式冻结（PASS WITH NOTES）。4C-1B 未开始，仍需单独明确授权；不自动接线52入口，不生成备份、不替换/恢复用户数据、不进入4D。既有 4A / 4B / Phase 3D / Closeout Revision / Phase 2 / 3A–3C、新品牌、Mirra Blue、Room v4 / schemas 1–4 保持。历史失败、未消费 marker、缺图、ANR、Recovery 和 4A ADB/截图限制保留；API23–36 / OEM / full physical matrix / TalkBack / release-Play / 真实断电 / 人工系统时钟修改继续 NOT RUN，历史 API37 AVD 不外推，一加 13T 反馈仍只是个人试用。本次文档冻结未运行测试、Gradle、AVD、connected 或真机。
+停在 **`PHASE_4C_COMPLETE_AWAITING_REVIEW`**，等待对完整可用 Full Backup/Restore 的独立审阅与个人试用反馈，不自行 accepted/frozen，不进入 4D。最终 JVM/build、完整 connected、覆盖安装/离线三入口、真实恢复、末次静止检查和 APK checksum 均已完成，不无意义重复，不重新拆成基础子包停等授权。冻结业务、Room v4 / schemas 1–4 与历史失败保留；API23–36 / OEM / physical / TalkBack / release-Play / 真实断电 / 手动时钟修改继续 NOT RUN，一加反馈仍只属个人试用。
