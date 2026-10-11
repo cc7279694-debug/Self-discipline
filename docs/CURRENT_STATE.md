@@ -18,7 +18,9 @@
 
 隔离 Android API37 的实际运行界面已验证：伴侣默认关闭、用户主动同意、缺少小米服务时明确报错，以及关闭后冷启动仍保持关闭。三张实际 Android 截图维护在 Mirra Band 统一[截图目录](https://github.com/cc7279694-debug/mirra-band/tree/codex/module-03-readonly-companion/docs/evidence/module-03/screenshots)；它们不是腕端画面或真实 SDK 链路成功证据。两次冷启动单次观测为 **1,946ms / 1,934ms**，仅说明该次运行，不作为性能基准或真机承诺。
 
-Room v4、Schema 1–4、Migration、学习/监测/Closeout 算法、Full Backup 格式和手机签名身份保持不变。目标真机官方 SDK 消息往返、手机锁屏主场景、正式腕端实际画面、息屏通信及耗电：**Not Run，等待用户稍后连接设备并执行已授权的验证**。不得声称端到端可用、验收完成或进入 Module 04。配套合同与统一证据维护在 Mirra Band 分支 `codex/module-03-readonly-companion` 的[合同](https://github.com/cc7279694-debug/mirra-band/blob/codex/module-03-readonly-companion/docs/plans/MIRRA_BAND_MODULE_03_COMPLETE_PLAN.md)和[证据目录](https://github.com/cc7279694-debug/mirra-band/tree/codex/module-03-readonly-companion/docs/evidence/module-03)；本仓库不重复创建冻结文档。
+Room v4、Schema 1–4、Migration、学习/监测/Closeout 算法、Full Backup 格式和手机签名身份保持不变。2026-10-11 后续真机安装已执行：OnePlus PKX110 和用户换接的 Xiaomi 23127PN0CC（均 Android16/API36）分别只读核对旧版 0.2.0/code2 的公开签名及 idle 首页，三方证书一致，实际 `install -r` Success 升级至 1.1.1-band-readonly/code4；安装文件摘要与交付一致，CE/DE 数据目录 metadata 保持原位、冷启动及首页正常。没有读取或修改用户数据库，目录保留不等于数据库内容逐项校验。用户已明确少数据跳过备份，旧版备份创建错误没有修复或算作成功。
+
+当前验收目标为新 Xiaomi 手机：已有小米运动健康 3.59.1、XMS 服务可解析；用户确认 9 Pro 配对且连接，实际 Mirra 页面随后确认“小米手环9 Pro / 手机服务可用 / 设备已授权 / 最近完整同步尚无”。COUNTERPART_APP_MISSING 仅为设置早期历史结果，不再是当前错误。电脑点击受 INJECT_EVENTS 策略限制，采用用户手动设置/授权，不绕过。用户更新正式腕端并提供实际错误 UI：0.2.0 为 INTERCONNECT_UNAVAILABLE，0.2.1 固定步骤诊断为 INIT_READY_CALL_API_MISSING。腕端最小兼容 0.2.2/code4 已实际构建/同证书验签并通过134/134本地测试，支持有界官方替代查询与 native JSON对象发送，等待用户更新复测；本次手机源码/APK 未修改，不重复 Android 构建或测试。实际腕端错误画面已观察，但完整快照、六类正式业务 UI、手机锁屏主场景、息屏通信及耗电仍未验收。不得声称端到端可用、验收完成或进入 Module 04。配套合同与统一证据维护在 Mirra Band 分支 `codex/module-03-readonly-companion` 的[合同](https://github.com/cc7279694-debug/mirra-band/blob/codex/module-03-readonly-companion/docs/plans/MIRRA_BAND_MODULE_03_COMPLETE_PLAN.md)和[证据目录](https://github.com/cc7279694-debug/mirra-band/tree/codex/module-03-readonly-companion/docs/evidence/module-03)；本仓库不重复创建冻结文档。
 
 ## Current delivery — V1.1 core experience
 
