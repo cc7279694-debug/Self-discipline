@@ -118,6 +118,7 @@ internal suspend fun configureActiveSessionPresentationAndDnd(
 }
 
 interface AppContainer {
+    val wearableSnapshotSource: com.guanyi.mirra.domain.wearable.WearableSnapshotSource? get() = null
     val fullBackupService: com.guanyi.mirra.domain.backup.FullBackupService? get() = null
     val dataExportService: com.guanyi.mirra.domain.backup.DataExportService? get() = null
     val pendingEdits: PendingEditRegistry? get() = null
@@ -279,6 +280,18 @@ class DefaultAppContainer(
             { searchIndexRebuilder.ensureConsistent() },
             { android.util.Log.w("MirraStartup", "Bootstrap step requires retry: ${it.javaClass.simpleName}") }) }
     }
+    override val wearableSnapshotSource = com.guanyi.mirra.data.wearable.WearableSnapshotReader(
+        database, storageGate, startup, System::currentTimeMillis,
+        availability = { sessionId ->
+            val binding = monitoringRuntime.binding
+            val capabilities = monitoringRuntime.capabilities.state.value
+            val ready = com.guanyi.mirra.platform.focus.ReadyLeasePolicy().capture(
+                capabilities, android.os.SystemClock.elapsedRealtime())
+            if (binding?.sessionId == sessionId && ready != null && binding.generation == ready.generation)
+                com.guanyi.mirra.domain.wearable.MonitorAvailability.AVAILABLE
+            else com.guanyi.mirra.domain.wearable.MonitorAvailability.UNAVAILABLE
+        },
+    )
     override val fullBackupService = backupHost?.let { DefaultFullBackupService(context, this, it) }?.also { service ->
         // App bootstrap has already resolved the separate restore journal before constructing us.
         applicationScope.launch(Dispatchers.IO) {

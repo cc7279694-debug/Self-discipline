@@ -40,7 +40,8 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier,
     debugMonitoring: MonitoringPlatformRuntime? = null, riskRepository: FocusRepository? = null,
     crossAppActions: CrossAppInterventionUserActions? = null,
     onOpenReadingHistory: () -> Unit = {}, onOpenTrends: () -> Unit = {},
-    onOpenDataManagement: () -> Unit = {}, onOpenLearningProtection: (() -> Unit)? = null) {
+    onOpenDataManagement: () -> Unit = {}, onOpenLearningProtection: (() -> Unit)? = null,
+    onOpenWearableCompanion: (() -> Unit)? = null) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val dndState = viewModel.dndState?.collectAsStateWithLifecycle()?.value
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -83,6 +84,10 @@ fun ProfileScreen(viewModel: ProfileViewModel, modifier: Modifier = Modifier,
             Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("阅读记录") }
         com.guanyi.mirra.ui.components.MirraTextAction(onOpenDataManagement,
             Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("数据管理") }
+        onOpenWearableCompanion?.let { action ->
+            com.guanyi.mirra.ui.components.MirraTextAction(action,
+                Modifier.fillMaxWidth().padding(top = 12.dp).testTag("open-wearable-companion")) { Text("手环伴侣") }
+        }
         if (onOpenLearningProtection != null) {
             com.guanyi.mirra.ui.components.MirraTextAction(onOpenLearningProtection,
                 Modifier.fillMaxWidth().padding(top = 20.dp).testTag("open-learning-protection")) { Text("学习保护") }

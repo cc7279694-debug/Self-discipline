@@ -1,0 +1,28 @@
+{
+  "protocolVersion": 1,
+  "type": "SNAPSHOT",
+  "clientInstanceId": "client-golden",
+  "requestId": "request-preparing",
+  "streamId": "stream-golden",
+  "sequence": 1,
+  "sourceObservedAtUnixMs": 1791676800000,
+  "body": {
+    "phase": "PREPARING",
+    "intentId": "intent-golden",
+    "sessionId": null,
+    "learningItemId": "book-golden",
+    "bookTitle": "观已：阅读与学习📖",
+    "currentPage": 42,
+    "totalPages": 300,
+    "firstAction": "翻到第43页，读第一段📖",
+    "bookTitleTruncated": false,
+    "firstActionTruncated": false,
+    "segmentType": null,
+    "coverage": null,
+    "monitorAvailability": "UNKNOWN",
+    "elapsedMs": 12000,
+    "remainingMs": null,
+    "timerKind": "PREPARATION_ELAPSED",
+    "endType": null
+  }
+}

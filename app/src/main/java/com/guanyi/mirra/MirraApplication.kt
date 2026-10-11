@@ -28,6 +28,12 @@ data class AppStorageState(
 )
 
 class MirraApplication : Application(), BackupStorageHost {
+    private val wearableScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    val wearableCompanion by lazy {
+        com.guanyi.mirra.domain.wearable.WearableCoordinator(wearableScope,
+            com.guanyi.mirra.platform.wearable.XiaomiWearTransport(applicationContext),
+            com.guanyi.mirra.data.wearable.WearableLocalSettings(applicationContext))
+    }
     private val maintenanceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val restoreSerial = Mutex()
     private val activityReaders = CopyOnWriteArraySet<MainActivity>()
@@ -91,6 +97,8 @@ class MirraApplication : Application(), BackupStorageHost {
     ) {
         val selected = checkNotNull(generation.selected)
         selected.startup.await()
+        if (presentation == StoragePresentation.OPEN)
+            selected.wearableSnapshotSource.let { wearableCompanion.bindSource(it) }
         withContext(Dispatchers.Main.immediate) {
             currentRuntime = checkNotNull(generation.runtime)
             RestoreFileAccess.blocked = false
@@ -99,6 +107,7 @@ class MirraApplication : Application(), BackupStorageHost {
     }
 
     private suspend fun closeStorageGenerations() = withContext(NonCancellable) {
+        wearableCompanion.pauseSource()
         for (generation in storageGenerations.toList()) {
             val selected = generation.selected
             if (selected != null) selected.closeStorageOwners()
@@ -115,6 +124,7 @@ class MirraApplication : Application(), BackupStorageHost {
     }
 
     private fun showStorageBlocked() {
+        wearableScope.launch { wearableCompanion.pauseSource() }
         RestoreFileAccess.blocked = true
         mutableStorageState.value = AppStorageState(StoragePresentation.BLOCKED)
     }
@@ -137,6 +147,7 @@ class MirraApplication : Application(), BackupStorageHost {
         }
     }
     override suspend fun setMaintenanceBusy(busy: Boolean) {
+        if (busy) wearableCompanion.pauseSource()
         withContext(Dispatchers.Main.immediate) {
             val state = mutableStorageState.value
             if (state.phase in setOf(StoragePresentation.OPEN, StoragePresentation.BUSY)) {
@@ -145,6 +156,9 @@ class MirraApplication : Application(), BackupStorageHost {
                     statusMessage = if (busy) null else state.statusMessage,
                 )
             }
+        }
+        if (!busy && mutableStorageState.value.phase == StoragePresentation.OPEN) {
+            mutableStorageState.value.container?.wearableSnapshotSource?.let { wearableCompanion.bindSource(it) }
         }
     }
     override suspend fun runRestore(block: suspend () -> Unit) {

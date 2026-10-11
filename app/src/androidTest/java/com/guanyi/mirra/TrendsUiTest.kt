@@ -76,6 +76,7 @@ class TrendsUiTest {
             rule.onNodeWithText("1 个学习意图仍在进行，不计入转化率").assertExists()
             scrollTo("已确认稳定开始")
             rule.onNodeWithTag("trend-stable-confirmed").assertTextEquals("3 次")
+            rule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("trend-stable-unconfirmed"))
             rule.onNodeWithTag("trend-stable-unconfirmed").assertTextEquals("6 次")
             scrollTo("典型稳定耗时")
             rule.onNodeWithTag("trend-stable-latency").assertTextEquals("2 分钟")

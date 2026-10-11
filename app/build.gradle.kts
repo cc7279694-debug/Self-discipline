@@ -1,3 +1,5 @@
+import java.security.MessageDigest
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
@@ -22,8 +24,8 @@ android {
         applicationId = "com.guanyi.mirra"
         minSdk = 23
         targetSdk = 37
-        versionCode = 3
-        versionName = "1.1.0"
+        versionCode = 4
+        versionName = "1.1.1-band-readonly"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -62,7 +64,26 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+val wearableSdkFile = rootProject.file(".local/vendor/xms-wearable-lib_1.4_release.aar")
+val verifyWearableSdk = tasks.register("verifyWearableSdk") {
+    inputs.file(wearableSdkFile)
+    doLast {
+        check(wearableSdkFile.isFile) {
+            "Official wearable SDK missing: run scripts/fetch-wearable-sdk.ps1 (no stub fallback)."
+        }
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(wearableSdkFile.readBytes()).joinToString("") { "%02x".format(it) }
+        check(digest == "9c40fd1c5409bb948523d503af71e2978ae522c35636afe7d64f474c0f6bc195") {
+            "Official wearable SDK checksum changed; inspect it before building."
+        }
+    }
+}
+tasks.named("preBuild").configure { dependsOn(verifyWearableSdk) }
+
 dependencies {
+    // Official Interconnect appendix AAR; fetched/checksummed locally, never a community stub.
+    // See scripts/fetch-wearable-sdk.ps1 before building on a fresh checkout.
+    implementation(files(wearableSdkFile))
     // Reuse the existing serialization runtime version for the strict portable backup format.
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
     val composeBom = platform(libs.androidx.compose.bom)

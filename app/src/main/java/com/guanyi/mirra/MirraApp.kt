@@ -73,6 +73,7 @@ import com.guanyi.mirra.navigation.GlobalReadingHistoryRoute
 import com.guanyi.mirra.navigation.TrendsRoute
 import com.guanyi.mirra.navigation.DataManagementRoute
 import com.guanyi.mirra.navigation.LearningProtectionRoute
+import com.guanyi.mirra.navigation.WearableCompanionRoute
 import com.guanyi.mirra.navigation.CreateTopicRoute
 import com.guanyi.mirra.data.search.SearchDocumentType
 import com.guanyi.mirra.ui.viewModelFactory
@@ -219,6 +220,7 @@ fun MirraApp(
                             onOpenTrends = { open(TrendsRoute) },
                             onOpenDataManagement = { open(DataManagementRoute) },
                             onOpenLearningProtection = { open(LearningProtectionRoute) },
+                            onOpenWearableCompanion = { open(WearableCompanionRoute) },
                         )
                     }
                 }
@@ -263,6 +265,10 @@ fun MirraApp(
                         crossAppActions = container.crossAppInterventionActions,
                         onBack = ::back,
                     )
+                }
+                entry<WearableCompanionRoute> {
+                    com.guanyi.mirra.feature.wearable.WearableSettingsScreen(
+                        (appContext as? MirraApplication)?.wearableCompanion, onBack = ::back)
                 }
                 entry<CreateLearningItemRoute> {
                     CreateLearningItemScreen(

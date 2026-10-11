@@ -19,6 +19,7 @@ import kotlinx.serialization.Serializable
 @Serializable data object TrendsRoute : NavKey
 @Serializable data object DataManagementRoute : NavKey
 @Serializable data object LearningProtectionRoute : NavKey
+@Serializable data object WearableCompanionRoute : NavKey
 @Serializable data class ImagePreviewRoute(val noteId: String, val initialImageId: String) : NavKey
 @Serializable data class PreparationRoute(val intentId: String) : NavKey
 @Serializable data class SessionRoute(val sessionId: String) : NavKey

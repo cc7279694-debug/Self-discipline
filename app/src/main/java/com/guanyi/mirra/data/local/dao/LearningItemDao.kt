@@ -28,6 +28,9 @@ interface LearningItemDao {
     @Query("SELECT * FROM learning_items WHERE mainlineSlot = 1 LIMIT 1")
     fun observeMainline(): Flow<LearningItemEntity?>
 
+    @Query("SELECT * FROM learning_items WHERE mainlineSlot = 1 LIMIT 1")
+    suspend fun getMainline(): LearningItemEntity?
+
     @Query("UPDATE learning_items SET mainlineSlot = NULL, updatedAt = :updatedAt WHERE mainlineSlot IS NOT NULL")
     suspend fun clearMainline(updatedAt: Long)
 
