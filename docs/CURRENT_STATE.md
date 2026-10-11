@@ -2,6 +2,24 @@
 
 更新日期：2026-10-11
 
+## Current delivery — Mirra Band Module 03 read-only bridge
+
+**MODULE_03_DEV_COMPLETE_AWAITING_DEVICE_ACCEPTANCE**。本轮用户已授权只读通信桥、手环设置和必要生命周期接线；Android 分支 `codex/mirra-band-readonly-bridge` 从实际 V1.1 验证交接提交 `1338b9a4e41788082f30bf3894a974c2ff652630` 创建，版本 `1.1.1-band-readonly` / code `4`。继承 V1.1 当前代码与保护边界，未从旧 main / 初始基线重新开始。开发与适用本地门禁已完成，等待目标真机验收；不表示正式手机—腕端链路已经验证。下方 V1.1 及更早章节保留原交付历史，不覆盖本轮授权或当前状态。
+
+已实现默认关闭的应用级只读伴侣、官方 SDK 消息适配、严格白名单协议与 Mine 设置入口。开关位于 `noBackupFilesDir` 的 AtomicFile，不进入 Room 或 Full Backup v1。快照读取绑定数据库实例与存储代际，在维护/退休时取消并排空；SDK 发送在事务与维护锁外。查询优先级为活动 Session → 活动 Intent → 经当前设备验证跟随的结束 Session → 主线书籍；读取失败不能伪造 IDLE，恢复/断连不能冒充业务新鲜度。
+
+最终源码构建已实际完成：**3m41s / exit 0**；全量 JVM **711/711 PASS，80 suites，0 failure / error / skip**；debug APK / test APK 均已构建，当前 APK **17,094,969 bytes**。最终 lint 报告已实际核对为 **0 errors / 20 warnings / 1 hint**，比 V1.1 报告多两项既有 serialization 1.8.1 依赖的版本更新及 version catalog 建议，依赖版本未改。定向验证曾实际通过 44 项 JVM 与隔离 `emulator-5580` 的 5 项 Reader 测试，其中十二张权威表读取前后完全一致。
+
+最终代码审查新增三项 Coordinator 回归：编码失败不得登记跟随 Session 或刷新完整同步时间；一次快照复用同次 observedAt；Busy / Unavailable 显示诊断并保留确认时间，成功恢复后清错。实际定向 **12 tests / 3 failures RED → 12/12 GREEN**；仅在完整编码与 SDK 发送成功后更新跟随与同步时间，并复核源实例、代际和开关。设置页不再同时显示源不可用与“可读取”。
+
+两次未过滤 connected 失败均保留：首次 **500 discovered / 483 actual PASS / 8 actual failures / 9 opt-in assumptions，14m36s**，新专用 AVD 的 1080px / 440dpi 宿主不足以容纳 411dp 测试容器；仅修正该隔离 AVD 的密度为 420dpi，未改源码或断言。第二次 **500 discovered / 490 actual PASS / 1 actual failure / 9 opt-in assumptions，15m41s**，Trends 测试只滚动前一 LazyColumn 行便断言未组合的相邻行；现只加一行对目标 tag 的明确滚动，保留原“6 次”断言，不改产品布局。9 项 assumptions 均未计入 PASS。
+
+最终修复后的源码已完成单次未过滤 connected 门禁（session 42601）：**14m32s，500 discovered / 491 actual PASS / 9 opt-in assumptions / 0 actual failure / error / native skipped，500 个唯一方法完整结束**。9 项显式阶段 fixture 前提未满足，继续 Not Run，不计作通过；不得写成 500/500 PASS。本结果来自最终完整运行，不拼接定向测试或此前失败轮次。
+
+隔离 Android API37 的实际运行界面已验证：伴侣默认关闭、用户主动同意、缺少小米服务时明确报错，以及关闭后冷启动仍保持关闭。三张实际 Android 截图维护在 Mirra Band 统一[截图目录](https://github.com/cc7279694-debug/mirra-band/tree/codex/module-03-readonly-companion/docs/evidence/module-03/screenshots)；它们不是腕端画面或真实 SDK 链路成功证据。两次冷启动单次观测为 **1,946ms / 1,934ms**，仅说明该次运行，不作为性能基准或真机承诺。
+
+Room v4、Schema 1–4、Migration、学习/监测/Closeout 算法、Full Backup 格式和手机签名身份保持不变。目标真机官方 SDK 消息往返、手机锁屏主场景、正式腕端实际画面、息屏通信及耗电：**Not Run，等待用户稍后连接设备并执行已授权的验证**。不得声称端到端可用、验收完成或进入 Module 04。配套合同与统一证据维护在 Mirra Band 分支 `codex/module-03-readonly-companion` 的[合同](https://github.com/cc7279694-debug/mirra-band/blob/codex/module-03-readonly-companion/docs/plans/MIRRA_BAND_MODULE_03_COMPLETE_PLAN.md)和[证据目录](https://github.com/cc7279694-debug/mirra-band/tree/codex/module-03-readonly-companion/docs/evidence/module-03)；本仓库不重复创建冻结文档。
+
 ## Current delivery — V1.1 core experience
 
 **V1.1 complete / awaiting independent review, not accepted/frozen.** Branch `codex/v1-1-core-experience` starts from actual newer parent `785d2acb4d3bbcfa8ebc4220b40b4ccd2799e6c5`, descended from the user-known V1 `b005ed1d85afd8f7abef15d6be65d39898f637fc`. Remote branch heads were checked; prior trends/action work is preserved. Commit/Push after verification is authorized, not main merge/release/V2.

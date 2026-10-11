@@ -65,6 +65,14 @@ UI → Application / Service → Repository → Room / SQLite + DataStore + App-
 - Android 权限与厂商限制必须提供降级路径。
 - 按 Phase 交付，当前阶段之外的能力不得主动加入。
 
+## Optional Mirra Band Read-only Companion
+
+Mirra Band Module 03 获用户明确授权，在独立 Android 分支 `codex/mirra-band-readonly-bridge` 继承 V1.1 验证交接提交 `1338b9a4e41788082f30bf3894a974c2ff652630`，新增只读通信桥、Mine 中的手环设置与必要的应用生命周期接线。手机 Room 仍是学习事实的唯一来源；腕端仅查看当前书籍、动作、页码、状态与展示时间，不启动、结束或改变真实 Intent / Session。
+
+伴侣默认关闭。开关通过 `noBackupFilesDir` 下的 AtomicFile 保存，不加入 Room 或 Full Backup v1 的四项便携设置。开启后才延迟创建官方 Xiaomi Wear SDK API；监听由独立应用级 SupervisorJob 管理。读取绑定原数据库与存储代际，维护前取消并排空旧请求，SDK 操作在 Room / 维护锁外执行；监测 coverage、当前可用性、蓝牙连接和快照新鲜度分别表达。
+
+本轮不改学习算法、Room Schema / Migration、备份格式、手机签名身份或用户数据，不新增云服务、账号或保活服务。官方 SDK 已实际编译，不等于目标设备的消息往返或锁屏可达性已通过；真机部分须另有实际证据。完整[合同](https://github.com/cc7279694-debug/mirra-band/blob/codex/module-03-readonly-companion/docs/plans/MIRRA_BAND_MODULE_03_COMPLETE_PLAN.md)与统一[证据目录](https://github.com/cc7279694-debug/mirra-band/tree/codex/module-03-readonly-companion/docs/evidence/module-03)由 Mirra Band 功能分支维护；不在手机仓库复制 checkpoint。
+
 ## V1 Non-Goals
 
 V1 不实现登录、云同步、Supabase、服务器、Web App、iOS、AI、OCR、PDF 阅读器、重型 Block Editor、完整知识图谱、FSRS、游戏化系统、统一注意力评分或无障碍服务式强锁手机。

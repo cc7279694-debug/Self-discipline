@@ -1,5 +1,29 @@
 # Decisions
 
+## 2026-10-11 — Mirra Band Module 03 只读伴侣与存储代际隔离
+
+### Decision
+
+按用户明确授权，从 V1.1 验证交接提交 `1338b9a4e41788082f30bf3894a974c2ff652630` 在独立分支接入默认关闭的只读手环伴侣。仅允许 HELLO / GET_SNAPSHOT 与对应完整白名单快照、诊断状态；不增加真实 Intent / Session 控制命令。官方 Xiaomi Wear SDK 已取得并实际编译，接口以当前 AAR 为准。
+
+开关使用 `noBackupFilesDir` 的 AtomicFile，保持设备本地，不进入 Room Schema 或 Full Backup v1。监听归独立应用级 SupervisorJob 所有；源读取捕获数据库实例、startup 和 StorageMaintenanceGate，维护前取消并排空旧请求，退休 owner 不查找新数据库或重开旧数据库。Room 短只读事务与 SDK 调用分离，当前活动 Session / Intent 优先于旧跟随结果。
+
+### Context
+
+Mirra Band Module 02 真机基础测试已由用户确认通过，但 Module 03 的正式手机 SDK 消息往返与锁屏可达性仍需目标设备验证。当前用户授权覆盖本次窄范围桥接、设置和生命周期接线，未授权学习算法、Room Schema、备份格式、手机签名身份或用户数据变更。
+
+### Alternatives
+
+将通信监听绑定 Compose 页面的进入/退出；把便携偏好或 Room 当设备授权设置；回调默认读取最新资源 owner；断连后用演示数据替代正式快照；新增保活 FGS。均不采用。
+
+### Reason
+
+单一监听 owner、严格协议归属和存储代际门禁能在现有架构内提供最小只读通道，避免数据维护期间旧请求泄漏、退役数据库复活和模拟数据冒充真实状态。伴侣授权与学习事实分开，不扩大既有业务或系统权限边界。
+
+### Consequences
+
+监测 coverage、当前监测可用性、服务/授权/连接、握手和完整快照新鲜度分别展示。读取异常返回诊断，不制造零计时或 IDLE；SDK 不确定释放时保守保持不可用，不能通过自动新 owner 绕过。真实目标设备消息、锁屏和耗电未经验证前保持 Not Run；不由 JVM fixture 或 API37 AVD 外推。完整[合同](https://github.com/cc7279694-debug/mirra-band/blob/codex/module-03-readonly-companion/docs/plans/MIRRA_BAND_MODULE_03_COMPLETE_PLAN.md)与统一[证据目录](https://github.com/cc7279694-debug/mirra-band/tree/codex/module-03-readonly-companion/docs/evidence/module-03)由 Mirra Band 功能分支维护，手机仓库不重复创建 checkpoint。
+
 ## 2026-10-11 — V1.1 启动确认、保护状态和原图
 
 ### Decision
