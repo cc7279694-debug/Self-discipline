@@ -50,7 +50,7 @@ class NotificationInterventionPresenter(private val context: Context, private va
         val request = InterventionNavigationRequest(prompt.sessionId, prompt.promptToken, InterventionNavigationAction.VIEW)
         val intent = InterventionActivityIntents.pendingIntent(context, request)
         val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(context, CHANNEL_ID) else Notification.Builder(context)
-        manager.notify(NOTIFICATION_ID, builder.setSmallIcon(R.drawable.ic_launcher)
+        manager.notify(NOTIFICATION_ID, builder.setSmallIcon(R.drawable.ic_mirra_notification)
             .setContentTitle("还在读《${bookName()}》").setContentText("返回 Mirra 继续本次学习")
             .setContentIntent(intent).setOnlyAlertOnce(true).setAutoCancel(true)
             .addAction(Notification.Action.Builder(null, "查看", intent).build()).build())

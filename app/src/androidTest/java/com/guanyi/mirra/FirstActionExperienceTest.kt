@@ -8,10 +8,13 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -24,6 +27,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.guanyi.mirra.data.local.entity.LearningItemEntity
 import com.guanyi.mirra.data.local.entity.LearningItemStatus
 import com.guanyi.mirra.data.local.entity.StudyIntentEntity
+import com.guanyi.mirra.data.local.entity.IntentOutcome
+import com.guanyi.mirra.domain.IntentExpiryPolicy
 import com.guanyi.mirra.feature.knowledge.CreateLearningItemScreen
 import com.guanyi.mirra.feature.knowledge.CreateLearningItemViewModel
 import com.guanyi.mirra.feature.session.PreparationScreen
@@ -53,7 +58,7 @@ class FirstActionExperienceTest {
         container.close()
     }
 
-    @Test fun createBookRequiresExplicitChoiceAndCapturesControlledScreen() = createAt(360, 1f, capture = true)
+    @Test fun createBookAcceptsOptionalActionAndCapturesControlledScreen() = createAt(360, 1f, capture = true)
     @Test fun createActionAndExitRemainReachableAt320dpDoubleFont() = createAt(320, 2f)
 
     private fun createAt(width: Int, fontScale: Float, capture: Boolean = false) {
@@ -67,7 +72,7 @@ class FirstActionExperienceTest {
         } }
         input("书名", "第一步测试书")
         input("总页数", "200")
-        rule.onNode(hasText("创建") and hasClickAction()).performScrollTo().assertIsNotEnabled()
+        rule.onNode(hasText("创建") and hasClickAction()).performScrollTo().assertIsEnabled()
         assertTrue(runBlocking { container.database.learningItemDao().listAll() }.isEmpty())
         input("第一步动作", "今天读30页")
         rule.onNode(hasText("创建") and hasClickAction()).performScrollTo().assertIsNotEnabled()
@@ -80,6 +85,19 @@ class FirstActionExperienceTest {
         rule.waitUntil(5_000) { created != null }
         val item = runBlocking { container.learningItemRepository.get(requireNotNull(created)) }
         assertEquals("翻到第 1 页，读这一页的第一段。", item?.firstAction)
+        assertNull(runBlocking { container.studyWorkflowRepository.observeActiveIntent().first() })
+        assertNull(runBlocking { container.studyWorkflowRepository.observeActiveSession().first() })
+    }
+
+    @Test fun bookCanBeCreatedWithoutActionAndDefersChoiceUntilStart() {
+        val vm = CreateLearningItemViewModel(container.learningItemRepository).also(scopes::add)
+        var created: String? = null
+        rule.setContent { MirraTheme { CreateLearningItemScreen(vm, { created = it }, {}) } }
+        input("书名", "先添加再开始")
+        input("总页数", "100")
+        rule.onNode(hasText("创建") and hasClickAction()).performScrollTo().performClick()
+        rule.waitUntil(5_000) { created != null }
+        assertEquals("", runBlocking { container.learningItemRepository.get(requireNotNull(created)) }?.firstAction)
         assertNull(runBlocking { container.studyWorkflowRepository.observeActiveIntent().first() })
         assertNull(runBlocking { container.studyWorkflowRepository.observeActiveSession().first() })
     }
@@ -142,8 +160,68 @@ class FirstActionExperienceTest {
     @Test fun preparationUsesChosenActionAndCapturesControlledScreen() = preparationAt(360, 1f, capture = true)
     @Test fun preparationActionsRemainReachableAt320dpDoubleFont() = preparationAt(320, 2f)
 
-    @Test fun legacyBlankActiveIntentKeepsAVisibleActionAndCanBeExplicitlyCompleted() = legacyPreparation("")
-    @Test fun legacyGeneratedActiveIntentKeepsAVisibleActionAndCanBeExplicitlyCompleted() =
+    @Test fun preparationShowsWaitFromOriginalIntentCreation() {
+        val item = runBlocking { container.learningItemRepository.create("等待时间", 100, 9, "把书放到桌上。") }
+        val intent = runBlocking { container.studyWorkflowRepository.createIntent(item.id) }
+        val vm = PreparationViewModel(intent.id, container.studyWorkflowRepository, container.learningItemRepository,
+            container.sessionStartCoordinator, clock = { intent.createdAt + 185_000 }).also(scopes::add)
+        rule.setContent { MirraTheme { PreparationScreen(vm, {}, {}, {}) } }
+        await("已等待 3 分 5 秒")
+        assertNull(runBlocking { container.studyWorkflowRepository.observeActiveSession().first() })
+        assertEquals(intent.createdAt, runBlocking { container.database.intentDao().get(intent.id) }?.createdAt)
+        rule.onNodeWithText("取消本次启动").performScrollTo().performClick()
+        rule.waitUntil(5_000) { runBlocking { container.studyWorkflowRepository.observeActiveIntent().first() } == null }
+    }
+
+    @Test fun expiredConcreteActionConfirmationUsesExistingRoomTimeoutAndCreatesNoSession() {
+        val item = runBlocking { container.learningItemRepository.create("超时准备", 100, 9, "把书放到桌上。") }
+        val createdAt = System.currentTimeMillis() - IntentExpiryPolicy.DEFAULT_TIMEOUT_MILLIS - 2_000
+        val intent = StudyIntentEntity("expired-confirmation", item.id, createdAt, createdAt + 100, null, null, null, 1)
+        runBlocking { container.database.intentDao().insert(intent) }
+        val vm = PreparationViewModel(intent.id, container.studyWorkflowRepository, container.learningItemRepository,
+            container.sessionStartCoordinator).also(scopes::add)
+        rule.setContent { MirraTheme { PreparationScreen(vm, {}, {}, {}) } }
+        rule.waitUntil(5_000) { vm.uiState.value.intent != null }
+        rule.onNodeWithText("编辑第一步").performScrollTo().assertIsNotEnabled()
+        rule.onNodeWithText("我已完成这一步，开始阅读").performScrollTo().assertIsEnabled().performClick()
+        rule.waitUntil(5_000) {
+            runBlocking { container.database.intentDao().get(intent.id) }?.outcome == IntentOutcome.TIMEOUT
+        }
+        val settled = runBlocking { container.database.intentDao().get(intent.id) }
+        assertEquals(intent.createdAt, settled?.createdAt)
+        assertEquals(intent.transitionedAt, settled?.transitionedAt)
+        assertNull(settled?.convertedAt)
+        assertNull(settled?.activeSlot)
+        assertTrue(runBlocking { container.database.sessionDao().listAll() }.isEmpty())
+        assertEquals(item, runBlocking { container.learningItemRepository.get(item.id) })
+    }
+
+    @Test fun preparationDraftSurvivesSavedInstanceStateRecreationWithoutChangingFacts() {
+        val item = runBlocking { container.learningItemRepository.create("准备草稿", 100, 9, "把书放到桌上。") }
+        val intent = runBlocking { container.studyWorkflowRepository.createIntent(item.id) }
+        val vm = PreparationViewModel(intent.id, container.studyWorkflowRepository, container.learningItemRepository,
+            container.sessionStartCoordinator).also(scopes::add)
+        val restoration = StateRestorationTester(rule)
+        restoration.setContent { MirraTheme { PreparationScreen(vm, {}, {}, {}) } }
+        rule.waitUntil(5_000) { vm.uiState.value.intent != null &&
+            runBlocking { container.database.intentDao().get(intent.id) }?.transitionedAt != null }
+        val originalIntent = runBlocking { container.database.intentDao().get(intent.id) }
+        rule.onNodeWithText("编辑第一步").performScrollTo().performClick()
+        val draft = "站起来，翻到第 9 页读第一段。"
+        rule.onNode(hasText("第一步动作") and hasSetTextAction()).performTextReplacement(draft)
+        restoration.emulateSavedInstanceStateRestore()
+        rule.onNode(hasText("第一步动作") and hasSetTextAction()).assertTextContains(draft)
+        assertEquals(item, runBlocking { container.learningItemRepository.get(item.id) })
+        assertEquals(originalIntent, runBlocking { container.database.intentDao().get(intent.id) })
+        assertTrue(runBlocking { container.database.sessionDao().listAll() }.isEmpty())
+        rule.onNodeWithText("保存动作").performClick()
+        rule.waitUntil(5_000) { runBlocking { container.learningItemRepository.get(item.id) }?.firstAction == draft }
+        assertEquals(originalIntent, runBlocking { container.database.intentDao().get(intent.id) })
+        assertTrue(runBlocking { container.database.sessionDao().listAll() }.isEmpty())
+    }
+
+    @Test fun legacyBlankActiveIntentRequiresExplicitRepairBeforeCompletion() = legacyPreparation("")
+    @Test fun legacyGeneratedActiveIntentRequiresExplicitRepairBeforeCompletion() =
         legacyPreparation("拿起《旧版准备书》，翻到第 1 页。")
 
     private fun legacyPreparation(action: String) {
@@ -156,13 +234,48 @@ class FirstActionExperienceTest {
         val vm = PreparationViewModel(intent.id, container.studyWorkflowRepository, container.learningItemRepository,
             container.sessionStartCoordinator).also(scopes::add)
         rule.setContent { MirraTheme { PreparationScreen(vm, {}, {}, {}) } }
-        await("拿起《旧版准备书》，翻到第 8 页。")
+        await("我已完成这一步，开始阅读")
+        rule.onNodeWithText("我已完成这一步，开始阅读").performScrollTo().assertIsNotEnabled()
         assertNull(runBlocking { container.studyWorkflowRepository.observeActiveSession().first() })
         assertEquals(action, runBlocking { container.learningItemRepository.get(item.id) }?.firstAction)
+        rule.onNodeWithText("确定第一步").performScrollTo().performClick()
+        rule.onNodeWithText("使用建议动作").performScrollTo().performClick()
+        rule.onNodeWithText("保存动作").performClick()
+        val chosen = "翻到第 8 页，读这一页的第一段。"
+        rule.waitUntil(5_000) { runBlocking { container.learningItemRepository.get(item.id) }?.firstAction == chosen }
+        val transitioned = runBlocking { container.database.intentDao().get(intent.id) }
+        assertEquals(intent.id, transitioned?.id)
+        assertEquals(intent.createdAt, transitioned?.createdAt)
+        assertNull(transitioned?.convertedAt)
+        assertNull(transitioned?.outcome)
+        assertNull(runBlocking { container.studyWorkflowRepository.observeActiveSession().first() })
+        rule.onNodeWithText(chosen).performScrollTo().assertExists()
         rule.onNodeWithText("我已完成这一步，开始阅读").performScrollTo().performClick()
         rule.waitUntil(5_000) { runBlocking { container.studyWorkflowRepository.observeActiveSession().first() } != null }
         assertEquals(intent.createdAt, runBlocking { container.database.intentDao().get(intent.id) }?.createdAt)
         assertEquals(1, runBlocking { container.database.sessionDao().listAll().size })
+    }
+
+    @Test fun chosenActionCanBeEditedDuringPreparationWithoutReplacingIntent() {
+        val item = runBlocking { container.learningItemRepository.create("准备时修改", 100, 9, "把书放到桌上。") }
+        val intent = runBlocking { container.studyWorkflowRepository.createIntent(item.id) }
+        val vm = PreparationViewModel(intent.id, container.studyWorkflowRepository, container.learningItemRepository,
+            container.sessionStartCoordinator).also(scopes::add)
+        rule.setContent { MirraTheme { PreparationScreen(vm, {}, {}, {}) } }
+        await("编辑第一步")
+        rule.waitUntil(5_000) { runBlocking { container.database.intentDao().get(intent.id) }?.transitionedAt != null }
+        val originalIntent = runBlocking { container.database.intentDao().get(intent.id) }
+        rule.onNodeWithText("编辑第一步").performScrollTo().performClick()
+        val edited = "翻到第 9 页，读这一页的第一段。"
+        rule.onNode(hasText("第一步动作") and hasSetTextAction()).performTextReplacement(edited)
+        rule.onNodeWithText("保存动作").performClick()
+        rule.waitUntil(5_000) { runBlocking { container.learningItemRepository.get(item.id) }?.firstAction == edited }
+        assertEquals(originalIntent, runBlocking { container.database.intentDao().get(intent.id) })
+        assertNull(runBlocking { container.studyWorkflowRepository.observeActiveSession().first() })
+        rule.onNodeWithText(edited).performScrollTo().assertExists()
+        rule.onNodeWithText("我已完成这一步，开始阅读").performScrollTo().performClick()
+        rule.waitUntil(5_000) { runBlocking { container.studyWorkflowRepository.observeActiveSession().first() } != null }
+        assertEquals(intent.id, runBlocking { container.studyWorkflowRepository.observeActiveSession().first() }?.intentId)
     }
 
     private fun preparationAt(width: Int, fontScale: Float, capture: Boolean = false) {

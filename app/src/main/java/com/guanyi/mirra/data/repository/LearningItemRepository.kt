@@ -7,6 +7,7 @@ import com.guanyi.mirra.data.local.entity.LearningItemStatus
 import com.guanyi.mirra.data.search.SearchIndexWriter
 import com.guanyi.mirra.domain.DefaultSearchEngine
 import com.guanyi.mirra.domain.FirstActionResolver
+import com.guanyi.mirra.domain.IntentExpiryPolicy
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 
@@ -23,6 +24,7 @@ interface LearningItemRepository {
         setAsMainline: Boolean = false,
     ): LearningItemEntity
     suspend fun updateFirstAction(id: String, firstAction: String): LearningItemEntity
+    suspend fun updatePreparationFirstAction(intentId: String, firstAction: String): LearningItemEntity
     suspend fun setMainline(id: String)
     suspend fun pause(id: String): LearningItemEntity
     suspend fun resume(id: String): LearningItemEntity
@@ -34,6 +36,7 @@ class DefaultLearningItemRepository(
     private val clock: () -> Long = System::currentTimeMillis,
     private val newId: () -> String = { UUID.randomUUID().toString() },
     private val searchIndexWriter: SearchIndexWriter = SearchIndexWriter(database, DefaultSearchEngine()),
+    private val expiryPolicy: IntentExpiryPolicy = IntentExpiryPolicy(),
 ) : LearningItemRepository {
     private val dao = database.learningItemDao()
     private val intentDao = database.intentDao()
@@ -55,7 +58,9 @@ class DefaultLearningItemRepository(
         require(cleanName.isNotEmpty()) { "名称不能为空" }
         require(totalPages > 0) { "总页数必须大于 0" }
         require(currentPage in 1..totalPages) { "当前页必须在书籍范围内" }
-        val chosenAction = FirstActionResolver.requireChosen(firstAction)
+        val chosenAction = firstAction?.trim().orEmpty().let { action ->
+            if (action.isEmpty()) "" else FirstActionResolver.requireChosen(action)
+        }
         val now = clock()
         if (setAsMainline) dao.clearMainline(now)
         LearningItemEntity(
@@ -82,6 +87,20 @@ class DefaultLearningItemRepository(
             val chosenAction = FirstActionResolver.requireChosen(firstAction)
             check(dao.updateFirstAction(id, chosenAction, clock()) == 1) { "更新起步动作失败" }
             checkNotNull(dao.get(id))
+        }
+
+    override suspend fun updatePreparationFirstAction(intentId: String, firstAction: String): LearningItemEntity =
+        database.withTransaction {
+            val intent = checkNotNull(intentDao.getActive()?.takeIf { it.id == intentId }) { "这次启动已结束，请重新准备" }
+            check(intent.outcome == null && intent.convertedAt == null && intent.endedAt == null) { "这次启动已结束" }
+            val now = clock()
+            check(!expiryPolicy.isExpired(intent.createdAt, now)) { "这次准备已过期，请取消后重新开始" }
+            check(sessionDao.getActive() == null) { "请先结束当前阅读" }
+            val item = checkNotNull(dao.get(intent.learningItemId)) { "Learning Item 不存在" }
+            check(item.status == LearningItemStatus.IN_PROGRESS) { "只有进行中的内容可以开始" }
+            val chosenAction = FirstActionResolver.requireChosen(firstAction)
+            check(dao.updateFirstAction(item.id, chosenAction, now) == 1) { "更新第一步动作失败" }
+            checkNotNull(dao.get(item.id))
         }
 
     override suspend fun setMainline(id: String) {

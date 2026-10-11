@@ -44,6 +44,7 @@ import com.guanyi.mirra.feature.knowledge.SearchScreen
 import com.guanyi.mirra.feature.knowledge.SearchViewModel
 import com.guanyi.mirra.feature.knowledge.SessionSearchDetailScreen
 import com.guanyi.mirra.feature.profile.ProfileScreen
+import com.guanyi.mirra.feature.profile.LearningProtectionScreen
 import com.guanyi.mirra.feature.session.PreparationScreen
 import com.guanyi.mirra.feature.session.PreparationViewModel
 import com.guanyi.mirra.feature.session.SessionScreen
@@ -71,6 +72,7 @@ import com.guanyi.mirra.navigation.SessionSearchDetailRoute
 import com.guanyi.mirra.navigation.GlobalReadingHistoryRoute
 import com.guanyi.mirra.navigation.TrendsRoute
 import com.guanyi.mirra.navigation.DataManagementRoute
+import com.guanyi.mirra.navigation.LearningProtectionRoute
 import com.guanyi.mirra.navigation.CreateTopicRoute
 import com.guanyi.mirra.data.search.SearchDocumentType
 import com.guanyi.mirra.ui.viewModelFactory
@@ -94,8 +96,9 @@ fun MirraApp(
     onDataRestored: () -> Unit = {},
 ) {
     val appContext = LocalContext.current.applicationContext
+    val monitoring = (appContext as? MirraApplication)?.monitoringPlatformOrNull
     val debugMonitoring = if (appContext.isMirraDebuggable())
-        (appContext as? MirraApplication)?.monitoringPlatformOrNull else null
+        monitoring else null
     val backStack = rememberNavBackStack(TopLevelDestination.Start)
     var selectedDestination by remember { mutableStateOf(TopLevelDestination.Start) }
     var externalRequest by remember { mutableStateOf<InterventionNavigationRequest?>(null) }
@@ -215,6 +218,7 @@ fun MirraApp(
                             onOpenReadingHistory = { open(GlobalReadingHistoryRoute) },
                             onOpenTrends = { open(TrendsRoute) },
                             onOpenDataManagement = { open(DataManagementRoute) },
+                            onOpenLearningProtection = { open(LearningProtectionRoute) },
                         )
                     }
                 }
@@ -248,6 +252,16 @@ fun MirraApp(
                             onDataRestored()
                             select(TopLevelDestination.Start, persist = false)
                         },
+                    )
+                }
+                entry<LearningProtectionRoute> {
+                    LearningProtectionScreen(
+                        runtime = monitoring,
+                        workflow = container.studyWorkflowRepository,
+                        focusRepository = container.focusRepository,
+                        dndActions = container.dndUserActions,
+                        crossAppActions = container.crossAppInterventionActions,
+                        onBack = ::back,
                     )
                 }
                 entry<CreateLearningItemRoute> {
@@ -468,6 +482,7 @@ fun MirraApp(
                         onBack = { select(TopLevelDestination.Start, persist = true) },
                         externalRequest = externalRequest?.takeIf { it.sessionId == route.sessionId },
                         onExternalRequestHandled = { externalRequest = null },
+                        onOpenLearningProtection = { open(LearningProtectionRoute) },
                         onPromptComposed = { prompt -> (appContext as? MirraApplication)?.monitoringPlatform
                             ?.interventionChannels?.inAppComposed(prompt) },
                     )

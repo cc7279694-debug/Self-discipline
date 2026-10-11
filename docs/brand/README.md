@@ -1,4 +1,14 @@
-# Mirra Brand Refresh v1 — Inner Window
+# Mirra approved original — V1.1
+
+The user directly confirmed `mirra-approved-original.png` on 2026-10-11. Runtime color resources now use that exact image's graphic, not the later vector adaptation. The source contains no lettering; no text removal is claimed. See [source and pixel-preservation evidence](APPROVED_ORIGINAL.md) and [deterministic manifest](approved-original-manifest.json).
+
+Only the exterior background becomes transparent. Interior source RGB, door, texture and threshold light are retained in the master. Density variants use uniform scaling; monochrome/notification white ink is derived from the same source's dark pixels. Adaptive and static Splash share the color artwork and a source-sampled warm white `#FDFDF8`. Mirra Blue UI tokens do not change.
+
+`inner-window.svg` remains only as a historical, superseded adaptation; it is not the original or a runtime resource. Existing Android geometry, mask, transparency, tint and Splash assertions are rerun for the raster artwork, not inherited from the vector results.
+
+## Historical adaptation (superseded; not the current original-source contract)
+
+The following records the former vector adaptation. Its removal of material texture is exactly the difference corrected in V1.1; it must not be described as preserving the approved original pixels.
 
 Approved brand concept: **静心之窗 / Inner Window**. “打开一扇门，进入专注，也进入自己。”
 

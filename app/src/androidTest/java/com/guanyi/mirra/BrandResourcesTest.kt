@@ -11,6 +11,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.AdaptiveIconDrawable
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Animatable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.LayerDrawable
@@ -49,6 +50,17 @@ class BrandResourcesTest {
         get() = targetContext.getColor(R.color.mirra_brand_background)
 
     @Test
+    fun approvedOriginalUsesDensityAwareRasterInsteadOfTheLaterVectorRedraw() {
+        assertTrue("The confirmed original must be preserved as raster artwork",
+            drawable(R.drawable.ic_mirra_foreground) is BitmapDrawable)
+        withBitmap(render(drawable(R.drawable.ic_mirra_foreground), 256)) { bitmap ->
+            assertTransparentEdges(bitmap, "approved original")
+            assertTrue("Original material/light must not be reduced to flat vector planes",
+                pixels(bitmap).filter { Color.alpha(it) == 255 }.toSet().size > 64)
+        }
+    }
+
+    @Test
     fun manifestIconResolvesAdaptiveLayersAndApi33Monochrome() {
         val info = targetContext.packageManager.getApplicationInfo(targetContext.packageName, 0)
         assertEquals("Manifest must use the launcher mipmap", R.mipmap.ic_launcher, info.icon)
@@ -66,7 +78,7 @@ class BrandResourcesTest {
                 assertSameRendering("adaptive monochrome", requireNotNull(monochrome), drawable(R.drawable.ic_mirra_monochrome))
             }
         } else {
-            assertTrue("API 23–25 must retain a scalable fallback", actualIcon is LayerDrawable)
+            assertTrue("API 23–25 must retain a density-aware fallback", actualIcon is LayerDrawable)
             withBitmap(render(actualIcon, 128)) { bitmap ->
                 assertEquals(brandBackground, bitmap.getPixel(0, 0))
                 assertTrue("Legacy icon must render artwork", pixels(bitmap).any { it != brandBackground })
@@ -123,7 +135,7 @@ class BrandResourcesTest {
     @Test
     fun notificationSmallIconIsWhiteArtworkWithoutAnOpaqueTile() {
         renderSizes.forEach { size ->
-            withBitmap(render(drawable(R.drawable.ic_launcher), size)) { bitmap ->
+            withBitmap(render(drawable(R.drawable.ic_mirra_notification), size)) { bitmap ->
                 assertOneInkAndNegativeSpace(bitmap, Color.WHITE, "notification $size px", maximumCoverage = 0.6)
             }
         }
@@ -155,7 +167,7 @@ class BrandResourcesTest {
                 parser.next()
             }
         }
-        assertEquals("Legacy splash must use the same background and static vector", listOf(R.color.mirra_brand_background, R.drawable.ic_mirra_foreground), references)
+        assertEquals("Legacy splash must use the same background and static approved artwork", listOf(R.color.mirra_brand_background, R.drawable.ic_mirra_foreground), references)
         withBitmap(render(legacyWindow.getDrawable(0), 64)) { bitmap ->
             assertTrue("Legacy splash background must stay opaque", pixels(bitmap).all { it == brandBackground })
         }
@@ -208,7 +220,7 @@ class BrandResourcesTest {
                     }
                 }
                 val notificationColumn = PreviewMask.entries.size + 2
-                withBitmap(render(drawable(R.drawable.ic_launcher), size)) { notification ->
+                withBitmap(render(drawable(R.drawable.ic_mirra_notification), size)) { notification ->
                     withBitmap(composite(notification, Color.rgb(52, 53, 50))) { preview ->
                         drawCell(canvas, preview, notificationColumn * cellWidth, y, labels[notificationColumn], size, labelPaint, cellWidth)
                     }

@@ -610,6 +610,7 @@ fun SessionScreen(
     externalRequest: com.guanyi.mirra.domain.intervention.InterventionNavigationRequest? = null,
     onExternalRequestHandled: () -> Unit = {},
     onPromptComposed: (com.guanyi.mirra.domain.monitoring.InterventionUiModel) -> Unit = {},
+    onOpenLearningProtection: () -> Unit = {},
 ) {
     val session by viewModel.session.collectAsStateWithLifecycle()
     val notes by viewModel.notes.collectAsStateWithLifecycle()
@@ -625,6 +626,10 @@ fun SessionScreen(
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val acceptingEdits by viewModel.acceptingEdits.collectAsStateWithLifecycle()
     val canEdit = viewModel.canEditLearning && acceptingEdits
+    val currentFocusStatus = status.takeIf {
+        currentSession != null && currentSession.activeSlot == 1 && currentSession.endedAt == null &&
+            viewModel.isReadingQualified && it.sessionId == currentSession.id
+    }
     DisposableEffect(viewModel, onFinished) {
         viewModel.dispatchCompletion(onFinished)
         onDispose { viewModel.releaseCompletionCallback(onFinished) }
@@ -716,8 +721,11 @@ fun SessionScreen(
         item {
             Text("正在阅读", style = MaterialTheme.typography.headlineMedium)
             Text("Session 阅读时长：${elapsedMinutes} 分钟", color = MaterialTheme.colorScheme.primary)
-            if (canEdit) SessionFocusContent(status, { breakChoice = true }, viewModel::finishBreak,
-                viewModel::finishAllowance, viewModel::extendAllowance)
+            if (canEdit && currentFocusStatus != null) {
+                SessionFocusContent(currentFocusStatus, { breakChoice = true }, viewModel::finishBreak,
+                    viewModel::finishAllowance, viewModel::extendAllowance)
+                SessionMonitoringBanner(currentFocusStatus.coverage, onOpenLearningProtection)
+            }
             if (finishUi == SessionFinishUiState.PreparingConfirmation) Text("正在保存笔记…")
             viewModel.focusError?.let { Text(it, color = MirraTheme.colors.danger) }
         }
@@ -825,6 +833,24 @@ fun SessionScreen(
                 viewModel.focusError?.let { Text(it, color = MirraTheme.colors.danger) }
             }
         }
+    }
+}
+
+@Composable
+fun SessionMonitoringBanner(
+    coverage: com.guanyi.mirra.data.local.entity.MonitoringCoverage?,
+    onOpenLearningProtection: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val explanation = when (coverage) {
+        com.guanyi.mirra.data.local.entity.MonitoringCoverage.NONE -> "本次没有手机分心监测，阅读和笔记仍会正常记录。"
+        com.guanyi.mirra.data.local.entity.MonitoringCoverage.PARTIAL -> "本次部分时间无法确认手机使用，不会当作完整专注。"
+        com.guanyi.mirra.data.local.entity.MonitoringCoverage.FULL, null -> return
+    }
+    Column(modifier.fillMaxWidth().testTag("session-monitoring-banner"),
+        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(explanation, color = MirraTheme.colors.textSecondary, style = MaterialTheme.typography.bodySmall)
+        MirraTextAction(onOpenLearningProtection) { Text("检查学习保护") }
     }
 }
 

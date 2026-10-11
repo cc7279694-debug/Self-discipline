@@ -1,5 +1,27 @@
 # Decisions
 
+## 2026-10-11 — V1.1 启动确认、保护状态和原图
+
+### Decision
+
+创建书籍时动作可留空；每次正式开始 Session 前必须显示并由用户主动确认有效动作。允许准备阶段通过当前合法 Intent 限定的事务编辑书籍动作，不更改既有 Intent/Session 历史，不能在 Active Session 中编辑。历史缺失/自动模板不能静默当作确认。真实等待时间来自 Intent.createdAt。
+
+学习保护将授权、服务 READY 与当前 Session 的持久 coverage 分开展示；全局风险 App 选择长期保存，但当前场次继续使用既有开始快照。设置页不启动全天监测。沿用真实每日趋势及冻结公式。
+
+用户再次确认原上传的拱门 PNG 为要恢复的 Logo，只做确定性的裁切、透明边界和 Android 资源转换，不重绘或更换概念。没有文字的原图不虚构“删字”。
+
+### Context
+
+本轮用户明确替代 2026-10-09 的创建必填和旧 Active Intent fallback 准入体验，降低初始成本但保留正式开始的主动动作门槛。原图与后来简化 vector 不同，不能把后者冒充原图。
+
+### Alternatives
+
+创建时强制填动作；每次重填；静默 fallback；把 Usage Access 当成 FULL；改识别算法；重新设计 Logo。均不采用。
+
+### Consequences
+
+沿用 Room v4 和 firstAction 列，不新增动作事实表、权限、依赖或云服务。Preparation 新写入口必须接受同一维护屏障保护；READY、超时、唯一 Session、Closeout、Recovery、Backup/Restore 不变。原 2026-10-09 决策及执行失败历史保留，创建必填/旧准备 fallback 部分已被本条替代。
+
 ## 2026-10-09 — V1 趋势视觉与明确 First Action
 
 ### Decision

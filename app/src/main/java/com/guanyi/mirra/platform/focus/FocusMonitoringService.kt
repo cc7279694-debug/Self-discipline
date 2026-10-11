@@ -201,7 +201,7 @@ class FocusMonitoringService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, AndroidNotificationGateway.CHANNEL_ID)
         else Notification.Builder(this)
-        return builder.setSmallIcon(R.drawable.ic_launcher)
+        return builder.setSmallIcon(R.drawable.ic_mirra_notification)
             .setContentTitle("Mirra 正在监测本次学习")
             .setContentText("仅观察当前打开的 App，不读取内容")
             .setContentIntent(openIntent)

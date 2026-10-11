@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Keep the original single-ink mask; no new icon geometry or opaque tile. -->
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:src="@drawable/mirra_approved_notification"
+    android:filter="false" />

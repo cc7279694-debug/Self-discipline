@@ -1,8 +1,24 @@
 # Current State
 
-更新日期：2026-10-09
+更新日期：2026-10-11
 
-## Current delivery — V1 trends and explicit First Action
+## Current delivery — V1.1 core experience
+
+**V1.1 complete / awaiting independent review, not accepted/frozen.** Branch `codex/v1-1-core-experience` starts from actual newer parent `785d2acb4d3bbcfa8ebc4220b40b4ccd2799e6c5`, descended from the user-known V1 `b005ed1d85afd8f7abef15d6be65d39898f637fc`. Remote branch heads were checked; prior trends/action work is preserved. Commit/Push after verification is authorized, not main merge/release/V2.
+
+Latest contract: book creation no longer requires a First Action; every formal Session still requires an explicit concrete action confirmation. Add safe preparation-time action editing/legacy repair and actual Intent waiting time; separate monitoring permission, service readiness and durable FULL/PARTIAL/NONE in Learning Protection and Session. Reuse the existing true local daily charts. The user confirmed the original uploaded raster logo on 2026-10-11: use that exact graphic, not a redraw. Version target `1.1.0` / code `3`.
+
+Implemented optional creation, required explicit preparation confirmation, same-Intent action editing/legacy repair and a real waiting clock. Learning Protection exposes persistent risk names and separates permission, current query-fresh READY and durable coverage; Session repair banners do not reuse another Session's state. Original raster RGB is retained, with source-derived adaptive/monochrome/notification assets. No new permissions/dependencies or all-day monitoring.
+
+Final-source single unfiltered gate completed in **21m58s**: JVM **664/664 PASS**, zero failure/error/skip; connected **495 discovered / 486 actual PASS / 9 opt-in assumptions / 0 actual failure/error/unfinished**. All three DND and five intervention platform methods actually executed. Lint **0 errors / 18 existing warnings / 1 existing hint**; `assembleDebug` and `assembleDebugAndroidTest` passed. Do not label 495/495 PASS.
+
+Installed API37 journeys passed: blank-action creation, explicit suggestion, preparation Force Stop/cold-start continuation with the persisted action and increasing original wait, edit/abandon/reuse, real FULL+READY, Usage revoke to PARTIAL with a repair banner, and denied start to NONE without blocking reading. One synthetic Note auto-saved and survived normal closeout; incomplete monitoring did not generate effective focus. Offline COLD was 3,617ms; Start/Knowledge/Mine/Data Management and real SAF save/select cancellation paths passed. This is not a new manual JSON/CSV saved-content or full SAF round-trip claim; the complete automated backup/export gates and production-service baseline recovery provide those regression boundaries.
+
+Original installed baseline recovery passed separately through the formal service: exact 12-table facts/IDs/links, JPEG bytes and four preference values/presence matched; the run's private archive was removed. Four permissions/network/font state restored and read back; no active learning/PENDING/FGS/overlay/notification/current active owned rule or unresolved Journal remained. The AVD was closed without resetting its retained disk. Final cover install preserved 21 valid current-file hashes, not an unlimited historical-preservation guarantee.
+
+Debug APK: `build/deliveries/v1-1/Mirra-1.1.0-core-experience-debug.apk`, **17,210,307 bytes**, SHA-256 **6FA9873CFFB160A6FF4855D0CA10994C9BC0E16D2D3CD7A9CA0085D209BFD8A1**, version **1.1.0 / code 3**. Room v4 / schemas 1–4 / migrations / frozen focus and data-safety algorithms remain unchanged. The [single V1.1 checkpoint](checkpoints/2026-10-11-v1-1-core-experience.md) and [evidence index](evidence/v1-1/README.md) retain RED/environment history, actual versus fixture pixels, DND pre-grant proof limitation and remaining NOT RUN. Physical/OEM/API23–36/TalkBack/release/transport/power-loss/manual-clock limits remain NOT RUN. No V2 or independent acceptance is claimed.
+
+## Previous delivery — V1 trends and explicit First Action
 
 Branch `codex/v1-trends-first-action`, base `b005ed1d85afd8f7abef15d6be65d39898f637fc`. The user authorized the complete UI delivery and commit/Push after verification, not main merge/release/V2. Mine now directly exposes a real recent-seven-day chart and priority facts; Trends retains its frozen range/qualifications in three readable sections. New book/new Intent requires an explicitly filled or selected First Action, with safe legacy repair and legal existing-Intent continuation. Preparation requires active completion confirmation before Session start.
 

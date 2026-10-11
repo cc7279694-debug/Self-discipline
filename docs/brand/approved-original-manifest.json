@@ -1,0 +1,161 @@
+{
+    "generatorVersion":  3,
+    "source":  "mirra-approved-original.png",
+    "sourceSha256":  "71F4B8277F1F1A54215AAB9EADB9CC113EB14C2541176B93295EDF861A4759BE",
+    "sourcePixels":  [
+                         1254,
+                         1254
+                     ],
+    "backgroundSample":  {
+                             "sourceX":  200,
+                             "sourceY":  200,
+                             "rgb":  "#FDFDF8"
+                         },
+    "outline":  {
+                    "meanRgbThresholdExclusive":  230,
+                    "darkBoundsInclusive":  [
+                                                437,
+                                                372,
+                                                816,
+                                                858
+                                            ],
+                    "straightSidesStartY":  543,
+                    "exteriorPaddingPixels":  1
+                },
+    "master":  {
+                   "file":  "mirra-approved-foreground-master.png",
+                   "sha256":  "4D81512A315854DF967311BB7B8A36CBFA35708ADDCBA07F36B3033B3A776FBC",
+                   "crop":  [
+                                436,
+                                371,
+                                382,
+                                489
+                            ],
+                   "retainedRgbPixelsVerified":  171271,
+                   "bottomLightAnchor":  [
+                                             800,
+                                             850
+                                         ]
+               },
+    "monochrome":  {
+                       "file":  "mirra-approved-monochrome-master.png",
+                       "sha256":  "E3E1DE42F62FAD69FB0194C5CC95B502CEBCFC0A3BA5E03016B01E71CE2BA9C4",
+                       "meanRgbThresholdExclusive":  200,
+                       "ink":  "#FFFFFF",
+                       "negativeSpaceSourceAnchor":  [
+                                                         627,
+                                                         615
+                                                     ]
+                   },
+    "adaptive":  {
+                     "canvasDp":  108,
+                     "centerDp":  [
+                                      54,
+                                      54
+                                  ],
+                     "safeAlphaRadiusDp":  31,
+                     "sourcePixelsToDp":  0.095081553203208657,
+                     "maximumMeasuredAlphaRadiusDp":  29.381648
+                 },
+    "notification":  {
+                         "canvasDp":  24,
+                         "centerDp":  [
+                                          12,
+                                          12
+                                      ],
+                         "sourcePixelsToDp":  0.032231034984138526,
+                         "maximumMeasuredAlphaRadiusDp":  9.976535
+                     },
+    "runtimeAssets":  [
+                          {
+                              "resource":  "drawable-mdpi/ic_mirra_foreground.png",
+                              "pixels":  108,
+                              "sha256":  "2CEB4340EFDC48E5209489FB1E819D12132B346C6427F4978274E5975C4009A7",
+                              "maximumAlphaRadiusDp":  28.504386
+                          },
+                          {
+                              "resource":  "drawable-mdpi/mirra_approved_monochrome.png",
+                              "pixels":  108,
+                              "sha256":  "87E7210F60A6966D53A467E1CF2917C640956B3C33EB7CC019557EA77734E179",
+                              "maximumAlphaRadiusDp":  28.504386
+                          },
+                          {
+                              "resource":  "drawable-mdpi/mirra_approved_notification.png",
+                              "pixels":  24,
+                              "sha256":  "3A227AC21B55BE492B4A87704034238FED745BF3E2586E72D071C683A20938BB",
+                              "maximumAlphaRadiusDp":  9.300538
+                          },
+                          {
+                              "resource":  "drawable-hdpi/ic_mirra_foreground.png",
+                              "pixels":  162,
+                              "sha256":  "C0158F76BAAE780814F2AFF30D09E1BFDBFA477057AB94F671272E44CB89CB65",
+                              "maximumAlphaRadiusDp":  29.001916
+                          },
+                          {
+                              "resource":  "drawable-hdpi/mirra_approved_monochrome.png",
+                              "pixels":  162,
+                              "sha256":  "C0247E30FBA271BF869FA58164612069AF27E88289078329ABD2EE3416397ABE",
+                              "maximumAlphaRadiusDp":  29.001916
+                          },
+                          {
+                              "resource":  "drawable-hdpi/mirra_approved_notification.png",
+                              "pixels":  36,
+                              "sha256":  "C2EC51FD0857F16E0782A2F3C9A11F389500878149002D6EA7543945450C04C1",
+                              "maximumAlphaRadiusDp":  9.533566
+                          },
+                          {
+                              "resource":  "drawable-xhdpi/ic_mirra_foreground.png",
+                              "pixels":  216,
+                              "sha256":  "80DF9E78DE273D700BBF287978B855F87D968D74F3DE4120C0AE7FFEC779070E",
+                              "maximumAlphaRadiusDp":  28.855242
+                          },
+                          {
+                              "resource":  "drawable-xhdpi/mirra_approved_monochrome.png",
+                              "pixels":  216,
+                              "sha256":  "BE976EDE4ACDC7ECF96A7AECC8793BB44E1421685928D9CA400E3CC9EBCBEC70",
+                              "maximumAlphaRadiusDp":  28.855242
+                          },
+                          {
+                              "resource":  "drawable-xhdpi/mirra_approved_notification.png",
+                              "pixels":  48,
+                              "sha256":  "4C3EA0A2A7C161161D96AFC7BDF9800156CB4BC20DA26E23BA9CF72E28E2B0D9",
+                              "maximumAlphaRadiusDp":  9.65013
+                          },
+                          {
+                              "resource":  "drawable-xxhdpi/ic_mirra_foreground.png",
+                              "pixels":  324,
+                              "sha256":  "A80C095520697752D1DACA1816426D6E46B15477C146C6E0298C7A1986EF22A3",
+                              "maximumAlphaRadiusDp":  29.235633
+                          },
+                          {
+                              "resource":  "drawable-xxhdpi/mirra_approved_monochrome.png",
+                              "pixels":  324,
+                              "sha256":  "DDAA731A1007CBBA30421D67D73F5200867843BB3AC2106B0ECC46B01C7C49F5",
+                              "maximumAlphaRadiusDp":  29.235633
+                          },
+                          {
+                              "resource":  "drawable-xxhdpi/mirra_approved_notification.png",
+                              "pixels":  72,
+                              "sha256":  "47FC42DD332162B27214BC8060698C399BEC815DE9B65D2452125EBEFB92579C",
+                              "maximumAlphaRadiusDp":  9.766724
+                          },
+                          {
+                              "resource":  "drawable-xxxhdpi/ic_mirra_foreground.png",
+                              "pixels":  432,
+                              "sha256":  "000D0A413BC851A78294F72FD4AF4414AAD3C677C137BA2F2B1C1EAD2B298E79",
+                              "maximumAlphaRadiusDp":  29.381648
+                          },
+                          {
+                              "resource":  "drawable-xxxhdpi/mirra_approved_monochrome.png",
+                              "pixels":  432,
+                              "sha256":  "A7367A6DE05C3C5E3A7EE7A70DD6B135E33DD63785EB4AC8ED7D94B397843E66",
+                              "maximumAlphaRadiusDp":  29.381648
+                          },
+                          {
+                              "resource":  "drawable-xxxhdpi/mirra_approved_notification.png",
+                              "pixels":  96,
+                              "sha256":  "7C31A4E2D917C02C73FC991DBA6E9AAB7C5B74610F728C5ED5E9F0720E531B10",
+                              "maximumAlphaRadiusDp":  9.976535
+                          }
+                      ]
+}

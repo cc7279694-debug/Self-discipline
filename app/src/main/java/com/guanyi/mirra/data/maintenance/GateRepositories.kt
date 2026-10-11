@@ -24,6 +24,8 @@ class GateLearningItemRepository(
     }
     override suspend fun updateFirstAction(id: String, firstAction: String) =
         gate.writerOperation { delegate.updateFirstAction(id, firstAction) }
+    override suspend fun updatePreparationFirstAction(intentId: String, firstAction: String) =
+        gate.writerOperation { delegate.updatePreparationFirstAction(intentId, firstAction) }
     override suspend fun setMainline(id: String) = gate.writerOperation { delegate.setMainline(id) }
     override suspend fun pause(id: String) = gate.writerOperation { delegate.pause(id) }
     override suspend fun resume(id: String) = gate.writerOperation { delegate.resume(id) }

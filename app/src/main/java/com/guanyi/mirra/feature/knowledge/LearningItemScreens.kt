@@ -131,6 +131,7 @@ fun CreateLearningItemScreen(
         OutlinedTextField(name, { name = it }, label = { Text("书名") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(totalPages, { totalPages = it.filter(Char::isDigit) }, label = { Text("总页数") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(currentPage, { currentPage = it.filter(Char::isDigit) }, label = { Text("当前页") }, modifier = Modifier.fillMaxWidth())
+        Text("第一步动作可先留空，真正开始学习前再确认。", color = MaterialTheme.colorScheme.onSurfaceVariant)
         FirstActionInput(firstAction, { firstAction = it }, currentPage.toIntOrNull() ?: 0, enabled = !viewModel.isSubmitting)
         if (showMainlineOption) {
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -142,7 +143,7 @@ fun CreateLearningItemScreen(
         Button(
             onClick = { viewModel.create(name, totalPages, currentPage, firstAction, setAsMainline, onCreated) },
             enabled = !viewModel.isSubmitting && name.isNotBlank() && totalPages.isNotBlank() && currentPage.isNotBlank() &&
-                FirstActionResolver.validationError(firstAction) == null,
+                (firstAction.isBlank() || FirstActionResolver.validationError(firstAction) == null),
             modifier = Modifier.fillMaxWidth(),
         ) { Text("创建") }
         OutlinedButton(onClick = onBack, enabled = !viewModel.isSubmitting, modifier = Modifier.fillMaxWidth()) { Text("返回") }

@@ -27,7 +27,7 @@ fun FirstActionInput(
             onValueChange = onValueChange,
             label = { Text("第一步动作") },
             isError = error != null,
-            supportingText = { Text(error ?: "每次准备开始时会展示这一步，你可以在开始准备前修改。") },
+            supportingText = { Text(error ?: "每次准备开始时会展示这一步，确认开始阅读前可以修改。") },
             minLines = 2,
             maxLines = 4,
             enabled = enabled,

@@ -41,6 +41,7 @@ class GateWriterAdmissionCoverageTest {
         val writers: List<Pair<String, suspend () -> Unit>> = listOf(
             "item.create" to { items.create("name", 10) },
             "item.updateFirstAction" to { items.updateFirstAction("item", "act") },
+            "item.updatePreparationFirstAction" to { items.updatePreparationFirstAction("intent", "act") },
             "item.setMainline" to { items.setMainline("item") },
             "item.pause" to { items.pause("item") },
             "item.resume" to { items.resume("item") },
@@ -90,7 +91,7 @@ class GateWriterAdmissionCoverageTest {
             "preferences.setCrossAppInterventionEnabled" to { preferences.setCrossAppInterventionEnabled(false) },
             "receipt.record" to { receipts.record(prompt, InterventionDeliveryReceipt.IN_APP_PRESENTED) },
         )
-        assertEquals(50, writers.size)
+        assertEquals(51, writers.size)
         gate.coordinator.withExclusive(1_000) {
             for ((name, writer) in writers) {
                 val failure = runCatching { writer() }.exceptionOrNull()
