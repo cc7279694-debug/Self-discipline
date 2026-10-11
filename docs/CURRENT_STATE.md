@@ -8,6 +8,8 @@
 
 Latest contract: book creation no longer requires a First Action; every formal Session still requires an explicit concrete action confirmation. Add safe preparation-time action editing/legacy repair and actual Intent waiting time; separate monitoring permission, service readiness and durable FULL/PARTIAL/NONE in Learning Protection and Session. Reuse the existing true local daily charts. The user confirmed the original uploaded raster logo on 2026-10-11: use that exact graphic, not a redraw. Version target `1.1.0` / code `3`.
 
+Implementation + tests + execution evidence: **`c9498e31e06960b4a3c3ff958e7a43d269969ceb`**. The following validation-handoff commit changes only the necessary documents; its exact HEAD and remote equality are reported at delivery, not confused with the implementation SHA.
+
 Implemented optional creation, required explicit preparation confirmation, same-Intent action editing/legacy repair and a real waiting clock. Learning Protection exposes persistent risk names and separates permission, current query-fresh READY and durable coverage; Session repair banners do not reuse another Session's state. Original raster RGB is retained, with source-derived adaptive/monochrome/notification assets. No new permissions/dependencies or all-day monitoring.
 
 Final-source single unfiltered gate completed in **21m58s**: JVM **664/664 PASS**, zero failure/error/skip; connected **495 discovered / 486 actual PASS / 9 opt-in assumptions / 0 actual failure/error/unfinished**. All three DND and five intervention platform methods actually executed. Lint **0 errors / 18 existing warnings / 1 existing hint**; `assembleDebug` and `assembleDebugAndroidTest` passed. Do not label 495/495 PASS.

@@ -100,4 +100,8 @@ Two immediate post-COLD UI hierarchy requests returned no root. The local reader
 - Frozen Focus/Recovery/Stable/Deep, READY, DND ownership, Closeout, Analytics/Trends/Insights and Backup/Restore/export formulas remain inherited. No new permission, dependency, cloud, score or V2.
 - No new manual saved-content JSON/CSV or full SAF round-trip is claimed; complete automated gates plus actual production baseline restoration are the regression evidence. Real long Recovery/Deep waiting, other opt-in interruption stages, OEM/API23–36/TalkBack/release/transport/real power loss/manual-clock matrices remain NOT RUN this delivery.
 
-Implementation and validation commit identities are recorded after the scoped commits; this stage awaits ChatGPT independent acceptance and is not self-frozen.
+## Git handoff
+
+Implementation + tests + resource/screenshots/execution evidence: **`c9498e31e06960b4a3c3ff958e7a43d269969ceb`**, `feat(experience): deliver mirra v1.1 core upgrade`, parent `785d2acb4d3bbcfa8ebc4220b40b4ccd2799e6c5`. Staged diff/whitespace/secret/path checks passed using the repository's existing line-ending configuration; no unrelated formatting or raw/private artifacts entered Git.
+
+The following validation-handoff commit records this implementation identity in the same existing documents; it is not another planning or acceptance freeze. Final local/remote HEAD and clean-tree results are reported in the handoff. Normal Push only to `codex/v1-1-core-experience`; no main merge, PR, Release or V2. This stage awaits ChatGPT independent acceptance and is not self-frozen.
