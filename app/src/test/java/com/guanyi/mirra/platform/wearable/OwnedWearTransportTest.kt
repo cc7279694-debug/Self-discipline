@@ -6,6 +6,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -13,6 +14,94 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class OwnedWearTransportTest {
+    @Test fun appCheckBeforeConnectionNeverInitializesSdk() = runTest {
+        var initializations = 0
+        val transport = OwnedWearTransport({ initializations++; FakeGateway() }, backgroundScope)
+        assertCategory("SERVICE_UNAVAILABLE") { transport.isWearAppInstalled("node-1") }
+        assertEquals(0, initializations)
+    }
+
+    @Test fun appPresenceQueryPreservesTheOwnedListenerAndDoesNotRequestPermission() = runTest {
+        val sdk = FakeGateway()
+        val transport = OwnedWearTransport({ sdk }, backgroundScope)
+        transport.connect()
+        val callback = sdk.messageCallback
+        assertTrue(transport.isWearAppInstalled("node-1"))
+        sdk.appInstalled = false
+        assertFalse(transport.isWearAppInstalled("node-1"))
+        assertEquals(listOf("node-1", "node-1"), sdk.appQueries)
+        assertEquals(1, sdk.listenCalls)
+        assertTrue(callback === sdk.messageCallback)
+        assertTrue(sdk.removedNodes.isEmpty())
+        assertEquals(0, sdk.authorizationRequests)
+        assertTrue(sdk.sentMessages.isEmpty())
+        transport.close()
+    }
+
+    @Test fun appCheckRejectsRevokedAuthorizationAndChangedOrAmbiguousNodes() = runTest {
+        val sdk = FakeGateway()
+        val transport = OwnedWearTransport({ sdk }, backgroundScope)
+        transport.connect()
+        assertCategory("WRONG_DEVICE") { transport.isWearAppInstalled("foreign") }
+        sdk.authorized = false
+        assertCategory("NOT_AUTHORIZED") { transport.isWearAppInstalled("node-1") }
+        sdk.authorized = true
+        sdk.nodes = listOf(SdkWearNode("other", "Other"))
+        assertCategory("WRONG_DEVICE") { transport.isWearAppInstalled("node-1") }
+        sdk.nodes = emptyList()
+        assertCategory("NO_DEVICE") { transport.isWearAppInstalled("node-1") }
+        sdk.nodes = listOf(SdkWearNode("node-1", "Band"), SdkWearNode("other", "Other"))
+        assertCategory("MULTIPLE_DEVICES") { transport.isWearAppInstalled("node-1") }
+        assertTrue(sdk.appQueries.isEmpty())
+        assertEquals(1, sdk.listenCalls)
+        assertEquals(0, sdk.authorizationRequests)
+        transport.close()
+    }
+
+    @Test fun appCheckRevalidatesAuthorizationAndNodeAfterTheNativeResult() = runTest {
+        for (change in listOf("authorization", "node", "service")) {
+            val sdk = FakeGateway().apply { appBarrier = CompletableDeferred() }
+            val transport = OwnedWearTransport({ sdk }, backgroundScope)
+            transport.connect()
+            var category: String? = null
+            val check = launch {
+                try { transport.isWearAppInstalled("node-1") }
+                catch (e: WearTransportException) { category = e.category }
+            }
+            runCurrent()
+            when (change) {
+                "authorization" -> sdk.authorized = false
+                "node" -> sdk.nodes = listOf(SdkWearNode("other", "Other"))
+                "service" -> sdk.disconnectedCallback?.invoke()
+            }
+            sdk.appBarrier?.complete(Unit)
+            check.join()
+            assertEquals(when (change) {
+                "authorization" -> "NOT_AUTHORIZED"
+                "node" -> "WRONG_DEVICE"
+                else -> "SERVICE_UNAVAILABLE"
+            }, category)
+            assertEquals(1, sdk.listenCalls)
+            transport.close()
+        }
+    }
+
+    @Test fun appCheckTimeoutAndLateCompletionNeverReplaceTheListener() = runTest {
+        val sdk = FakeGateway().apply { appBarrier = CompletableDeferred() }
+        val transport = OwnedWearTransport({ sdk }, backgroundScope, timeoutMs = 10)
+        transport.connect()
+        val callback = sdk.messageCallback
+        assertCategory("TIMEOUT") { transport.isWearAppInstalled("node-1") }
+        sdk.appBarrier?.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(1, sdk.listenCalls)
+        assertTrue(callback === sdk.messageCallback)
+        assertTrue(sdk.removedNodes.isEmpty())
+        transport.close()
+        assertCategory("SERVICE_UNAVAILABLE") { transport.isWearAppInstalled("node-1") }
+        assertEquals(1, sdk.appQueries.size)
+    }
+
     @Test fun disabledTransportDoesNotInitializeSdk() = runTest {
         var calls = 0
         val transport = OwnedWearTransport({ calls++; FakeGateway() }, backgroundScope)
@@ -292,6 +381,14 @@ class OwnedWearTransportTest {
     }
 
     private class FakeGateway : WearSdkGateway {
+        var appInstalled = true
+        var appBarrier: CompletableDeferred<Unit>? = null
+        val appQueries = mutableListOf<String>()
+        override suspend fun isWearAppInstalled(nodeId: String): Boolean {
+            appQueries += nodeId
+            appBarrier?.await()
+            return appInstalled
+        }
         var nodes = listOf(SdkWearNode("node-1", "Band"))
         var authorized = true
         var grantAuthorization = true

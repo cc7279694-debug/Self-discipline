@@ -30,6 +30,7 @@ class XiaomiWearTransport(context: Context) : WearTransport {
     private val owned = OwnedWearTransport({ OfficialGateway(applicationContext) }, callbacks)
 
     override suspend fun connect(requestAuthorization: Boolean) = owned.connect(requestAuthorization)
+    override suspend fun isWearAppInstalled(nodeId: String) = owned.isWearAppInstalled(nodeId)
     override suspend fun send(nodeId: String, payload: ByteArray) = owned.send(nodeId, payload)
     override fun setListener(listener: WearTransportListener?) = owned.setListener(listener)
     override suspend fun close() = owned.close()
@@ -48,6 +49,9 @@ private class OfficialGateway(context: Context) : WearSdkGateway {
     override suspend fun connectedNodes(): List<SdkWearNode> =
         (nodes.connectedNodes.awaitSdk() ?: throw WearTransportException("SDK_ERROR"))
             .map { node -> SdkWearNode(node.id, node.name) }
+
+    override suspend fun isWearAppInstalled(nodeId: String): Boolean =
+        nodes.isWearAppInstalled(nodeId).awaitSdk() ?: throw WearTransportException("SDK_ERROR")
 
     override suspend fun authorized(nodeId: String): Boolean =
         auth.checkPermission(nodeId, Permission.DEVICE_MANAGER).awaitSdk()

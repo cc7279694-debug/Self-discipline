@@ -24,8 +24,8 @@ android {
         applicationId = "com.guanyi.mirra"
         minSdk = 23
         targetSdk = 37
-        versionCode = 4
-        versionName = "1.1.1-band-readonly"
+        versionCode = 5
+        versionName = "1.1.2-band-readonly"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

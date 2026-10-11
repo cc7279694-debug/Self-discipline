@@ -16,6 +16,7 @@ internal data class SdkWearNode(val id: String, val name: String?)
 
 /** The production implementation calls the inspected official AAR, never a substitute SDK. */
 internal interface WearSdkGateway {
+    suspend fun isWearAppInstalled(nodeId: String): Boolean = throw WearTransportException("CHECK_UNAVAILABLE")
     suspend fun serviceApiLevel(): Int
     suspend fun connectedNodes(): List<SdkWearNode>
     suspend fun authorized(nodeId: String): Boolean
@@ -56,6 +57,36 @@ internal class OwnedWearTransport(
             takeAvailableListener()
         }
         availableListener?.onAvailable()
+    }
+
+    override suspend fun isWearAppInstalled(nodeId: String): Boolean {
+        val (currentEpoch, sdk) = mutex.withLock {
+            if (!connected || cleanupUncertain) throw WearTransportException("SERVICE_UNAVAILABLE")
+            if (nodeId != ownedNode) throw WearTransportException("WRONG_DEVICE")
+            epoch.get() to (gateway ?: throw WearTransportException("SERVICE_UNAVAILABLE"))
+        }
+        fun verifyOwner() {
+            checkEpoch(currentEpoch)
+            if (!connected) throw WearTransportException("SERVICE_UNAVAILABLE")
+            if (nodeId != ownedNode) throw WearTransportException("WRONG_DEVICE")
+        }
+        suspend fun verifyTarget() {
+            verifyOwner()
+            val nodes = bounded { sdk.connectedNodes() }
+            verifyOwner()
+            if (nodes.isEmpty()) throw WearTransportException("NO_DEVICE")
+            if (nodes.size != 1) throw WearTransportException("MULTIPLE_DEVICES")
+            if (nodes.single().id != nodeId) throw WearTransportException("WRONG_DEVICE")
+            val authorized = bounded { sdk.authorized(nodeId) }
+            verifyOwner()
+            if (!authorized) throw WearTransportException("NOT_AUTHORIZED")
+        }
+        // Read-only SDK waits never hold listener ownership or register a new listener.
+        verifyTarget()
+        val installed = bounded { sdk.isWearAppInstalled(nodeId) }
+        verifyOwner()
+        verifyTarget()
+        return installed
     }
 
     override suspend fun connect(requestAuthorization: Boolean): WearConnection = mutex.withLock {

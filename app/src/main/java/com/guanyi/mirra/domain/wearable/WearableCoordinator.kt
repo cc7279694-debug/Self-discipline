@@ -4,6 +4,7 @@ import com.guanyi.mirra.platform.wearable.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.UUID
@@ -21,6 +22,9 @@ data class WearableCompanionState(
     val sourceReady: Boolean = false,
     val lastSnapshotAt: Long? = null,
     val errorCategory: String? = null,
+    val appInstalled: Boolean? = null,
+    val appCheckInProgress: Boolean = false,
+    val appCheckError: String? = null,
 )
 
 /** Application-owned listener; no UI lifecycle owns a transport callback or learning fact. */
@@ -45,25 +49,69 @@ class WearableCoordinator(
     private var lastFollowedNode: String? = null
     private var connectJob: Job? = null
     private var requestJob: Job? = null
+    private var appCheckJob: Job? = null
+    private var appCheckGeneration = 0L
     private val usedRequests = linkedSetOf<String>()
+
+    fun checkWearAppFromUser() { scope.launch { lifecycle.withLock {
+        val node = selectedNode ?: return@withLock
+        val state = mutableState.value
+        if (!settings.enabled || !state.serviceAvailable || !state.authorized || connectJob?.isActive == true || appCheckJob?.isActive == true)
+            return@withLock
+        val captured = epoch
+        val generation = ++appCheckGeneration
+        mutableState.update { it.copy(appInstalled = null, appCheckInProgress = true, appCheckError = null) }
+        appCheckJob = scope.launch {
+            try {
+                val installed = withTimeout(3_000) { transport.isWearAppInstalled(node) }
+                finishAppCheck(captured, generation, node, installed, null)
+            } catch (cancelled: CancellationException) {
+                if (cancelled is TimeoutCancellationException) finishAppCheck(captured, generation, node, null, "TIMEOUT")
+                else throw cancelled
+            } catch (failure: Exception) {
+                val category = (failure as? WearTransportException)?.category
+                val safeCategory = category?.takeIf { it in APP_CHECK_ERRORS } ?: "SDK_ERROR"
+                finishAppCheck(captured, generation, node, null, safeCategory)
+            }
+        }
+    } } }
+
+    fun cancelWearAppCheck() { scope.launch { lifecycle.withLock { retireAppCheck() } } }
+
+    private suspend fun finishAppCheck(captured: Long, generation: Long, node: String, installed: Boolean?, error: String?) = lifecycle.withLock {
+        // The same lock owns retirement and publication; a late result cannot restore an old UI.
+        if (captured != epoch || generation != appCheckGeneration || node != selectedNode || !settings.enabled)
+            return@withLock
+        mutableState.update { state ->
+            if (!state.serviceAvailable || !state.authorized) state
+            else state.copy(appInstalled = installed, appCheckInProgress = false, appCheckError = error)
+        }
+    }
+
+    private fun retireAppCheck() {
+        appCheckGeneration++
+        appCheckJob?.cancel(); appCheckJob = null
+        // Native Tasks have no cancel operation. A query owns no message listener to drain.
+        mutableState.update { it.copy(appInstalled = null, appCheckInProgress = false, appCheckError = null) }
+    }
 
     suspend fun bindSource(value: WearableSnapshotSource) = lifecycle.withLock {
         invalidateAndDrain()
         source = value
-        mutableState.value = mutableState.value.copy(sourceReady = true)
+        mutableState.update { it.copy(sourceReady = true) }
         if (settings.enabled) connect(false)
     }
     suspend fun pauseSource() = lifecycle.withLock {
         invalidateAndDrain()
         source = null
-        mutableState.value = mutableState.value.copy(sourceReady = false, lastSnapshotAt = null)
+        mutableState.update { it.copy(sourceReady = false, lastSnapshotAt = null) }
         // Listener can answer SOURCE_BUSY with no old personal payload. SDK send remains outside Room.
         if (settings.enabled && selectedNode != null) installListener()
     }
     fun enableFromUser() { scope.launch { lifecycle.withLock {
         try { settings.setEnabled(true) }
-        catch (_: Exception) { mutableState.value = mutableState.value.copy(errorCategory = "SETTINGS_UNAVAILABLE"); return@withLock }
-        mutableState.value = mutableState.value.copy(enabled = true, errorCategory = null)
+        catch (_: Exception) { mutableState.update { it.copy(errorCategory = "SETTINGS_UNAVAILABLE") }; return@withLock }
+        mutableState.update { it.copy(enabled = true, errorCategory = null) }
         invalidateAndDrain(); connect(true)
     } } }
     fun reconnectFromUser() { scope.launch { lifecycle.withLock {
@@ -72,7 +120,7 @@ class WearableCoordinator(
     } } }
     fun disableFromUser() { scope.launch { lifecycle.withLock {
         try { settings.setEnabled(false) }
-        catch (_: Exception) { mutableState.value = mutableState.value.copy(errorCategory = "SETTINGS_UNAVAILABLE"); return@withLock }
+        catch (_: Exception) { mutableState.update { it.copy(errorCategory = "SETTINGS_UNAVAILABLE") }; return@withLock }
         val lastNode = selectedNode; val lastClient = clientId; val lastStream = streamId
         invalidateAndDrain()
         if (lastNode != null && lastClient != null) runCatching {
@@ -89,12 +137,13 @@ class WearableCoordinator(
 
     private suspend fun invalidateAndDrain(clearFollowed: Boolean = true) {
         epoch++
+        retireAppCheck()
         transport.setListener(null)
         connectJob?.cancelAndJoin(); connectJob = null
         requestJob?.cancelAndJoin(); requestJob = null
         clientId = null; streamId = null; sequence = 0; usedRequests.clear()
         if (clearFollowed) { lastFollowedSessionId = null; lastFollowedNode = null }
-        mutableState.value = mutableState.value.copy(handshaken = false, lastSnapshotAt = null)
+        mutableState.update { it.copy(handshaken = false, lastSnapshotAt = null) }
     }
     private fun connect(authorization: Boolean) {
         val captured = epoch
@@ -107,17 +156,17 @@ class WearableCoordinator(
                     lastFollowedSessionId = null; lastFollowedNode = null
                 }
                 selectedNode = connection.nodeId
-                mutableState.value = mutableState.value.copy(deviceName = connection.deviceName ?: "已选择的小米设备",
-                    serviceAvailable = true, authorized = connection.authorized, errorCategory = null)
+                mutableState.update { it.copy(deviceName = connection.deviceName ?: "已选择的小米设备",
+                    serviceAvailable = true, authorized = connection.authorized, errorCategory = null) }
                 if (connection.authorized) installListener()
-                else mutableState.value = mutableState.value.copy(errorCategory = "NOT_AUTHORIZED")
+                else mutableState.update { it.copy(errorCategory = "NOT_AUTHORIZED") }
             } catch (cancelled: CancellationException) {
                 if (cancelled is TimeoutCancellationException && captured == epoch)
-                    mutableState.value = mutableState.value.copy(serviceAvailable = false, errorCategory = "TIMEOUT")
+                    mutableState.update { it.copy(serviceAvailable = false, errorCategory = "TIMEOUT") }
                 else throw cancelled
             } catch (failure: Exception) {
-                if (captured == epoch) mutableState.value = mutableState.value.copy(serviceAvailable = false,
-                    authorized = false, errorCategory = (failure as? WearTransportException)?.category ?: "SDK_ERROR")
+                if (captured == epoch) mutableState.update { it.copy(serviceAvailable = false,
+                    authorized = false, errorCategory = (failure as? WearTransportException)?.category ?: "SDK_ERROR") }
             }
         }
     }
@@ -134,7 +183,7 @@ class WearableCoordinator(
                     catch (cancelled: CancellationException) { throw cancelled }
                     catch (failure: Exception) {
                         if (failure is WearTransportException) lostConnection(captured, failure.category)
-                        else if (captured == epoch) mutableState.value = mutableState.value.copy(errorCategory = "SOURCE_UNAVAILABLE")
+                        else if (captured == epoch) mutableState.update { it.copy(errorCategory = "SOURCE_UNAVAILABLE") }
                     }
                     finally { messageSerial.unlock() }
                 }
@@ -160,12 +209,12 @@ class WearableCoordinator(
     private fun lostConnection(captured: Long, category: String) {
         if (captured != epoch) return
         // Display loss immediately; serial cleanup drains the owned publisher before reattachment.
-        mutableState.value = mutableState.value.copy(serviceAvailable = false, authorized = false,
-            handshaken = false, lastSnapshotAt = null, errorCategory = category)
+        mutableState.update { it.copy(serviceAvailable = false, authorized = false,
+            handshaken = false, lastSnapshotAt = null, errorCategory = category) }
         scope.launch { lifecycle.withLock {
             if (captured != epoch) return@withLock
             invalidateAndDrain(clearFollowed = false)
-            mutableState.value = mutableState.value.copy(errorCategory = category)
+            mutableState.update { it.copy(errorCategory = category) }
             if (settings.enabled && selectedNode != null) installListener()
         } }
     }
@@ -178,8 +227,8 @@ class WearableCoordinator(
             clientId = request.clientInstanceId; streamId = newId(); sequence = 0; usedRequests.clear()
             usedRequests += request.requestId
             transport.send(node, WearableProtocol.helloAck(request, checkNotNull(streamId)))
-            if (captured == epoch) mutableState.value = mutableState.value.copy(serviceAvailable = true,
-                authorized = true, handshaken = true, errorCategory = null)
+            if (captured == epoch) mutableState.update { it.copy(serviceAvailable = true,
+                authorized = true, handshaken = true, errorCategory = null) }
             return
         }
         if (request.clientInstanceId != clientId || request.streamId != streamId || request.requestId in usedRequests) return
@@ -211,10 +260,15 @@ class WearableCoordinator(
             val observedAt = confirmedObservedAt
             if (observedAt != null) {
                 lastFollowedSessionId = observedSession; lastFollowedNode = node
-                mutableState.value = mutableState.value.copy(lastSnapshotAt = observedAt, errorCategory = null)
+                mutableState.update { it.copy(lastSnapshotAt = observedAt, errorCategory = null) }
             } else {
-                mutableState.value = mutableState.value.copy(errorCategory = sourceFailure)
+                mutableState.update { it.copy(errorCategory = sourceFailure) }
             }
         }
+    }
+    private companion object {
+        val APP_CHECK_ERRORS = setOf("TIMEOUT", "NO_DEVICE", "MULTIPLE_DEVICES", "WRONG_DEVICE",
+            "NOT_AUTHORIZED", "SERVICE_UNAVAILABLE", "SIGNING_IDENTITY_MISMATCH", "COUNTERPART_APP_MISSING",
+            "CLEANUP_PENDING", "CHECK_UNAVAILABLE", "SDK_ERROR")
     }
 }

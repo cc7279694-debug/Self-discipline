@@ -10,11 +10,25 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class WearableCoordinatorTest {
     private class Transport : WearTransport {
+        var node = "node"
+        var authorized = true
+        var appInstalled = true
+        var appFailure: Exception? = null
+        var appBarrier: CompletableDeferred<Unit>? = null
+        var ignoreAppCancellation = false
+        val appQueries = mutableListOf<String>()
+        override suspend fun isWearAppInstalled(nodeId: String): Boolean {
+            appQueries += nodeId
+            if (ignoreAppCancellation) kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { appBarrier?.await() }
+            else appBarrier?.await()
+            appFailure?.let { throw it }
+            return appInstalled
+        }
         var callback: WearTransportListener? = null
         var connects = 0
         val grantsRequested = mutableListOf<Boolean>()
         val sent = mutableListOf<String>()
-        override suspend fun connect(requestAuthorization: Boolean): WearConnection { connects++; grantsRequested += requestAuthorization; return WearConnection("node", 1, true) }
+        override suspend fun connect(requestAuthorization: Boolean): WearConnection { connects++; grantsRequested += requestAuthorization; return WearConnection(node, 1, authorized) }
         override suspend fun send(nodeId: String, payload: ByteArray) { sent += String(payload, Charsets.UTF_8) }
         override fun setListener(listener: WearTransportListener?) { this.callback = listener }
         override suspend fun close() { callback = null }
@@ -26,6 +40,142 @@ class WearableCoordinatorTest {
         override fun setEnabled(value: Boolean) { selected = value }
     }
     private val hello = """{"protocolVersion":1,"type":"HELLO","clientInstanceId":"client","requestId":"hello","capabilities":["READ_ONLY_SNAPSHOT"]}"""
+    @Test fun `manual app check is disabled until an authorized connection exists`() = runTest {
+        val transport = Transport()
+        val coordinator = WearableCoordinator(backgroundScope, transport, Settings())
+        coordinator.checkWearAppFromUser(); runCurrent()
+        assertTrue(transport.appQueries.isEmpty())
+        assertEquals(0, transport.connects)
+        coordinator.bindSource(WearableSnapshotSource { WearableSnapshot(WearablePhase.IDLE) })
+        transport.authorized = false
+        coordinator.enableFromUser(); runCurrent()
+        coordinator.checkWearAppFromUser(); runCurrent()
+        assertTrue(transport.appQueries.isEmpty())
+        assertFalse(coordinator.state.value.appCheckInProgress)
+    }
+
+    @Test fun `app presence is independent of handshake and confirmed sync`() = runTest {
+        val transport = Transport()
+        val coordinator = WearableCoordinator(backgroundScope, transport, Settings(), { 1_000 }, newId = { "stream" })
+        coordinator.bindSource(WearableSnapshotSource { WearableSnapshot(WearablePhase.IDLE) })
+        coordinator.enableFromUser(); runCurrent()
+        coordinator.checkWearAppFromUser(); runCurrent()
+        assertEquals(true, coordinator.state.value.appInstalled)
+        assertFalse(coordinator.state.value.handshaken)
+        assertNull(coordinator.state.value.lastSnapshotAt)
+        transport.message(hello); runCurrent()
+        transport.message("""{"protocolVersion":1,"type":"GET_SNAPSHOT","clientInstanceId":"client","requestId":"get","streamId":"stream","lastSeenSessionId":null}"""); runCurrent()
+        val before = coordinator.state.value
+        transport.appInstalled = false
+        coordinator.checkWearAppFromUser(); runCurrent()
+        assertEquals(before.copy(appInstalled = false), coordinator.state.value)
+        assertEquals(listOf("node", "node"), transport.appQueries)
+        assertEquals(1, transport.connects)
+        assertEquals(2, transport.sent.size)
+    }
+
+    @Test fun `overlapping app check and snapshot preserve both independent results`() = runTest {
+        for (snapshotFirst in listOf(true, false)) {
+            val checkFinished = CompletableDeferred<Unit>()
+            val sourceFinished = CompletableDeferred<Unit>()
+            val transport = Transport().apply { appBarrier = checkFinished }
+            val coordinator = WearableCoordinator(backgroundScope, transport, Settings(), { 1_000 }, newId = { "stream" })
+            coordinator.bindSource(WearableSnapshotSource { sourceFinished.await(); WearableSnapshot(WearablePhase.IDLE) })
+            coordinator.enableFromUser(); runCurrent(); transport.message(hello); runCurrent()
+            val listener = transport.callback
+            coordinator.checkWearAppFromUser(); runCurrent()
+            transport.message("""{"protocolVersion":1,"type":"GET_SNAPSHOT","clientInstanceId":"client","requestId":"get","streamId":"stream","lastSeenSessionId":null}"""); runCurrent()
+            assertTrue(coordinator.state.value.appCheckInProgress)
+            assertNull(coordinator.state.value.lastSnapshotAt)
+            if (snapshotFirst) sourceFinished.complete(Unit) else checkFinished.complete(Unit)
+            runCurrent()
+            if (snapshotFirst) {
+                assertTrue(coordinator.state.value.appCheckInProgress)
+                assertEquals(1_000L, coordinator.state.value.lastSnapshotAt)
+            } else {
+                assertEquals(true, coordinator.state.value.appInstalled)
+                assertFalse(coordinator.state.value.appCheckInProgress)
+                assertNull(coordinator.state.value.lastSnapshotAt)
+            }
+            sourceFinished.complete(Unit); checkFinished.complete(Unit); runCurrent()
+            assertEquals(true, coordinator.state.value.appInstalled)
+            assertFalse(coordinator.state.value.appCheckInProgress)
+            assertTrue(coordinator.state.value.handshaken)
+            assertEquals(1_000L, coordinator.state.value.lastSnapshotAt)
+            assertSame(listener, transport.callback)
+            assertEquals(1, transport.connects)
+            assertEquals(2, transport.sent.size)
+        }
+    }
+
+    @Test fun `manual app check is single flight and bounded`() = runTest {
+        val transport = Transport().apply { appBarrier = CompletableDeferred() }
+        val coordinator = WearableCoordinator(backgroundScope, transport, Settings())
+        coordinator.bindSource(WearableSnapshotSource { WearableSnapshot(WearablePhase.IDLE) })
+        coordinator.enableFromUser(); runCurrent()
+        coordinator.checkWearAppFromUser(); coordinator.checkWearAppFromUser(); runCurrent()
+        assertTrue(coordinator.state.value.appCheckInProgress)
+        assertEquals(listOf("node"), transport.appQueries)
+        advanceTimeBy(3_001); runCurrent()
+        assertEquals("TIMEOUT", coordinator.state.value.appCheckError)
+        assertNull(coordinator.state.value.appInstalled)
+        assertFalse(coordinator.state.value.appCheckInProgress)
+        assertTrue(coordinator.state.value.authorized)
+        assertTrue(coordinator.state.value.serviceAvailable)
+        assertEquals(1, transport.connects)
+        transport.appBarrier?.complete(Unit); runCurrent()
+        assertEquals("TIMEOUT", coordinator.state.value.appCheckError)
+    }
+
+    @Test fun `manual check exposes fixed errors without private native text`() = runTest {
+        val transport = Transport()
+        val coordinator = WearableCoordinator(backgroundScope, transport, Settings())
+        coordinator.bindSource(WearableSnapshotSource { WearableSnapshot(WearablePhase.IDLE) })
+        coordinator.enableFromUser(); runCurrent()
+        for ((failure, expected) in listOf(
+            WearTransportException("SIGNING_IDENTITY_MISMATCH") to "SIGNING_IDENTITY_MISMATCH",
+            WearTransportException("NOT_AUTHORIZED") to "NOT_AUTHORIZED",
+            WearTransportException("WRONG_DEVICE") to "WRONG_DEVICE",
+            WearTransportException("private-native-message") to "SDK_ERROR",
+            IllegalStateException("private-native-message") to "SDK_ERROR",
+        )) {
+            transport.appFailure = failure
+            coordinator.checkWearAppFromUser(); runCurrent()
+            assertEquals(expected, coordinator.state.value.appCheckError)
+            assertFalse(coordinator.state.value.toString().contains("private-native-message"))
+            assertFalse(coordinator.state.value.handshaken)
+            assertNull(coordinator.state.value.lastSnapshotAt)
+        }
+    }
+
+    @Test fun `lifecycle retirement rejects a late check from the old node without reconnecting listeners`() = runTest {
+        for (retire in listOf("disable", "reconnect", "pause", "close", "ui-stop", "disconnect")) {
+            val transport = Transport().apply { appBarrier = CompletableDeferred(); ignoreAppCancellation = true }
+            val coordinator = WearableCoordinator(backgroundScope, transport, Settings())
+            coordinator.bindSource(WearableSnapshotSource { WearableSnapshot(WearablePhase.IDLE) })
+            coordinator.enableFromUser(); runCurrent()
+            val listener = transport.callback
+            coordinator.checkWearAppFromUser(); runCurrent()
+            when (retire) {
+                "disable" -> coordinator.disableFromUser()
+                "reconnect" -> { transport.node = "replacement"; coordinator.reconnectFromUser() }
+                "pause" -> coordinator.pauseSource()
+                "close" -> coordinator.close()
+                "ui-stop" -> coordinator.cancelWearAppCheck()
+                "disconnect" -> checkNotNull(transport.callback).onDisconnected()
+            }
+            runCurrent()
+            val after = coordinator.state.value
+            assertFalse(after.appCheckInProgress)
+            assertNull(after.appInstalled)
+            transport.appBarrier?.complete(Unit); runCurrent()
+            assertEquals(after, coordinator.state.value)
+            assertEquals(if (retire == "reconnect") 2 else 1, transport.connects)
+            assertEquals(listOf("node"), transport.appQueries)
+            if (retire == "ui-stop") assertSame(listener, transport.callback)
+        }
+    }
+
     @Test fun `default off does not initialize SDK or read source`() = runTest {
         val transport = Transport()
         val coordinator = WearableCoordinator(backgroundScope, transport, Settings(), { 1_000 })

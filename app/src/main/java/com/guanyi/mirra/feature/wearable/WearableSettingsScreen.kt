@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleStartEffect
 import com.guanyi.mirra.domain.wearable.WearableCoordinator
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -24,6 +25,9 @@ fun WearableSettingsScreen(coordinator: WearableCoordinator?, onBack: () -> Unit
         Text("在手腕上看一眼，再回到阅读。", style = MaterialTheme.typography.bodyLarge)
         Text("只同步当前书籍、第一步动作、页码、学习状态与时间。不读取笔记正文，不上传 Mirra 服务器。")
         if (coordinator == null) { Text("手机数据正在准备，请稍后重新打开。"); return@Column }
+        LifecycleStartEffect(coordinator) {
+            onStopOrDispose { coordinator.cancelWearAppCheck() }
+        }
         val state by coordinator.state.collectAsStateWithLifecycle()
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -31,7 +35,7 @@ fun WearableSettingsScreen(coordinator: WearableCoordinator?, onBack: () -> Unit
                 Text("设备：${state.deviceName ?: "尚未选择"}", Modifier.testTag("wearable-device"))
                 Text("小米手机服务：${if (state.serviceAvailable) "可用" else "尚不可用"}")
                 Text("设备授权：${if (state.authorized) "已授权" else "未确认"}")
-                Text("腕端应用：${if (state.handshaken) "已完成只读握手" else "等待打开 Mirra Band"}", Modifier.testTag("wearable-handshake"))
+                Text("只读握手：${if (state.handshaken) "已完成只读握手" else "等待打开 Mirra Band"}", Modifier.testTag("wearable-handshake"))
                 val sourceDescription = when (state.errorCategory) {
                     "SOURCE_BUSY" -> "手机正在处理数据，暂时停止同步"
                     "SOURCE_UNAVAILABLE" -> "暂不可读取"
@@ -40,6 +44,25 @@ fun WearableSettingsScreen(coordinator: WearableCoordinator?, onBack: () -> Unit
                 Text("学习数据：$sourceDescription")
                 Text("最近完整同步：${state.lastSnapshotAt?.let { SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(it)) } ?: "尚无"}")
                 state.errorCategory?.let { Text(wearableErrorText(it), color = MaterialTheme.colorScheme.error) }
+                val appCheckDescription = when {
+                    state.appCheckInProgress -> "正在检查"
+                    state.appCheckError != null -> "未能完成检查"
+                    state.appInstalled == true -> "小米服务报告已安装"
+                    state.appInstalled == false -> "小米服务报告未安装"
+                    else -> "尚未检查"
+                }
+                Text("腕端安装检查：$appCheckDescription", Modifier.testTag("wearable-app-check-result"))
+                state.appCheckError?.let { category ->
+                    Text("${wearableErrorText(category)}（$category）", Modifier.testTag("wearable-app-check-error"),
+                        color = MaterialTheme.colorScheme.error)
+                }
+                Text("安装检查不代表签名指纹核对、消息握手或完整同步。")
+                if (!state.enabled || !state.serviceAvailable || !state.authorized) {
+                    Text("需先启用伴侣、重新连接设备并确认授权，才能检查腕端应用。")
+                }
+                OutlinedButton(onClick = coordinator::checkWearAppFromUser,
+                    enabled = state.enabled && state.serviceAvailable && state.authorized && !state.appCheckInProgress,
+                    modifier = Modifier.fillMaxWidth().testTag("wearable-app-check")) { Text("检查腕端应用") }
             }
         }
         Text("需要手机上的小米配套服务与已经配对的设备。启用后会显示小米提供的设备消息授权页。手环退出后暂停查询，再次打开时重新获取数据。")
