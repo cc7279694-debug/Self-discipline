@@ -4,7 +4,7 @@
 
 ## Current delivery — Mirra Band Module 03 read-only bridge
 
-**MODULE_03_DEV_COMPLETE_AWAITING_DEVICE_ACCEPTANCE**。本轮用户已授权只读通信桥、手环设置和必要生命周期接线；Android 分支 `codex/mirra-band-readonly-bridge` 从实际 V1.1 验证交接提交 `1338b9a4e41788082f30bf3894a974c2ff652630` 创建，版本 `1.1.1-band-readonly` / code `4`。继承 V1.1 当前代码与保护边界，未从旧 main / 初始基线重新开始。开发与适用本地门禁已完成，等待目标真机验收；不表示正式手机—腕端链路已经验证。下方 V1.1 及更早章节保留原交付历史，不覆盖本轮授权或当前状态。
+**MODULE_03_DEVICE_ACCEPTANCE_BLOCKED**。用户已授权只读通信桥、手环设置和必要生命周期接线；Android 分支 `codex/mirra-band-readonly-bridge` 从 V1.1 验证交接 `1338b9a4e41788082f30bf3894a974c2ff652630` 创建，版本保持 `1.1.1-band-readonly` / code `4`，继承既有保护边界。适用本地门禁通过，手机 fresh 查询识别设备且已授权，但正式腕端没有真实握手/快照，当前验收受阻。下方 V1.1 及更早章节保留原交付历史，不覆盖当前授权或事实。
 
 已实现默认关闭的应用级只读伴侣、官方 SDK 消息适配、严格白名单协议与 Mine 设置入口。开关位于 `noBackupFilesDir` 的 AtomicFile，不进入 Room 或 Full Backup v1。快照读取绑定数据库实例与存储代际，在维护/退休时取消并排空；SDK 发送在事务与维护锁外。查询优先级为活动 Session → 活动 Intent → 经当前设备验证跟随的结束 Session → 主线书籍；读取失败不能伪造 IDLE，恢复/断连不能冒充业务新鲜度。
 
@@ -20,7 +20,7 @@
 
 Room v4、Schema 1–4、Migration、学习/监测/Closeout 算法、Full Backup 格式和手机签名身份保持不变。2026-10-11 后续真机安装已执行：OnePlus PKX110 和用户换接的 Xiaomi 23127PN0CC（均 Android16/API36）分别只读核对旧版 0.2.0/code2 的公开签名及 idle 首页，三方证书一致，实际 `install -r` Success 升级至 1.1.1-band-readonly/code4；安装文件摘要与交付一致，CE/DE 数据目录 metadata 保持原位、冷启动及首页正常。没有读取或修改用户数据库，目录保留不等于数据库内容逐项校验。用户已明确少数据跳过备份，旧版备份创建错误没有修复或算作成功。
 
-当前验收目标为新 Xiaomi 手机：已有小米运动健康 3.59.1、XMS 服务可解析；用户确认 9 Pro 配对且连接，实际 Mirra 页面随后确认“小米手环9 Pro / 手机服务可用 / 设备已授权 / 最近完整同步尚无”。COUNTERPART_APP_MISSING 仅为设置早期历史结果，不再是当前错误。电脑点击受 INJECT_EVENTS 策略限制，采用用户手动设置/授权，不绕过。用户更新正式腕端并提供实际错误 UI：0.2.0 为 INTERCONNECT_UNAVAILABLE，0.2.1 固定步骤诊断为 INIT_READY_CALL_API_MISSING。腕端最小兼容 0.2.2/code4 已实际构建/同证书验签并通过134/134本地测试，支持有界官方替代查询与 native JSON对象发送，等待用户更新复测；本次手机源码/APK 未修改，不重复 Android 构建或测试。实际腕端错误画面已观察，但完整快照、六类正式业务 UI、手机锁屏主场景、息屏通信及耗电仍未验收。不得声称端到端可用、验收完成或进入 Module 04。配套合同与统一证据维护在 Mirra Band 分支 `codex/module-03-readonly-companion` 的[合同](https://github.com/cc7279694-debug/mirra-band/blob/codex/module-03-readonly-companion/docs/plans/MIRRA_BAND_MODULE_03_COMPLETE_PLAN.md)和[证据目录](https://github.com/cc7279694-debug/mirra-band/tree/codex/module-03-readonly-companion/docs/evidence/module-03)；本仓库不重复创建冻结文档。
+当前验收目标 Xiaomi 已有小米运动健康 3.59.1；用户确认 9 Pro 配对。腕端 0.2.2 更新后实拍为 CHANNEL_UNAVAILABLE。UTC 14:24 手机曾 NO_DEVICE，XMS 仍已绑定；手机重新连接后 UTC 14:30、腕端再重试后 UTC 14:33 均显示“小米手环9 Pro / 服务可用 / 已授权”，但没有握手和完整同步。NO_DEVICE 与早期 COUNTERPART_APP_MISSING 都是历史，不能归因为签名、白名单或固件。腕端 0.2.3/code5 仅修正同次查询接口/严格数字错误码的观察缺口，实际146/146测试、构建和同证书独立验签通过，待用户更新取得具体码；不称连接修复。本次手机源码/APK 未改，未重新安装或重复 Android 门禁。电脑点击受 INJECT_EVENTS 限制，继续手动设置，不绕过。完整快照、六类正式 UI、锁屏主场景和耗电仍未验收，不进入 Module 04。统一[合同](https://github.com/cc7279694-debug/mirra-band/blob/codex/module-03-readonly-companion/docs/plans/MIRRA_BAND_MODULE_03_COMPLETE_PLAN.md)和[证据](https://github.com/cc7279694-debug/mirra-band/tree/codex/module-03-readonly-companion/docs/evidence/module-03)留在 Band 功能分支，本仓库不重复冻结文档。
 
 ## Current delivery — V1.1 core experience
 
