@@ -9,11 +9,39 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class OwnedWearTransportTest {
+    @Test fun startupEmptyNodesRecoverThroughTheRealCoordinatorAndOwnedTransport() = runTest {
+        val sdk = FakeGateway().apply { nodes = emptyList() }
+        val transport = OwnedWearTransport({ sdk }, backgroundScope)
+        val settings = object : com.guanyi.mirra.domain.wearable.WearableSettingsStore {
+            override val enabled = true
+            override fun setEnabled(value: Boolean) = Unit
+        }
+        val coordinator = com.guanyi.mirra.domain.wearable.WearableCoordinator(backgroundScope, transport, settings)
+        coordinator.bindSource(com.guanyi.mirra.domain.wearable.WearableSnapshotSource {
+            fail("transport recovery must not read learning data")
+            com.guanyi.mirra.domain.wearable.WearableSnapshot(com.guanyi.mirra.domain.wearable.WearablePhase.IDLE)
+        })
+        runCurrent()
+        assertEquals("NO_DEVICE", coordinator.state.value.errorCategory)
+        assertEquals(0, sdk.serviceObservers)
+        sdk.nodes = listOf(SdkWearNode("node-1", "Band"))
+        advanceTimeBy(2_001); runCurrent()
+        assertTrue(coordinator.state.value.serviceAvailable)
+        assertTrue(coordinator.state.value.authorized)
+        assertFalse(coordinator.state.value.handshaken)
+        assertNull(coordinator.state.value.lastSnapshotAt)
+        assertEquals(0, sdk.authorizationRequests)
+        assertEquals(1, sdk.listenCalls)
+        coordinator.close()
+    }
+
     @Test fun appCheckBeforeConnectionNeverInitializesSdk() = runTest {
         var initializations = 0
         val transport = OwnedWearTransport({ initializations++; FakeGateway() }, backgroundScope)

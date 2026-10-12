@@ -148,7 +148,7 @@ class WearableCoordinatorTest {
         }
     }
 
-    @Test fun `lifecycle retirement rejects a late check from the old node without reconnecting listeners`() = runTest {
+    @Test fun `a late app check cannot change the replacement transport after lifecycle retirement`() = runTest {
         for (retire in listOf("disable", "reconnect", "pause", "close", "ui-stop", "disconnect")) {
             val transport = Transport().apply { appBarrier = CompletableDeferred(); ignoreAppCancellation = true }
             val coordinator = WearableCoordinator(backgroundScope, transport, Settings())
@@ -170,7 +170,9 @@ class WearableCoordinatorTest {
             assertNull(after.appInstalled)
             transport.appBarrier?.complete(Unit); runCurrent()
             assertEquals(after, coordinator.state.value)
-            assertEquals(if (retire == "reconnect") 2 else 1, transport.connects)
+            // Explicit reconnect may authorize; service recovery must remain read-only.
+            assertEquals(if (retire in listOf("reconnect", "disconnect")) 2 else 1, transport.connects)
+            if (retire == "disconnect") assertEquals(listOf(true, false), transport.grantsRequested)
             assertEquals(listOf("node"), transport.appQueries)
             if (retire == "ui-stop") assertSame(listener, transport.callback)
         }

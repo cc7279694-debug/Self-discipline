@@ -37,11 +37,13 @@ class WearableCoordinator(
 ) {
     private val lifecycle = Mutex()
     private val messageSerial = Mutex()
+    private val channelPolicy = Any()
     private val mutableState = MutableStateFlow(WearableCompanionState(enabled = settings.enabled))
     val state = mutableState.asStateFlow()
     @Volatile private var epoch = 0L
     @Volatile private var source: WearableSnapshotSource? = null
     @Volatile private var selectedNode: String? = null
+    @Volatile private var terminalChannelError: String? = null
     private var clientId: String? = null
     private var streamId: String? = null
     private var sequence = 0L
@@ -96,7 +98,7 @@ class WearableCoordinator(
     }
 
     suspend fun bindSource(value: WearableSnapshotSource) = lifecycle.withLock {
-        invalidateAndDrain()
+        invalidateAndDrain(resetTerminal = true)
         source = value
         mutableState.update { it.copy(sourceReady = true) }
         if (settings.enabled) connect(false)
@@ -106,17 +108,19 @@ class WearableCoordinator(
         source = null
         mutableState.update { it.copy(sourceReady = false, lastSnapshotAt = null) }
         // Listener can answer SOURCE_BUSY with no old personal payload. SDK send remains outside Room.
-        if (settings.enabled && selectedNode != null) installListener()
+        if (settings.enabled && selectedNode != null) installListener(epoch)
     }
     fun enableFromUser() { scope.launch { lifecycle.withLock {
         try { settings.setEnabled(true) }
         catch (_: Exception) { mutableState.update { it.copy(errorCategory = "SETTINGS_UNAVAILABLE") }; return@withLock }
+        invalidateAndDrain(resetTerminal = true)
         mutableState.update { it.copy(enabled = true, errorCategory = null) }
-        invalidateAndDrain(); connect(true)
+        connect(true)
     } } }
     fun reconnectFromUser() { scope.launch { lifecycle.withLock {
         if (!settings.enabled) return@withLock
-        invalidateAndDrain(clearFollowed = false); connect(true)
+        invalidateAndDrain(clearFollowed = false, resetTerminal = true)
+        connect(true)
     } } }
     fun disableFromUser() { scope.launch { lifecycle.withLock {
         try { settings.setEnabled(false) }
@@ -135,8 +139,11 @@ class WearableCoordinator(
         invalidateAndDrain(); source = null; transport.close(); selectedNode = null
     }
 
-    private suspend fun invalidateAndDrain(clearFollowed: Boolean = true) {
-        epoch++
+    private suspend fun invalidateAndDrain(clearFollowed: Boolean = true, resetTerminal: Boolean = false) {
+        synchronized(channelPolicy) {
+            epoch++
+            if (resetTerminal) terminalChannelError = null
+        }
         retireAppCheck()
         transport.setListener(null)
         connectJob?.cancelAndJoin(); connectJob = null
@@ -148,33 +155,48 @@ class WearableCoordinator(
     private fun connect(authorization: Boolean) {
         val captured = epoch
         connectJob = scope.launch {
-            try {
-                // Human authorization is an explicit, cancelable interaction, unlike a 3s protocol request.
-                val connection = withTimeout(if (authorization) 90_000 else 15_000) { transport.connect(authorization) }
-                if (captured != epoch || !settings.enabled) return@launch
-                if (selectedNode != null && selectedNode != connection.nodeId) {
-                    lastFollowedSessionId = null; lastFollowedNode = null
+            var mayAuthorize = authorization
+            var retryIndex = 0
+            // One application-owned job serializes both SDK attempts and cancellable delays.
+            // A late node can recover while this process lives; no alarm, service or wake lock.
+            while (isActive && currentChannel(captured) && source != null) {
+                val category = try {
+                    // Only the explicitly requested first attempt may display authorization.
+                    val connection = withTimeout(if (mayAuthorize) 90_000 else 15_000) { transport.connect(mayAuthorize) }
+                    synchronized(channelPolicy) {
+                        if (!currentChannel(captured) || source == null) return@launch
+                        if (!connection.authorized) {
+                            reportChannelFailure(captured, "NOT_AUTHORIZED")
+                            return@launch
+                        }
+                        if (selectedNode != null && selectedNode != connection.nodeId) {
+                            lastFollowedSessionId = null; lastFollowedNode = null
+                        }
+                        selectedNode = connection.nodeId
+                        updateCurrentChannel(captured) { it.copy(deviceName = connection.deviceName ?: "已选择的小米设备",
+                            serviceAvailable = true, authorized = true, errorCategory = null) }
+                        installListener(captured)
+                    }
+                    // SDK readiness never grants a business handshake or snapshot freshness.
+                    return@launch
+                } catch (cancelled: CancellationException) {
+                    if (cancelled is TimeoutCancellationException) "TIMEOUT" else throw cancelled
+                } catch (failure: Exception) {
+                    (failure as? WearTransportException)?.category ?: "SDK_ERROR"
                 }
-                selectedNode = connection.nodeId
-                mutableState.update { it.copy(deviceName = connection.deviceName ?: "已选择的小米设备",
-                    serviceAvailable = true, authorized = connection.authorized, errorCategory = null) }
-                if (connection.authorized) installListener()
-                else mutableState.update { it.copy(errorCategory = "NOT_AUTHORIZED") }
-            } catch (cancelled: CancellationException) {
-                if (cancelled is TimeoutCancellationException && captured == epoch)
-                    mutableState.update { it.copy(serviceAvailable = false, errorCategory = "TIMEOUT") }
-                else throw cancelled
-            } catch (failure: Exception) {
-                if (captured == epoch) mutableState.update { it.copy(serviceAvailable = false,
-                    authorized = false, errorCategory = (failure as? WearTransportException)?.category ?: "SDK_ERROR") }
+                if (source == null || !reportChannelFailure(captured, category)) return@launch
+                mayAuthorize = false
+                // No SDK or lifecycle mutex is held while waiting; retirement cancels this job.
+                delay(AUTO_RETRY_DELAYS[retryIndex])
+                retryIndex = minOf(retryIndex + 1, AUTO_RETRY_DELAYS.lastIndex)
             }
         }
     }
-    private fun installListener() {
-        val captured = epoch
+    private fun installListener(captured: Long): Unit = synchronized(channelPolicy) {
+        if (!currentChannel(captured)) return
         transport.setListener(object : WearTransportListener {
             override fun onMessage(nodeId: String, payload: ByteArray) {
-                if (captured != epoch || !settings.enabled || nodeId != selectedNode) return
+                if (!currentChannel(captured) || nodeId != selectedNode) return
                 val request = try { WearableProtocol.decodeRequest(payload) } catch (_: WearableProtocolException) { return }
                 // Back pressure: at most one request owns the source read/send, no detached publisher queue.
                 if (!messageSerial.tryLock()) return
@@ -183,7 +205,7 @@ class WearableCoordinator(
                     catch (cancelled: CancellationException) { throw cancelled }
                     catch (failure: Exception) {
                         if (failure is WearTransportException) lostConnection(captured, failure.category)
-                        else if (captured == epoch) mutableState.update { it.copy(errorCategory = "SOURCE_UNAVAILABLE") }
+                        else updateCurrentChannel(captured) { it.copy(errorCategory = "SOURCE_UNAVAILABLE") }
                     }
                     finally { messageSerial.unlock() }
                 }
@@ -197,7 +219,7 @@ class WearableCoordinator(
             override fun onAvailable() {
                 // Availability has no learning facts. Serialize after a rapid disconnect callback.
                 scope.launch { lifecycle.withLock {
-                    if (!settings.enabled || source == null || mutableState.value.serviceAvailable || connectJob?.isActive == true)
+                    if (!currentChannel(captured) || source == null || mutableState.value.serviceAvailable || connectJob?.isActive == true)
                         return@withLock
                     if (mutableState.value.errorCategory != "SERVICE_UNAVAILABLE") return@withLock
                     invalidateAndDrain(clearFollowed = false)
@@ -207,27 +229,57 @@ class WearableCoordinator(
         })
     }
     private fun lostConnection(captured: Long, category: String) {
-        if (captured != epoch) return
-        // Display loss immediately; serial cleanup drains the owned publisher before reattachment.
-        mutableState.update { it.copy(serviceAvailable = false, authorized = false,
-            handshaken = false, lastSnapshotAt = null, errorCategory = category) }
+        val alreadyRecovering = synchronized(channelPolicy) {
+            if (!currentChannel(captured)) return
+            val recovering = category in AUTO_RETRYABLE && connectJob?.isActive == true && !mutableState.value.serviceAvailable
+            // A permanent policy stops callbacks immediately, before the async drain can run.
+            reportChannelFailure(captured, category)
+            recovering
+        }
+        if (alreadyRecovering) return
         scope.launch { lifecycle.withLock {
             if (captured != epoch) return@withLock
             invalidateAndDrain(clearFollowed = false)
-            mutableState.update { it.copy(errorCategory = category) }
-            if (settings.enabled && selectedNode != null) installListener()
+            mutableState.update { it.copy(errorCategory = terminalChannelError ?: category) }
+            if (settings.enabled && selectedNode != null) installListener(epoch)
+            if (settings.enabled && source != null && terminalChannelError == null && category in AUTO_RETRYABLE) connect(false)
         } }
     }
+    private fun currentChannel(captured: Long) = captured == epoch && settings.enabled && terminalChannelError == null
+
+    /** Short policy/publication lock only: never held across an SDK or Room wait. */
+    private fun updateCurrentChannel(captured: Long, transform: (WearableCompanionState) -> WearableCompanionState) = synchronized(channelPolicy) {
+        mutableState.update { state -> if (currentChannel(captured)) transform(state) else state }
+    }
+
+    private fun reportChannelFailure(captured: Long, category: String): Boolean = synchronized(channelPolicy) {
+        if (!currentChannel(captured)) return false
+        val retryable = category in AUTO_RETRYABLE
+        if (!retryable) {
+            terminalChannelError = category
+            transport.setListener(null)
+        }
+        mutableState.update { state ->
+            if (captured != epoch || !settings.enabled) state
+            else state.copy(serviceAvailable = false, authorized = false, handshaken = false,
+                lastSnapshotAt = null, errorCategory = terminalChannelError ?: category)
+        }
+        retryable
+    }
     private suspend fun process(captured: Long, node: String, request: WearableRequest) {
-        if (captured != epoch || !settings.enabled) return
+        if (!currentChannel(captured)) return
         val reader = source
-        if (reader == null) { transport.send(node, WearableProtocol.status(request, "SOURCE_BUSY", request.streamId)); return }
+        if (reader == null) {
+            if (currentChannel(captured)) transport.send(node, WearableProtocol.status(request, "SOURCE_BUSY", request.streamId))
+            return
+        }
         if (request.type == "HELLO") {
             if (request.clientInstanceId == clientId && request.requestId in usedRequests) return
             clientId = request.clientInstanceId; streamId = newId(); sequence = 0; usedRequests.clear()
             usedRequests += request.requestId
+            if (!currentChannel(captured)) return
             transport.send(node, WearableProtocol.helloAck(request, checkNotNull(streamId)))
-            if (captured == epoch) mutableState.update { it.copy(serviceAvailable = true,
+            updateCurrentChannel(captured) { it.copy(serviceAvailable = true,
                 authorized = true, handshaken = true, errorCategory = null) }
             return
         }
@@ -241,7 +293,7 @@ class WearableCoordinator(
         val reply = try {
             // Foreign historical IDs are never queried, but a current active Session can still be read.
             val body = reader.read(followed)
-            if (captured != epoch || reader !== source || !settings.enabled) return
+            if (!currentChannel(captured) || reader !== source) return
             val observedAt = clock()
             WearableProtocol.snapshot(request, checkNotNull(streamId), ++sequence, observedAt, body).also {
                 // Only a fully encoded, valid snapshot can authorize history or mark a sync.
@@ -254,19 +306,25 @@ class WearableCoordinator(
         catch (_: Exception) {
             sourceFailure = "SOURCE_UNAVAILABLE"; WearableProtocol.status(request, "SOURCE_UNAVAILABLE", streamId)
         }
-        if (captured != epoch || !settings.enabled || reader !== source) return
+        if (!currentChannel(captured) || reader !== source) return
         transport.send(node, reply)
-        if (captured == epoch && reader === source && settings.enabled) {
-            val observedAt = confirmedObservedAt
-            if (observedAt != null) {
-                lastFollowedSessionId = observedSession; lastFollowedNode = node
-                mutableState.update { it.copy(lastSnapshotAt = observedAt, errorCategory = null) }
-            } else {
-                mutableState.update { it.copy(errorCategory = sourceFailure) }
+        synchronized(channelPolicy) {
+            if (currentChannel(captured) && reader === source) {
+                val observedAt = confirmedObservedAt
+                if (observedAt != null) {
+                    lastFollowedSessionId = observedSession; lastFollowedNode = node
+                    updateCurrentChannel(captured) { state ->
+                        if (reader === source) state.copy(lastSnapshotAt = observedAt, errorCategory = null) else state
+                    }
+                } else {
+                    updateCurrentChannel(captured) { it.copy(errorCategory = sourceFailure) }
+                }
             }
         }
     }
     private companion object {
+        val AUTO_RETRYABLE = setOf("NO_DEVICE", "SERVICE_UNAVAILABLE", "TIMEOUT")
+        val AUTO_RETRY_DELAYS = longArrayOf(2_000, 5_000, 10_000, 30_000, 60_000)
         val APP_CHECK_ERRORS = setOf("TIMEOUT", "NO_DEVICE", "MULTIPLE_DEVICES", "WRONG_DEVICE",
             "NOT_AUTHORIZED", "SERVICE_UNAVAILABLE", "SIGNING_IDENTITY_MISMATCH", "COUNTERPART_APP_MISSING",
             "CLEANUP_PENDING", "CHECK_UNAVAILABLE", "SDK_ERROR")
