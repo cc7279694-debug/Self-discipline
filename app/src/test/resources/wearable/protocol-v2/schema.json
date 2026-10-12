@@ -1,0 +1,838 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mirra:wearable:protocol:2",
+  "title": "Mirra companion v2: bounded learning controls",
+  "description": "UTF-8 maximum 4096 bytes. Both codecs additionally enforce valid Unicode, exact action-specific identity, phase ownership, page bounds, and control grant lifetime (1..30000 milliseconds relative to source observation). v1 is a separate immutable read-only protocol.",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 2
+        },
+        "type": {
+          "const": "HELLO"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "capabilities": {
+          "enum": [
+            [
+              "READ_ONLY_SNAPSHOT"
+            ],
+            [
+              "READ_ONLY_SNAPSHOT",
+              "SESSION_CONTROL"
+            ]
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "capabilities"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 2
+        },
+        "type": {
+          "const": "HELLO_ACK"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "capabilities": {
+          "enum": [
+            [
+              "READ_ONLY_SNAPSHOT"
+            ],
+            [
+              "READ_ONLY_SNAPSHOT",
+              "SESSION_CONTROL"
+            ]
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "capabilities"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 2
+        },
+        "type": {
+          "const": "GET_SNAPSHOT"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "lastSeenSessionId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "lastSeenSessionId"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 2
+        },
+        "type": {
+          "const": "SNAPSHOT"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "sourceObservedAtUnixMs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "body": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "phase",
+            "intentId",
+            "sessionId",
+            "learningItemId",
+            "bookTitle",
+            "currentPage",
+            "totalPages",
+            "firstAction",
+            "bookTitleTruncated",
+            "firstActionTruncated",
+            "segmentType",
+            "coverage",
+            "monitorAvailability",
+            "elapsedMs",
+            "remainingMs",
+            "timerKind",
+            "endType"
+          ],
+          "properties": {
+            "phase": {
+              "enum": [
+                "IDLE",
+                "PREPARING",
+                "ACTIVE",
+                "SAVING",
+                "ENDED"
+              ]
+            },
+            "intentId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "learningItemId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "bookTitle": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 120
+            },
+            "firstAction": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 180
+            },
+            "bookTitleTruncated": {
+              "type": "boolean"
+            },
+            "firstActionTruncated": {
+              "type": "boolean"
+            },
+            "currentPage": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "totalPages": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "segmentType": {
+              "enum": [
+                null,
+                "FOCUS",
+                "DEEP_FOCUS",
+                "BREAK",
+                "TEMPORARY_ALLOWANCE",
+                "DISTRACTION",
+                "RECOVERY",
+                "UNMONITORED"
+              ]
+            },
+            "coverage": {
+              "enum": [
+                null,
+                "FULL",
+                "PARTIAL",
+                "NONE"
+              ]
+            },
+            "monitorAvailability": {
+              "enum": [
+                "AVAILABLE",
+                "UNAVAILABLE",
+                "UNKNOWN"
+              ]
+            },
+            "elapsedMs": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "remainingMs": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "timerKind": {
+              "enum": [
+                "NONE",
+                "PREPARATION_ELAPSED",
+                "SESSION_ELAPSED",
+                "BREAK_REMAINING",
+                "ALLOWANCE_REMAINING",
+                "FINAL_SESSION_DURATION"
+              ]
+            },
+            "endType": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 40
+            }
+          }
+        },
+        "control": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "activeSegmentId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "allowedActions": {
+              "type": "array",
+              "uniqueItems": true,
+              "maxItems": 3,
+              "items": {
+                "enum": [
+                  "START_BREAK",
+                  "FINISH_BREAK",
+                  "CONFIRM_PREPARATION_AND_START"
+                ]
+              }
+            },
+            "controlGrant": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "grantExpiresAtUnixMs": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "expectedFirstAction": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 180,
+                  "pattern": "\\S"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "activeSegmentId",
+            "allowedActions",
+            "controlGrant",
+            "grantExpiresAtUnixMs",
+            "expectedFirstAction"
+          ],
+          "oneOf": [
+            {
+              "properties": {
+                "allowedActions": {
+                  "const": []
+                },
+                "controlGrant": {
+                  "type": "null"
+                },
+                "grantExpiresAtUnixMs": {
+                  "type": "null"
+                },
+                "expectedFirstAction": {
+                  "type": "null"
+                }
+              }
+            },
+            {
+              "properties": {
+                "allowedActions": {
+                  "minItems": 1
+                },
+                "controlGrant": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+                },
+                "grantExpiresAtUnixMs": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                }
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "sequence",
+        "sourceObservedAtUnixMs",
+        "body",
+        "control"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 2
+        },
+        "type": {
+          "const": "STATUS_ERROR"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "code": {
+          "enum": [
+            "SOURCE_BUSY",
+            "DISABLED",
+            "UNSUPPORTED_PROTOCOL",
+            "SOURCE_UNAVAILABLE",
+            "UNAUTHORIZED",
+            "IDENTITY_ERROR"
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "code"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 2
+        },
+        "type": {
+          "const": "COMMAND"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "controlGrant": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "action": {
+          "const": "START_BREAK"
+        },
+        "expectedIntentId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expectedSessionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "expectedSegmentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "expectedBookId": {
+          "type": "null"
+        },
+        "expectedPage": {
+          "type": "null"
+        },
+        "expectedFirstAction": {
+          "type": "null"
+        },
+        "breakMinutes": {
+          "enum": [
+            5,
+            10
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "controlGrant",
+        "action",
+        "expectedIntentId",
+        "expectedSessionId",
+        "expectedSegmentId",
+        "expectedBookId",
+        "expectedPage",
+        "expectedFirstAction",
+        "breakMinutes"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 2
+        },
+        "type": {
+          "const": "COMMAND"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "controlGrant": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "action": {
+          "const": "FINISH_BREAK"
+        },
+        "expectedIntentId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expectedSessionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "expectedSegmentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "expectedBookId": {
+          "type": "null"
+        },
+        "expectedPage": {
+          "type": "null"
+        },
+        "expectedFirstAction": {
+          "type": "null"
+        },
+        "breakMinutes": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "controlGrant",
+        "action",
+        "expectedIntentId",
+        "expectedSessionId",
+        "expectedSegmentId",
+        "expectedBookId",
+        "expectedPage",
+        "expectedFirstAction",
+        "breakMinutes"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 2
+        },
+        "type": {
+          "const": "COMMAND"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "controlGrant": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "action": {
+          "const": "CONFIRM_PREPARATION_AND_START"
+        },
+        "expectedIntentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "expectedSessionId": {
+          "type": "null"
+        },
+        "expectedSegmentId": {
+          "type": "null"
+        },
+        "expectedBookId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "expectedPage": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "expectedFirstAction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180,
+          "pattern": "\\S"
+        },
+        "breakMinutes": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "controlGrant",
+        "action",
+        "expectedIntentId",
+        "expectedSessionId",
+        "expectedSegmentId",
+        "expectedBookId",
+        "expectedPage",
+        "expectedFirstAction",
+        "breakMinutes"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 2
+        },
+        "type": {
+          "const": "COMMAND_RESULT"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "action": {
+          "enum": [
+            "START_BREAK",
+            "FINISH_BREAK",
+            "CONFIRM_PREPARATION_AND_START"
+          ]
+        },
+        "code": {
+          "enum": [
+            "APPLIED",
+            "ALREADY_APPLIED",
+            "STALE_STATE",
+            "REQUIRES_PHONE",
+            "DISABLED",
+            "UNAUTHORIZED",
+            "BUSY",
+            "FAILED",
+            "RESULT_UNKNOWN"
+          ]
+        },
+        "sessionId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "monitorDegraded": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "action",
+        "code",
+        "sessionId",
+        "monitorDegraded"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "monitorDegraded": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "CONFIRM_PREPARATION_AND_START"
+              },
+              "code": {
+                "enum": [
+                  "APPLIED",
+                  "ALREADY_APPLIED"
+                ]
+              },
+              "sessionId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "enum": [
+                  "APPLIED",
+                  "ALREADY_APPLIED"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "sessionId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

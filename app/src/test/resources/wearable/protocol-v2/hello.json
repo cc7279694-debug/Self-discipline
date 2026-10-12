@@ -1,0 +1,10 @@
+{
+  "protocolVersion": 2,
+  "type": "HELLO",
+  "clientInstanceId": "client-golden",
+  "requestId": "request-hello",
+  "capabilities": [
+    "READ_ONLY_SNAPSHOT",
+    "SESSION_CONTROL"
+  ]
+}

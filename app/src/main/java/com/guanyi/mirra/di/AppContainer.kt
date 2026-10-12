@@ -119,6 +119,7 @@ internal suspend fun configureActiveSessionPresentationAndDnd(
 
 interface AppContainer {
     val wearableSnapshotSource: com.guanyi.mirra.domain.wearable.WearableSnapshotSource? get() = null
+    val wearableCommandExecutor: com.guanyi.mirra.domain.wearable.WearableCommandExecutor? get() = null
     val fullBackupService: com.guanyi.mirra.domain.backup.FullBackupService? get() = null
     val dataExportService: com.guanyi.mirra.domain.backup.DataExportService? get() = null
     val pendingEdits: PendingEditRegistry? get() = null
@@ -291,6 +292,18 @@ class DefaultAppContainer(
                 com.guanyi.mirra.domain.wearable.MonitorAvailability.AVAILABLE
             else com.guanyi.mirra.domain.wearable.MonitorAvailability.UNAVAILABLE
         },
+    )
+    override val wearableCommandExecutor = com.guanyi.mirra.domain.wearable.DefaultWearableCommandExecutor(
+        source = wearableSnapshotSource,
+        start = { expected, authorized -> sessionStartCoordinator.startConfirmedMonitored(expected, authorized) },
+        startBreak = { session, segment, duration, authorized -> focusSessionActions.startBreak(session, segment, duration,
+            com.guanyi.mirra.domain.monitoring.ClockSample(System.currentTimeMillis(), android.os.SystemClock.elapsedRealtime()), authorized) },
+        finishBreak = { session, segment, authorized -> focusSessionActions.finishBreak(session, segment,
+            com.guanyi.mirra.domain.monitoring.ClockSample(System.currentTimeMillis(), android.os.SystemClock.elapsedRealtime()), authorized) },
+        admission = { work -> storageGate.writerOperation {
+            if (!startup.isCompleted) com.guanyi.mirra.domain.wearable.WearableCommandOutcome("BUSY")
+            else { startup.await(); work() }
+        } },
     )
     override val fullBackupService = backupHost?.let { DefaultFullBackupService(context, this, it) }?.also { service ->
         // App bootstrap has already resolved the separate restore journal before constructing us.

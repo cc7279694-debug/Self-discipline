@@ -8,6 +8,7 @@ import com.guanyi.mirra.data.preferences.AppPreferencesRepository
 import com.guanyi.mirra.data.preferences.MirraThemeId
 import com.guanyi.mirra.data.repository.*
 import com.guanyi.mirra.domain.DndStateStore
+import com.guanyi.mirra.domain.ConfirmedSessionStart
 import com.guanyi.mirra.domain.intervention.InterventionDeliveryReceipt
 import com.guanyi.mirra.domain.maintenance.MaintenanceUnavailableException
 import com.guanyi.mirra.domain.maintenance.StorageMaintenanceGate
@@ -51,6 +52,12 @@ class GateWriterAdmissionCoverageTest {
             "workflow.abandonIntent" to { workflow.abandonIntent("intent") },
             "workflow.startSession" to { workflow.startSession("intent", 1) },
             "workflow.startMonitoredSession" to { workflow.startMonitoredSession("intent", 1, ready, "session") },
+            "workflow.validateConfirmedPreparation" to {
+                workflow.validateConfirmedPreparation(ConfirmedSessionStart("intent", "item", 1, "翻到第一页，读第一段。"))
+            },
+            "workflow.startConfirmedMonitoredSession" to {
+                workflow.startConfirmedMonitoredSession(ConfirmedSessionStart("intent", "item", 1, "翻到第一页，读第一段。"), ready, "session")
+            },
             "workflow.updateCurrentPage" to { workflow.updateCurrentPage("session", 1) },
             "workflow.beginCloseout" to { workflow.beginCloseout("session", 1, 1) },
             "workflow.completeCloseout" to { workflow.completeCloseout("session") },
@@ -91,7 +98,7 @@ class GateWriterAdmissionCoverageTest {
             "preferences.setCrossAppInterventionEnabled" to { preferences.setCrossAppInterventionEnabled(false) },
             "receipt.record" to { receipts.record(prompt, InterventionDeliveryReceipt.IN_APP_PRESENTED) },
         )
-        assertEquals(51, writers.size)
+        assertEquals(53, writers.size)
         gate.coordinator.withExclusive(1_000) {
             for ((name, writer) in writers) {
                 val failure = runCatching { writer() }.exceptionOrNull()

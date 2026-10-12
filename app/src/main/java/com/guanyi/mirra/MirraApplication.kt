@@ -98,7 +98,7 @@ class MirraApplication : Application(), BackupStorageHost {
         val selected = checkNotNull(generation.selected)
         selected.startup.await()
         if (presentation == StoragePresentation.OPEN)
-            selected.wearableSnapshotSource.let { wearableCompanion.bindSource(it) }
+            selected.wearableSnapshotSource.let { wearableCompanion.bindSource(it, selected.wearableCommandExecutor) }
         withContext(Dispatchers.Main.immediate) {
             currentRuntime = checkNotNull(generation.runtime)
             RestoreFileAccess.blocked = false
@@ -158,7 +158,9 @@ class MirraApplication : Application(), BackupStorageHost {
             }
         }
         if (!busy && mutableStorageState.value.phase == StoragePresentation.OPEN) {
-            mutableStorageState.value.container?.wearableSnapshotSource?.let { wearableCompanion.bindSource(it) }
+            mutableStorageState.value.container?.let { selected ->
+                selected.wearableSnapshotSource?.let { wearableCompanion.bindSource(it, selected.wearableCommandExecutor) }
+            }
         }
     }
     override suspend fun runRestore(block: suspend () -> Unit) {

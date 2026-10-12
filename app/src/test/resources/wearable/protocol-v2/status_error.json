@@ -1,0 +1,8 @@
+{
+  "protocolVersion": 2,
+  "type": "STATUS_ERROR",
+  "clientInstanceId": "client-golden",
+  "requestId": "request-status_error",
+  "streamId": "stream-golden",
+  "code": "SOURCE_BUSY"
+}

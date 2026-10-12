@@ -1,0 +1,11 @@
+{
+  "protocolVersion": 2,
+  "type": "COMMAND_RESULT",
+  "clientInstanceId": "client-golden",
+  "requestId": "request-command",
+  "streamId": "stream-golden",
+  "action": "START_BREAK",
+  "code": "APPLIED",
+  "sessionId": "session-golden",
+  "monitorDegraded": false
+}

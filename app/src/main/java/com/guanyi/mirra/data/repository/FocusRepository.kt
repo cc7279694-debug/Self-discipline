@@ -21,7 +21,9 @@ import com.guanyi.mirra.domain.monitoring.AllowanceReason
 enum class BehaviorAction { START_BREAK, FINISH_BREAK, GRANT_ALLOWANCE, EXTEND_ALLOWANCE, FINISH_ALLOWANCE, EXPIRE }
 data class BehaviorCommand(val sessionId: String, val expectedSegmentId: String, val action: BehaviorAction,
     val at: Long, val actionToken: String, val packageName: String? = null, val reason: String? = null,
-    val durationMillis: Long? = null, val expectedRiskEventId: String? = null)
+    val durationMillis: Long? = null, val expectedRiskEventId: String? = null,
+    // Runtime-only external admission. Ordinary phone and monitor commands leave it null.
+    val stillAuthorized: (() -> Boolean)? = null)
 
 data class SegmentTransitionCommand(
     val sessionId: String,
@@ -90,6 +92,7 @@ class DefaultFocusRepository(
     private val newId: () -> String = { UUID.randomUUID().toString() },
     private val machine: SessionSegmentStateMachine = SessionSegmentStateMachine(),
 ) : FocusRepository {
+    private class BehaviorAdmissionRejected : IllegalStateException()
     private val dao = database.focusDao()
     private val sessions = database.sessionDao()
 
@@ -304,7 +307,8 @@ class DefaultFocusRepository(
     private fun riskEventId(candidate: RiskConfirmation) =
         "risk:${candidate.sessionId}:${candidate.sourceSegmentId}:${candidate.packageName}:${candidate.candidateStartedAt}"
 
-    override suspend fun applyBehavior(command: BehaviorCommand): SessionSegmentEntity? = database.withTransaction {
+    override suspend fun applyBehavior(command: BehaviorCommand): SessionSegmentEntity? = try { database.withTransaction {
+        if (command.stillAuthorized?.invoke() == false) return@withTransaction null
         val session = sessions.get(command.sessionId)?.takeIf { it.activeSlot == 1 && it.endedAt == null }
             ?: return@withTransaction null
         val current = dao.getActiveSegment(command.sessionId) ?: return@withTransaction null
@@ -358,8 +362,8 @@ class DefaultFocusRepository(
             reason = command.reason.takeIf { next == SessionSegmentType.TEMPORARY_ALLOWANCE },
             plannedEndAt = command.durationMillis?.let { Math.addExact(command.at, it) }
                 .takeIf { next == SessionSegmentType.BREAK || next == SessionSegmentType.TEMPORARY_ALLOWANCE }),
-            command.at, next)
-    }
+            command.at, next, command.stillAuthorized)
+    } } catch (_: BehaviorAdmissionRejected) { null }
 
     private suspend fun loadState(sessionId: String): SegmentMachineState {
         val session = checkNotNull(sessions.get(sessionId)) { "Session 不存在" }
@@ -384,8 +388,12 @@ class DefaultFocusRepository(
         command: SegmentTransitionCommand,
         boundary: Long,
         nextType: SessionSegmentType,
+        stillAuthorized: (() -> Boolean)? = null,
     ): SessionSegmentEntity {
         val current = checkNotNull(dao.getActiveSegment(command.sessionId))
+        // The last authoritative read and external authorization precede the first write in
+        // the same Room transaction. Rejection rolls back without a new learning fact.
+        if (stillAuthorized?.invoke() == false) throw BehaviorAdmissionRejected()
         check(dao.closeActiveSegment(current.id, command.sessionId, boundary) == 1) { "Segment 已关闭" }
         val opened = segment(
             sessionId = command.sessionId,

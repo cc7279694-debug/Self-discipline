@@ -1,6 +1,7 @@
 package com.guanyi.mirra.domain.wearable
 
 import com.guanyi.mirra.data.local.entity.*
+import com.guanyi.mirra.domain.IntentExpiryPolicy
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -26,6 +27,42 @@ class WearableProjectionTest {
         assertEquals(WearablePhase.PREPARING, body.phase)
         assertEquals(item.firstAction, body.firstAction)
         assertEquals(900L, body.elapsedMs)
+    }
+    @Test fun `valid current preparation can be confirmed until the expiry boundary`() {
+        val body = WearableProjection.project(item, intent, null, null, null,
+            intent.createdAt + IntentExpiryPolicy.DEFAULT_TIMEOUT_MILLIS - 1, MonitorAvailability.UNKNOWN)
+        assertEquals(WearablePhase.PREPARING, body.phase)
+        assertEquals(item.firstAction, body.firstAction)
+        assertTrue(body.preparationConfirmable)
+    }
+    @Test fun `expired preparation remains truthful but cannot be confirmed`() {
+        val body = WearableProjection.project(item, intent, null, null, null,
+            intent.createdAt + IntentExpiryPolicy.DEFAULT_TIMEOUT_MILLIS, MonitorAvailability.UNKNOWN)
+        assertEquals(WearablePhase.PREPARING, body.phase)
+        assertEquals(item.firstAction, body.firstAction)
+        assertFalse(body.preparationConfirmable)
+    }
+    @Test fun `paused or completed book never admits preparation confirmation`() {
+        for (status in listOf(LearningItemStatus.PAUSED, LearningItemStatus.COMPLETED)) {
+            val body = WearableProjection.project(item.copy(status = status), intent, null, null, null,
+                1_000, MonitorAvailability.UNKNOWN)
+            assertEquals(WearablePhase.PREPARING, body.phase)
+            assertFalse(body.preparationConfirmable)
+        }
+    }
+    @Test fun `unselected legacy or invalid action never admits preparation confirmation`() {
+        for (action in listOf("", "拿起《中文 📖》，翻到第 30 页。", "读完这本书")) {
+            val body = WearableProjection.project(item.copy(firstAction = action), intent, null, null, null,
+                1_000, MonitorAvailability.UNKNOWN)
+            assertNull(body.firstAction)
+            assertFalse(body.preparationConfirmable)
+        }
+    }
+    @Test fun `backward clock cannot admit preparation confirmation`() {
+        val body = WearableProjection.project(item, intent, null, null, null,
+            intent.createdAt - 1, MonitorAvailability.UNKNOWN)
+        assertNull(body.elapsedMs)
+        assertFalse(body.preparationConfirmable)
     }
     @Test fun `active session page wins over book and full is independent of current monitoring`() {
         val body = WearableProjection.project(item, null, session, context, segment, 1_000, MonitorAvailability.UNAVAILABLE)

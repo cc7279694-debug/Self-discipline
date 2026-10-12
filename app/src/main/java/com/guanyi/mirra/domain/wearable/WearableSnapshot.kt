@@ -2,6 +2,7 @@ package com.guanyi.mirra.domain.wearable
 
 import com.guanyi.mirra.data.local.entity.*
 import com.guanyi.mirra.domain.FirstActionResolver
+import com.guanyi.mirra.domain.IntentExpiryPolicy
 import kotlinx.serialization.Serializable
 
 @Serializable enum class WearablePhase { IDLE, PREPARING, ACTIVE, SAVING, ENDED }
@@ -29,6 +30,9 @@ import kotlinx.serialization.Serializable
     val remainingMs: Long? = null,
     val timerKind: WearableTimerKind = WearableTimerKind.NONE,
     val endType: String? = null,
+    // Internal current identity; v1 body serialization remains byte-compatible.
+    @kotlinx.serialization.Transient val activeSegmentId: String? = null,
+    @kotlinx.serialization.Transient val preparationConfirmable: Boolean = false,
 )
 
 class WearableSourceUnavailable : Exception("SOURCE_UNAVAILABLE")
@@ -39,6 +43,7 @@ fun interface WearableSnapshotSource {
 }
 
 object WearableProjection {
+    private val intentExpiryPolicy = IntentExpiryPolicy()
     fun project(item: LearningItemEntity?, intent: StudyIntentEntity?, session: StudySessionEntity?,
         context: SessionFocusContextEntity?, segment: SessionSegmentEntity?, now: Long,
         monitorAvailability: MonitorAvailability): WearableSnapshot {
@@ -53,6 +58,8 @@ object WearableProjection {
                 intent.outcome != null || intent.endedAt != null || intent.convertedAt != null) unavailable()
             val elapsed = duration(intent.createdAt, now)
             return base.copy(phase = WearablePhase.PREPARING, intentId = intent.id, elapsedMs = elapsed,
+                preparationConfirmable = elapsed != null && item.status == LearningItemStatus.IN_PROGRESS &&
+                    !intentExpiryPolicy.isExpired(intent.createdAt, now) && base.firstAction != null,
                 timerKind = if (elapsed == null) WearableTimerKind.NONE else WearableTimerKind.PREPARATION_ELAPSED)
         }
         if (item == null || item.id != session.learningItemId || session.currentPage !in 1..item.totalPages ||
@@ -92,7 +99,7 @@ object WearableProjection {
             segment.type == SessionSegmentType.TEMPORARY_ALLOWANCE && remaining != null -> WearableTimerKind.ALLOWANCE_REMAINING
             else -> WearableTimerKind.SESSION_ELAPSED
         }
-        return selected.copy(phase = WearablePhase.ACTIVE, segmentType = segment.type.name,
+        return selected.copy(phase = WearablePhase.ACTIVE, segmentType = segment.type.name, activeSegmentId = segment.id,
             elapsedMs = elapsed, remainingMs = remaining, timerKind = kind)
     }
 

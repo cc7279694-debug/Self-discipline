@@ -401,6 +401,7 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
     }
 
     private suspend fun act(command: BehaviorCommand, sample: ClockSample): FocusActionResult = mutex.withLock {
+        if (command.stillAuthorized?.invoke() == false) return@withLock FocusActionResult.CONFLICT
         if (unresolvedLoss) return@withLock FocusActionResult.SAVE_FAILED
         try {
             settleMonitoring(command.sessionId, sample)
@@ -421,6 +422,7 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
                 if ((wait?.remaining(sample.elapsedNowMillis) ?: Long.MAX_VALUE) > 0)
                     return@withLock FocusActionResult.CONFLICT
             }
+            if (command.stillAuthorized?.invoke() == false) return@withLock FocusActionResult.CONFLICT
             val segment = factsPort.behavior(command) ?: return@withLock FocusActionResult.CONFLICT
             candidate?.clear(); evidenceTracker.clear()
             factsPort.read(command.sessionId)?.let { publish(it, sample) }
@@ -435,6 +437,14 @@ class BoundSessionMonitoringController(private val factsPort: RuntimeFactsPort) 
             "break:$expectedSegmentId", durationMillis = durationMillis), sample)
     override suspend fun finishBreak(sessionId: String, expectedSegmentId: String, sample: ClockSample) =
         act(BehaviorCommand(sessionId, expectedSegmentId, BehaviorAction.FINISH_BREAK, sample.wallNowMillis, "finish:$expectedSegmentId"), sample)
+    override suspend fun startBreak(sessionId: String, expectedSegmentId: String, durationMillis: Long,
+        sample: ClockSample, stillAuthorized: () -> Boolean) =
+        act(BehaviorCommand(sessionId, expectedSegmentId, BehaviorAction.START_BREAK, sample.wallNowMillis,
+            "break:$expectedSegmentId", durationMillis = durationMillis, stillAuthorized = stillAuthorized), sample)
+    override suspend fun finishBreak(sessionId: String, expectedSegmentId: String, sample: ClockSample,
+        stillAuthorized: () -> Boolean) =
+        act(BehaviorCommand(sessionId, expectedSegmentId, BehaviorAction.FINISH_BREAK, sample.wallNowMillis,
+            "finish:$expectedSegmentId", stillAuthorized = stillAuthorized), sample)
     override suspend fun finishAllowance(sessionId: String, expectedSegmentId: String, sample: ClockSample) =
         act(BehaviorCommand(sessionId, expectedSegmentId, BehaviorAction.FINISH_ALLOWANCE, sample.wallNowMillis, "finish:$expectedSegmentId"), sample)
     override suspend fun extendAllowance(sessionId: String, expectedSegmentId: String, actionToken: String, sample: ClockSample) =

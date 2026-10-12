@@ -21,6 +21,11 @@ interface FocusSessionActions {
     suspend fun refresh(sessionId: String, sample: ClockSample)
     suspend fun startBreak(sessionId: String, expectedSegmentId: String, durationMillis: Long, sample: ClockSample): FocusActionResult
     suspend fun finishBreak(sessionId: String, expectedSegmentId: String, sample: ClockSample): FocusActionResult
+    /** Device controls need a final, transaction-bound admission; unsupported consumers fail closed. */
+    suspend fun startBreak(sessionId: String, expectedSegmentId: String, durationMillis: Long,
+        sample: ClockSample, stillAuthorized: () -> Boolean): FocusActionResult = FocusActionResult.CONFLICT
+    suspend fun finishBreak(sessionId: String, expectedSegmentId: String, sample: ClockSample,
+        stillAuthorized: () -> Boolean): FocusActionResult = FocusActionResult.CONFLICT
     suspend fun selectAllowanceReason(sessionId: String, promptToken: String, reason: AllowanceReason,
         visible: Boolean, sample: ClockSample): FocusActionResult
     suspend fun setPromptVisible(sessionId: String, promptToken: String, visible: Boolean, sample: ClockSample): FocusActionResult

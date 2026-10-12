@@ -1,0 +1,37 @@
+{
+  "protocolVersion": 2,
+  "type": "SNAPSHOT",
+  "clientInstanceId": "client-golden",
+  "requestId": "request-unmonitored",
+  "streamId": "stream-golden",
+  "sequence": 1,
+  "sourceObservedAtUnixMs": 1791676800000,
+  "body": {
+    "phase": "ACTIVE",
+    "intentId": null,
+    "sessionId": "session-golden",
+    "learningItemId": "book-golden",
+    "bookTitle": "观已：阅读与学习📖",
+    "currentPage": 42,
+    "totalPages": 300,
+    "firstAction": null,
+    "bookTitleTruncated": false,
+    "firstActionTruncated": false,
+    "segmentType": "UNMONITORED",
+    "coverage": "NONE",
+    "monitorAvailability": "UNAVAILABLE",
+    "elapsedMs": 125000,
+    "remainingMs": null,
+    "timerKind": "SESSION_ELAPSED",
+    "endType": null
+  },
+  "control": {
+    "activeSegmentId": "segment-golden",
+    "allowedActions": [
+      "START_BREAK"
+    ],
+    "controlGrant": "grant-golden",
+    "grantExpiresAtUnixMs": 1791676830000,
+    "expectedFirstAction": null
+  }
+}

@@ -21,6 +21,11 @@ enum class CoordinatorPhase { IDLE, PREPARING, READY_LEASE, COMMITTING, COMMITTE
 data class CoordinatorState(val phase: CoordinatorPhase = CoordinatorPhase.IDLE, val generation: String? = null, val sessionId: String? = null)
 enum class StartMonitoringResult { MONITORED, UNMONITORED, DEGRADED, EXISTING }
 data class SessionStartOutcome(val session: StudySessionEntity, val monitoring: StartMonitoringResult)
+data class ConfirmedSessionStart(
+    val intentId: String, val learningItemId: String, val startPage: Int, val firstAction: String,
+)
+class StalePreparationException(message: String) : IllegalStateException(message)
+class SessionStartRequiresPhoneException(message: String) : IllegalStateException(message)
 
 /** Only this boundary coordinates the non-atomic Android monitor and Room transaction. */
 interface MonitoredStartPort {
@@ -35,6 +40,15 @@ interface MonitoredStartPort {
 }
 
 interface MonitoredStartStore {
+    suspend fun validateConfirmedPreparation(expected: ConfirmedSessionStart) {
+        error("Confirmed monitoring admission is not supported")
+    }
+    suspend fun startConfirmedMonitored(
+        expected: ConfirmedSessionStart, lease: MonitoringReadyLease, proposedSessionId: String,
+        stillAuthorized: () -> Boolean,
+    ): MonitoredSessionStartResult {
+        error("Confirmed monitoring admission is not supported")
+    }
     suspend fun findActiveForIntent(intentId: String): StudySessionEntity?
     suspend fun findCommittedMonitoredForIntent(
         intentId: String, proposedSessionId: String, lease: MonitoringReadyLease,
@@ -50,6 +64,12 @@ class RepositoryMonitoredStartStore(
     private val workflow: StudyWorkflowRepository,
     private val focus: FocusRepository,
 ) : MonitoredStartStore {
+    override suspend fun validateConfirmedPreparation(expected: ConfirmedSessionStart) =
+        workflow.validateConfirmedPreparation(expected)
+    override suspend fun startConfirmedMonitored(
+        expected: ConfirmedSessionStart, lease: MonitoringReadyLease, proposedSessionId: String,
+        stillAuthorized: () -> Boolean,
+    ) = workflow.startConfirmedMonitoredSession(expected, lease, proposedSessionId, stillAuthorized)
     override suspend fun findActiveForIntent(intentId: String) = workflow.findActiveSessionForIntent(intentId)
     override suspend fun findCommittedMonitoredForIntent(
         intentId: String, proposedSessionId: String, lease: MonitoringReadyLease,
@@ -87,35 +107,57 @@ class SessionStartCoordinator(
     suspend fun start(intentId: String, startPage: Int): SessionStartOutcome =
         operationAdmission { startAdmitted(intentId, startPage) }
 
-    private suspend fun startAdmitted(intentId: String, startPage: Int): SessionStartOutcome {
+    suspend fun startConfirmedMonitored(
+        expected: ConfirmedSessionStart, stillAuthorized: () -> Boolean = { true },
+    ): SessionStartOutcome =
+        operationAdmission { startAdmitted(expected.intentId, expected.startPage, expected, stillAuthorized) }
+
+    private suspend fun startAdmitted(
+        intentId: String, startPage: Int, confirmation: ConfirmedSessionStart? = null,
+        stillAuthorized: () -> Boolean = { true },
+    ): SessionStartOutcome {
         mutex.lock()
         var generation: String? = null
         var readyLease: MonitoringReadyLease? = null
         var proposedSessionId: String? = null
         try {
+            if (confirmation != null) {
+                requireControlAdmission(stillAuthorized)
+                store.validateConfirmedPreparation(confirmation)
+            }
             store.findActiveForIntent(intentId)?.let { return SessionStartOutcome(it, StartMonitoringResult.EXISTING) }
             mutableState.value = CoordinatorState(CoordinatorPhase.PREPARING)
             val available = try { monitor.preflight() } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) { false }
-            if (!available) return fallback(intentId, startPage, null)
+            if (!available) return fallback(intentId, startPage, null, confirmation != null)
             generation = try { monitor.start() } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) { return fallback(intentId, startPage, null) }
+            } catch (_: Exception) { return fallback(intentId, startPage, null, confirmation != null) }
             val activeGeneration = generation
             readyLease = try { monitor.awaitReady(activeGeneration, readyTimeoutMillis) }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { null }
+            if (confirmation != null) requireControlAdmission(stillAuthorized)
             val lease = readyLease
-            if (lease == null || lease.generation != activeGeneration || !monitor.verify(lease)) {
-                return fallback(intentId, startPage, activeGeneration)
+            if (lease == null || lease.generation != activeGeneration || !verifyBeforeCommit(lease, confirmation != null)) {
+                return fallback(intentId, startPage, activeGeneration, confirmation != null)
             }
             mutableState.value = CoordinatorState(CoordinatorPhase.READY_LEASE, activeGeneration)
             yield()
-            if (!monitor.verify(lease)) return fallback(intentId, startPage, activeGeneration)
+            if (confirmation != null) requireControlAdmission(stillAuthorized)
+            if (!verifyBeforeCommit(lease, confirmation != null)) {
+                return fallback(intentId, startPage, activeGeneration, confirmation != null)
+            }
             proposedSessionId = newSessionId()
             mutableState.value = CoordinatorState(CoordinatorPhase.COMMITTING, activeGeneration)
-            val started = store.startMonitored(intentId, startPage, lease, proposedSessionId)
+            val started = if (confirmation == null) {
+                store.startMonitored(intentId, startPage, lease, proposedSessionId)
+            } else {
+                store.startConfirmedMonitored(confirmation, lease, proposedSessionId) {
+                    stillAuthorized() && verifyBeforeCommit(lease, strict = true)
+                }
+            }
             if (!started.created) {
                 monitor.stopUnbound(activeGeneration)
                 mutableState.value = CoordinatorState()
@@ -123,7 +165,14 @@ class SessionStartCoordinator(
             }
             val session = started.session
             mutableState.value = CoordinatorState(CoordinatorPhase.COMMITTED, activeGeneration, session.id)
-            if (!monitor.verifyAfterCommit(lease) || !monitor.bind(session.id, activeGeneration)) {
+            val bound = if (confirmation == null) {
+                monitor.verifyAfterCommit(lease) && monitor.bind(session.id, activeGeneration)
+            } else {
+                try { monitor.verifyAfterCommit(lease) && monitor.bind(session.id, activeGeneration) }
+                catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { false }
+            }
+            if (!bound) {
                 store.markMonitoringLost(session.id, lease.readyAtWall, maxOf(lease.readyAtWall, monitor.nowWall()))
                 monitor.stopUnbound(activeGeneration)
                 mutableState.value = CoordinatorState()
@@ -134,17 +183,26 @@ class SessionStartCoordinator(
             runPostStartSideEffect(session)
             return SessionStartOutcome(session, StartMonitoringResult.MONITORED)
         } catch (cancelled: CancellationException) {
-            withContext(NonCancellable) { reconcileUnknownCommit(intentId, generation, readyLease, proposedSessionId) }
+            withContext(NonCancellable) {
+                reconcileUnknownCommit(intentId, generation, readyLease, proposedSessionId, strict = confirmation != null)
+            }
             throw cancelled
         } catch (failure: Throwable) {
-            withContext(NonCancellable) { reconcileUnknownCommit(intentId, generation, readyLease, proposedSessionId) }
+            withContext(NonCancellable) {
+                reconcileUnknownCommit(intentId, generation, readyLease, proposedSessionId, strict = confirmation != null)
+            }
             throw failure
         } finally {
             mutex.unlock()
         }
     }
 
-    private suspend fun fallback(intentId: String, page: Int, generation: String?): SessionStartOutcome {
+    private suspend fun fallback(
+        intentId: String, page: Int, generation: String?, requireMonitoring: Boolean = false,
+    ): SessionStartOutcome {
+        // The wrist cannot consent to an unmonitored Session. The catch boundary below stops
+        // any orphan monitor exactly once and leaves the original Intent intact.
+        if (requireMonitoring) throw SessionStartRequiresPhoneException("请在手机完成监测准备后开始学习")
         if (generation != null) monitor.stopUnbound(generation)
         mutableState.value = CoordinatorState()
         val session = store.startUnmonitored(intentId, page)
@@ -152,8 +210,20 @@ class SessionStartCoordinator(
         return SessionStartOutcome(session, StartMonitoringResult.UNMONITORED)
     }
 
+    private fun requireControlAdmission(stillAuthorized: () -> Boolean) {
+        if (!stillAuthorized()) throw StalePreparationException("手环控制授权或连接已变化，请重新同步")
+    }
+
+    private fun verifyBeforeCommit(lease: MonitoringReadyLease, strict: Boolean): Boolean =
+        if (!strict) monitor.verify(lease) else {
+            try { monitor.verify(lease) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { false }
+        }
+
     private suspend fun reconcileUnknownCommit(
         intentId: String, generation: String?, lease: MonitoringReadyLease?, proposedSessionId: String?,
+        strict: Boolean = false,
     ) {
         if (generation == null) { mutableState.value = CoordinatorState(); return }
         val committed = if (lease != null && proposedSessionId != null &&
@@ -165,7 +235,15 @@ class SessionStartCoordinator(
             mutableState.value = CoordinatorState()
             return
         }
-        if (lease != null && monitor.verifyAfterCommit(lease) && monitor.bind(committed.id, generation)) {
+        val bound = if (lease == null) false else if (!strict) {
+            monitor.verifyAfterCommit(lease) && monitor.bind(committed.id, generation)
+        } else {
+            // This cleanup runs in NonCancellable: a failed validation cannot leave the already
+            // committed wrist Session falsely FULL or prevent orphan-monitor cleanup.
+            try { monitor.verifyAfterCommit(lease) && monitor.bind(committed.id, generation) }
+            catch (_: Exception) { false }
+        }
+        if (bound) {
             mutableState.value = CoordinatorState(CoordinatorPhase.BOUND, generation, committed.id)
             runPostStartSideEffect(committed)
             return

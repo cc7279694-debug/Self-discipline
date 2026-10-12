@@ -9,6 +9,43 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class FocusSessionActionsTest {
+    @Test fun wristRevocationAfterFactReadPreventsStartBreak() = runTest {
+        val p = port(SessionSegmentType.FOCUS)
+        var authorized = true
+        val changingFacts = object : RuntimeFactsPort by p {
+            override suspend fun read(sessionId: String): RuntimeFocusFacts? {
+                val current = p.read(sessionId)
+                authorized = false
+                return current
+            }
+        }
+        val c = BoundSessionMonitoringController(changingFacts)
+        assertEquals(FocusActionResult.CONFLICT,
+            c.startBreak("s", "initial", 300_000, sample(1_000)) { authorized })
+        assertEquals(SessionSegmentType.FOCUS, p.current!!.activeSegment.type)
+        assertTrue(p.commands.isEmpty())
+        assertTrue(p.milestones.isEmpty())
+    }
+
+    @Test fun wristRevocationAfterFactReadPreventsFinishBreakAndRecoveryFact() = runTest {
+        val p = port(SessionSegmentType.BREAK)
+        p.current = p.current!!.copy(activeSegment = p.current!!.activeSegment.copy(plannedEndAt = 301_000))
+        var authorized = true
+        val changingFacts = object : RuntimeFactsPort by p {
+            override suspend fun read(sessionId: String): RuntimeFocusFacts? {
+                val current = p.read(sessionId)
+                authorized = false
+                return current
+            }
+        }
+        val c = BoundSessionMonitoringController(changingFacts)
+        assertEquals(FocusActionResult.CONFLICT,
+            c.finishBreak("s", "initial", sample(1_000)) { authorized })
+        assertEquals(SessionSegmentType.BREAK, p.current!!.activeSegment.type)
+        assertTrue(p.commands.isEmpty())
+        assertTrue(p.milestones.isEmpty())
+    }
+
     @Test fun olderPageEvidenceDoesNotLoseHealthyMonitoring() = runTest {
         val p = port(SessionSegmentType.FOCUS)
         val c = BoundSessionMonitoringController(p)

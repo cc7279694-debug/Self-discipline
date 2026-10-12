@@ -15,6 +15,8 @@ import com.guanyi.mirra.data.local.entity.SessionSegmentType
 import com.guanyi.mirra.data.local.model.RecentReadingSnapshot
 import com.guanyi.mirra.domain.IntentExpiryPolicy
 import com.guanyi.mirra.domain.FirstActionResolver
+import com.guanyi.mirra.domain.ConfirmedSessionStart
+import com.guanyi.mirra.domain.StalePreparationException
 import com.guanyi.mirra.domain.SummaryEngine
 import com.guanyi.mirra.domain.SessionRecoveryResult
 import com.guanyi.mirra.data.search.SearchIndexWriter
@@ -40,6 +42,15 @@ interface StudyWorkflowRepository {
     suspend fun markTransitioned(intentId: String)
     suspend fun abandonIntent(intentId: String)
     suspend fun startSession(intentId: String, startPage: Int): StudySessionEntity
+    suspend fun validateConfirmedPreparation(expected: ConfirmedSessionStart) {
+        error("Confirmed monitoring admission is not supported")
+    }
+    suspend fun startConfirmedMonitoredSession(
+        expected: ConfirmedSessionStart, readyLease: MonitoringReadyLease, proposedSessionId: String,
+        stillAuthorized: () -> Boolean = { true },
+    ): MonitoredSessionStartResult {
+        error("Confirmed monitoring admission is not supported")
+    }
     suspend fun startMonitoredSession(
         intentId: String, startPage: Int, readyLease: MonitoringReadyLease, proposedSessionId: String,
     ): MonitoredSessionStartResult
@@ -221,14 +232,30 @@ class DefaultStudyWorkflowRepository(
     override suspend fun startSession(intentId: String, startPage: Int): StudySessionEntity =
         startSessionInternal(intentId, startPage, readyLease = null, proposedSessionId = null).session
 
+    override suspend fun validateConfirmedPreparation(expected: ConfirmedSessionStart) = database.withTransaction {
+        requireConfirmedPreparation(expected, clock())
+    }
+
+    override suspend fun startConfirmedMonitoredSession(
+        expected: ConfirmedSessionStart, readyLease: MonitoringReadyLease, proposedSessionId: String,
+        stillAuthorized: () -> Boolean,
+    ): MonitoredSessionStartResult = startSessionInternal(
+        expected.intentId, expected.startPage, readyLease, proposedSessionId, expected, stillAuthorized,
+    )
+
     override suspend fun startMonitoredSession(
         intentId: String, startPage: Int, readyLease: MonitoringReadyLease, proposedSessionId: String,
     ): MonitoredSessionStartResult = startSessionInternal(intentId, startPage, readyLease, proposedSessionId)
 
     private suspend fun startSessionInternal(
         intentId: String, startPage: Int, readyLease: MonitoringReadyLease?, proposedSessionId: String?,
+        confirmation: ConfirmedSessionStart? = null, stillAuthorized: () -> Boolean = { true },
     ): MonitoredSessionStartResult {
         val result = database.withTransaction<MonitoredSessionStartResult?> {
+            if (confirmation != null) {
+                requireControlAdmission(stillAuthorized)
+                requireConfirmedPreparation(confirmation, clock())
+            }
             if (readyLease != null) sessionDao.getActiveForIntent(intentId)?.let {
                 check(isLearningFactWritable(it, focusDao.getContext(it.id))) { "阅读已结束，正在保存" }
                 return@withTransaction MonitoredSessionStartResult(it, created = false)
@@ -241,6 +268,7 @@ class DefaultStudyWorkflowRepository(
             }
             val checkedAt = clock()
             if (expiryPolicy.isExpired(intent.createdAt, checkedAt)) {
+                if (confirmation != null) throw StalePreparationException("启动准备已过期，请在手机重新准备")
                 intentDao.markTimedOut(intent.id, checkedAt)
                 return@withTransaction null
             }
@@ -270,6 +298,9 @@ class DefaultStudyWorkflowRepository(
                 generatedSummary = null,
                 activeSlot = ACTIVE_SLOT,
             )
+            // This runs inside the final creation transaction after all expected facts were read.
+            // The callback only reads the current control/monitor admission; it performs no SDK I/O.
+            if (confirmation != null) requireControlAdmission(stillAuthorized)
             sessionDao.insert(session)
             focusDao.insertContext(
                 SessionFocusContextEntity(
@@ -305,6 +336,47 @@ class DefaultStudyWorkflowRepository(
             MonitoredSessionStartResult(session, created = true)
         }
         return result ?: error("Intent 已超时")
+    }
+
+    private fun requireControlAdmission(stillAuthorized: () -> Boolean) {
+        if (!stillAuthorized()) throw StalePreparationException("手环控制授权或监测已变化，请在手机确认")
+    }
+
+    /** Same check is used before monitor acquisition and again inside the Session transaction. */
+    private suspend fun requireConfirmedPreparation(expected: ConfirmedSessionStart, checkedAt: Long) {
+        val intent = intentDao.get(expected.intentId)
+            ?: throw StalePreparationException("启动准备已变化，请重新同步")
+        if (intent.learningItemId != expected.learningItemId) {
+            throw StalePreparationException("当前书籍已变化，请重新同步")
+        }
+        val item = itemDao.get(intent.learningItemId)
+            ?: throw StalePreparationException("当前书籍已变化，请重新同步")
+        if (item.status != LearningItemStatus.IN_PROGRESS || item.currentPage != expected.startPage ||
+            expected.startPage !in 1..item.totalPages) {
+            throw StalePreparationException("书籍状态或起始页已变化，请重新同步")
+        }
+        val action = try { FirstActionResolver.requireChosen(item.firstAction) }
+        catch (_: IllegalArgumentException) {
+            throw StalePreparationException("请在手机明确选择第一步动作")
+        }
+        if (expected.firstAction != action) {
+            throw StalePreparationException("第一步动作已变化，请重新阅读并确认")
+        }
+        sessionDao.getActiveForIntent(expected.intentId)?.let { existing ->
+            if (existing.learningItemId != expected.learningItemId || existing.startPage != expected.startPage ||
+                !isLearningFactWritable(existing, focusDao.getContext(existing.id))) {
+                throw StalePreparationException("阅读状态已变化，请重新同步")
+            }
+            return
+        }
+        if (intent.activeSlot != ACTIVE_SLOT || intent.outcome != null || intent.endedAt != null ||
+            intent.convertedAt != null || intentDao.getActive()?.id != expected.intentId) {
+            throw StalePreparationException("启动准备已结束，请在手机确认")
+        }
+        if (checkedAt < intent.createdAt || expiryPolicy.isExpired(intent.createdAt, checkedAt)) {
+            throw StalePreparationException("启动准备已过期，请在手机重新准备")
+        }
+        if (sessionDao.getActive() != null) throw StalePreparationException("已有正在阅读的内容，请在手机查看")
     }
 
     override suspend fun updateCurrentPage(sessionId: String, page: Int) {

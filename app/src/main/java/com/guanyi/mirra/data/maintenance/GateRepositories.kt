@@ -6,6 +6,7 @@ import com.guanyi.mirra.data.preferences.AppPreferencesRepository
 import com.guanyi.mirra.data.preferences.MirraThemeId
 import com.guanyi.mirra.data.repository.*
 import com.guanyi.mirra.domain.DndStateStore
+import com.guanyi.mirra.domain.ConfirmedSessionStart
 import com.guanyi.mirra.domain.intervention.InterventionDeliveryReceipt
 import com.guanyi.mirra.domain.maintenance.StorageMaintenanceGate
 import com.guanyi.mirra.domain.monitoring.BackwardClockCloseoutEvidence
@@ -44,6 +45,13 @@ class GateStudyWorkflowRepository(
     override suspend fun startMonitoredSession(intentId: String, startPage: Int,
         readyLease: MonitoringReadyLease, proposedSessionId: String) = gate.writerOperation {
         delegate.startMonitoredSession(intentId, startPage, readyLease, proposedSessionId)
+    }
+    override suspend fun validateConfirmedPreparation(expected: ConfirmedSessionStart) =
+        gate.writerOperation { delegate.validateConfirmedPreparation(expected) }
+    override suspend fun startConfirmedMonitoredSession(expected: ConfirmedSessionStart,
+        readyLease: MonitoringReadyLease, proposedSessionId: String,
+        stillAuthorized: () -> Boolean) = gate.writerOperation {
+        delegate.startConfirmedMonitoredSession(expected, readyLease, proposedSessionId, stillAuthorized)
     }
     override suspend fun updateCurrentPage(sessionId: String, page: Int) =
         gate.writerOperation { delegate.updateCurrentPage(sessionId, page) }

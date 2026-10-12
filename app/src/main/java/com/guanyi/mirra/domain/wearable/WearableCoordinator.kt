@@ -12,6 +12,8 @@ import java.util.UUID
 interface WearableSettingsStore {
     val enabled: Boolean
     fun setEnabled(value: Boolean)
+    val controlEnabled: Boolean get() = false
+    fun setControlEnabled(value: Boolean) { check(!value) }
 }
 data class WearableCompanionState(
     val enabled: Boolean = false,
@@ -25,6 +27,8 @@ data class WearableCompanionState(
     val appInstalled: Boolean? = null,
     val appCheckInProgress: Boolean = false,
     val appCheckError: String? = null,
+    val controlEnabled: Boolean = false,
+    val controlNegotiated: Boolean = false,
 )
 
 /** Application-owned listener; no UI lifecycle owns a transport callback or learning fact. */
@@ -38,10 +42,15 @@ class WearableCoordinator(
     private val lifecycle = Mutex()
     private val messageSerial = Mutex()
     private val channelPolicy = Any()
-    private val mutableState = MutableStateFlow(WearableCompanionState(enabled = settings.enabled))
+    private val mutableState = MutableStateFlow(WearableCompanionState(enabled = settings.enabled, controlEnabled = settings.controlEnabled))
     val state = mutableState.asStateFlow()
     @Volatile private var epoch = 0L
     @Volatile private var source: WearableSnapshotSource? = null
+    @Volatile private var executor: WearableCommandExecutor? = null
+    @Volatile private var controlConsentEpoch = 0L
+    private val controlAuthority = WearableControlAuthority(newId)
+    private var streamVersion = 1
+    private var streamControl = false
     @Volatile private var selectedNode: String? = null
     @Volatile private var terminalChannelError: String? = null
     private var clientId: String? = null
@@ -97,15 +106,17 @@ class WearableCoordinator(
         mutableState.update { it.copy(appInstalled = null, appCheckInProgress = false, appCheckError = null) }
     }
 
-    suspend fun bindSource(value: WearableSnapshotSource) = lifecycle.withLock {
+    suspend fun bindSource(value: WearableSnapshotSource, commandExecutor: WearableCommandExecutor? = null) = lifecycle.withLock {
         invalidateAndDrain(resetTerminal = true)
         source = value
+        executor = commandExecutor
         mutableState.update { it.copy(sourceReady = true) }
         if (settings.enabled) connect(false)
     }
     suspend fun pauseSource() = lifecycle.withLock {
         invalidateAndDrain()
         source = null
+        executor = null
         mutableState.update { it.copy(sourceReady = false, lastSnapshotAt = null) }
         // Listener can answer SOURCE_BUSY with no old personal payload. SDK send remains outside Room.
         if (settings.enabled && selectedNode != null) installListener(epoch)
@@ -122,26 +133,40 @@ class WearableCoordinator(
         invalidateAndDrain(clearFollowed = false, resetTerminal = true)
         connect(true)
     } } }
+    /** Persist and revoke synchronously: a queued SDK callback cannot retain old consent. */
+    fun setControlsFromUser(value: Boolean) {
+        controlConsentEpoch++
+        controlAuthority.revokeGrants()
+        requestJob?.cancel()
+        try { settings.setControlEnabled(value) }
+        catch (_: Exception) {
+            mutableState.update { it.copy(controlEnabled = false, errorCategory = "SETTINGS_UNAVAILABLE") }
+            return
+        }
+        mutableState.update { it.copy(controlEnabled = value) }
+    }
     fun disableFromUser() { scope.launch { lifecycle.withLock {
         try { settings.setEnabled(false) }
         catch (_: Exception) { mutableState.update { it.copy(errorCategory = "SETTINGS_UNAVAILABLE") }; return@withLock }
         val lastNode = selectedNode; val lastClient = clientId; val lastStream = streamId
+        val lastVersion = streamVersion
         invalidateAndDrain()
         if (lastNode != null && lastClient != null) runCatching {
             withTimeout(3_000) { transport.send(lastNode, WearableProtocol.status(
-                WearableRequest(1, "GET_SNAPSHOT", lastClient, newId()), "DISABLED", lastStream)) }
+                WearableRequest(lastVersion, "GET_SNAPSHOT", lastClient, newId()), "DISABLED", lastStream)) }
         }
         try { transport.close() } catch (_: Exception) { /* SDK failures never reach learning owners. */ }
         selectedNode = null
-        mutableState.value = WearableCompanionState(enabled = false, sourceReady = source != null)
+        mutableState.value = WearableCompanionState(enabled = false, sourceReady = source != null, controlEnabled = settings.controlEnabled)
     } } }
     suspend fun close() = lifecycle.withLock {
-        invalidateAndDrain(); source = null; transport.close(); selectedNode = null
+        invalidateAndDrain(); source = null; executor = null; transport.close(); selectedNode = null
     }
 
     private suspend fun invalidateAndDrain(clearFollowed: Boolean = true, resetTerminal: Boolean = false) {
         synchronized(channelPolicy) {
             epoch++
+            controlAuthority.clear()
             if (resetTerminal) terminalChannelError = null
         }
         retireAppCheck()
@@ -149,8 +174,9 @@ class WearableCoordinator(
         connectJob?.cancelAndJoin(); connectJob = null
         requestJob?.cancelAndJoin(); requestJob = null
         clientId = null; streamId = null; sequence = 0; usedRequests.clear()
+        streamVersion = 1; streamControl = false
         if (clearFollowed) { lastFollowedSessionId = null; lastFollowedNode = null }
-        mutableState.update { it.copy(handshaken = false, lastSnapshotAt = null) }
+        mutableState.update { it.copy(handshaken = false, lastSnapshotAt = null, controlNegotiated = false) }
     }
     private fun connect(authorization: Boolean) {
         val captured = epoch
@@ -201,8 +227,14 @@ class WearableCoordinator(
                 // Back pressure: at most one request owns the source read/send, no detached publisher queue.
                 if (!messageSerial.tryLock()) return
                 requestJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
-                    try { withTimeout(3_000) { process(captured, nodeId, request) } }
-                    catch (cancelled: CancellationException) { throw cancelled }
+                    try { withTimeout(if (request.type == "COMMAND") 12_000 else 3_000) { process(captured, nodeId, request) } }
+                    catch (cancelled: CancellationException) {
+                        if (cancelled is TimeoutCancellationException && request.type == "COMMAND" && currentChannel(captured)) {
+                            val outcome = WearableCommandOutcome("RESULT_UNKNOWN")
+                            controlAuthority.remember(request, outcome)
+                            withTimeoutOrNull(3_000) { transport.send(nodeId, WearableProtocol.commandResult(request, checkNotNull(streamId), outcome)) }
+                        } else throw cancelled
+                    }
                     catch (failure: Exception) {
                         if (failure is WearTransportException) lostConnection(captured, failure.category)
                         else updateCurrentChannel(captured) { it.copy(errorCategory = "SOURCE_UNAVAILABLE") }
@@ -234,6 +266,7 @@ class WearableCoordinator(
             val recovering = category in AUTO_RETRYABLE && connectJob?.isActive == true && !mutableState.value.serviceAvailable
             // A permanent policy stops callbacks immediately, before the async drain can run.
             reportChannelFailure(captured, category)
+            controlAuthority.clear()
             recovering
         }
         if (alreadyRecovering) return
@@ -262,7 +295,7 @@ class WearableCoordinator(
         mutableState.update { state ->
             if (captured != epoch || !settings.enabled) state
             else state.copy(serviceAvailable = false, authorized = false, handshaken = false,
-                lastSnapshotAt = null, errorCategory = terminalChannelError ?: category)
+                lastSnapshotAt = null, errorCategory = terminalChannelError ?: category, controlNegotiated = false)
         }
         retryable
     }
@@ -276,14 +309,22 @@ class WearableCoordinator(
         if (request.type == "HELLO") {
             if (request.clientInstanceId == clientId && request.requestId in usedRequests) return
             clientId = request.clientInstanceId; streamId = newId(); sequence = 0; usedRequests.clear()
+            streamVersion = request.protocolVersion
+            streamControl = streamVersion == 2 && "SESSION_CONTROL" in request.capabilities
+            controlAuthority.clear()
             usedRequests += request.requestId
             if (!currentChannel(captured)) return
             transport.send(node, WearableProtocol.helloAck(request, checkNotNull(streamId)))
             updateCurrentChannel(captured) { it.copy(serviceAvailable = true,
-                authorized = true, handshaken = true, errorCategory = null) }
+                authorized = true, handshaken = true, errorCategory = null, controlNegotiated = streamControl) }
             return
         }
-        if (request.clientInstanceId != clientId || request.streamId != streamId || request.requestId in usedRequests) return
+        if (request.clientInstanceId != clientId || request.streamId != streamId || request.protocolVersion != streamVersion) return
+        if (request.type == "COMMAND") {
+            processCommand(captured, node, request)
+            return
+        }
+        if (request.requestId in usedRequests) return
         usedRequests += request.requestId
         if (usedRequests.size > 64) usedRequests.remove(usedRequests.first())
         val followed = request.lastSeenSessionId?.takeIf { it == lastFollowedSessionId && lastFollowedNode == node }
@@ -295,7 +336,9 @@ class WearableCoordinator(
             val body = reader.read(followed)
             if (!currentChannel(captured) || reader !== source) return
             val observedAt = clock()
-            WearableProtocol.snapshot(request, checkNotNull(streamId), ++sequence, observedAt, body).also {
+            val control = executor?.let { owner -> controlAuthority.issue(node, request.clientInstanceId,
+                checkNotNull(streamId), owner, body, observedAt, streamControl && settings.controlEnabled && mutableState.value.controlEnabled) } ?: WearableControlState()
+            WearableProtocol.snapshot(request, checkNotNull(streamId), ++sequence, observedAt, body, control).also {
                 // Only a fully encoded, valid snapshot can authorize history or mark a sync.
                 observedSession = body.sessionId; confirmedObservedAt = observedAt
             }
@@ -321,6 +364,29 @@ class WearableCoordinator(
                 }
             }
         }
+    }
+    private suspend fun processCommand(captured: Long, node: String, request: WearableRequest) {
+        val owner = executor
+        val stream = checkNotNull(streamId)
+        val consent = controlConsentEpoch
+        fun permitted() = currentChannel(captured) && streamId == stream && request.clientInstanceId == clientId &&
+            node == selectedNode && owner === executor && consent == controlConsentEpoch && settings.controlEnabled &&
+            mutableState.value.controlEnabled && mutableState.value.authorized && mutableState.value.serviceAvailable &&
+            mutableState.value.handshaken && streamControl
+        fun executionPermitted() = permitted() && owner != null && controlAuthority.valid(request, node, owner, clock())
+        val cached = controlAuthority.cached(request)
+        val outcome = when {
+            !permitted() || owner == null -> WearableCommandOutcome("DISABLED")
+            cached != null -> cached
+            request.requestId in usedRequests -> WearableCommandOutcome("STALE_STATE")
+            !controlAuthority.valid(request, node, owner, clock()) -> WearableCommandOutcome("STALE_STATE")
+            else -> owner.execute(request, ::executionPermitted)
+        }
+        if (!currentChannel(captured) || owner !== executor || stream != streamId) return
+        controlAuthority.remember(request, outcome)
+        controlAuthority.revokeGrants()
+        // Business admission and Room transaction have returned before SDK send.
+        transport.send(node, WearableProtocol.commandResult(request, stream, outcome))
     }
     private companion object {
         val AUTO_RETRYABLE = setOf("NO_DEVICE", "SERVICE_UNAVAILABLE", "TIMEOUT")

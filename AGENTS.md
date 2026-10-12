@@ -1,5 +1,11 @@
 # Repository Collaboration Guide
 
+## Mirra Band Module 04 授权范围
+
+用户已授权在 codex/mirra-band-control-bridge（基线 3fecf50a208ddb145a67986749420b490193e903）执行 docs/plans/MIRRA_BAND_MODULE_04_WRIST_CONTROLS.md：只开放 5/10 分钟休息、提前结束休息与手机已有 Intent 的明确第一步确认。复用当前手机业务；可增加外部控制准入 guard 和最终事务期望事实校验，但不改状态转换规则、监测阈值、Room v4/Migration、Full Backup v1、签名身份或直接调试用户数据库。
+
+普通实现、测试、构建、功能分支 commit/push 已授权；实际手机/手环安装及系统权限另行确认。当前模块交付后等待自然使用与 ChatGPT 独立审查，不合并 main、不进入后续模块。
+
 ## Authority
 
 本仓库的事实源优先级为：用户当前明确要求 → docs/PRODUCT_SPEC.md（产品需求与架构）→ 本文件 → PROJECT.md → 真实代码与数据库 Schema → docs/CURRENT_STATE.md → docs/DECISIONS.md → README.md → Chat。

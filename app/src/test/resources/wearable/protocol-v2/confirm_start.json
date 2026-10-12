@@ -1,0 +1,16 @@
+{
+  "protocolVersion": 2,
+  "type": "COMMAND",
+  "clientInstanceId": "client-golden",
+  "requestId": "request-command",
+  "streamId": "stream-golden",
+  "controlGrant": "grant-golden",
+  "action": "CONFIRM_PREPARATION_AND_START",
+  "expectedIntentId": "intent-golden",
+  "expectedSessionId": null,
+  "expectedSegmentId": null,
+  "expectedBookId": "book-golden",
+  "expectedPage": 42,
+  "expectedFirstAction": "翻到第43页，读第一段📖",
+  "breakMinutes": null
+}

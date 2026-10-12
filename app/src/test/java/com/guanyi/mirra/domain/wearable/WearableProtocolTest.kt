@@ -15,7 +15,7 @@ class WearableProtocolTest {
         }
     }
     @Test fun `business writes and nested unsafe input rejected`() {
-        listOf(hello.replace("HELLO", "START"), hello.replace("1,", "2,"),
+        listOf(hello.replace("HELLO", "START"), hello.replace("1,", "3,"),
             hello.dropLast(1) + ",\"__proto__\":{}}", "[".repeat(80) + "]".repeat(80),
             hello.dropLast(1) + ",\"type\":\"HELLO\"}").forEach {
             assertThrows(WearableProtocolException::class.java) { WearableProtocol.decodeRequest(bytes(it)) }

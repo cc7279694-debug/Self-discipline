@@ -16,6 +16,146 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SessionStartCoordinatorTest {
+    @Test fun `wrist revoked control admission cannot start monitoring or a session`() = runTest {
+        val store = FakeStore()
+        val monitor = FakeMonitor()
+        try {
+            SessionStartCoordinator(store, monitor).startConfirmedMonitored(confirmation(), stillAuthorized = { false })
+            fail("Expected revoked control admission")
+        } catch (_: StalePreparationException) { }
+        assertNull(store.existing)
+        assertEquals(0, monitor.startCalls)
+    }
+
+    @Test fun `wrist control revoked while waiting for ready cannot commit a session`() = runTest {
+        val store = FakeStore()
+        var authorized = true
+        val monitor = FakeMonitor().apply { whenReady = { authorized = false } }
+        try {
+            SessionStartCoordinator(store, monitor).startConfirmedMonitored(confirmation(), stillAuthorized = { authorized })
+            fail("Expected revoked control admission after READY")
+        } catch (_: StalePreparationException) { }
+        assertNull(store.existing)
+        assertEquals(0, store.monitoredStarts)
+        assertEquals(0, store.unmonitoredStarts)
+        assertEquals(1, monitor.stopCalls)
+    }
+    @Test fun `wrist denied monitoring leaves intent and creates no unmonitored session`() = runTest {
+        val store = FakeStore()
+        val monitor = FakeMonitor().apply { available = false }
+        assertRequiresPhone { SessionStartCoordinator(store, monitor).startConfirmedMonitored(confirmation()) }
+        assertNull(store.existing)
+        assertEquals(0, store.monitoredStarts)
+        assertEquals(0, store.unmonitoredStarts)
+        assertEquals(0, monitor.startCalls)
+    }
+
+    @Test fun `wrist background FGS rejection never falls back to a session`() = runTest {
+        val store = FakeStore()
+        val monitor = FakeMonitor().apply { startFailure = true }
+        assertRequiresPhone { SessionStartCoordinator(store, monitor).startConfirmedMonitored(confirmation()) }
+        assertNull(store.existing)
+        assertEquals(0, store.monitoredStarts)
+        assertEquals(0, store.unmonitoredStarts)
+    }
+
+    @Test fun `wrist ready timeout stops unbound monitor without creating session`() = runTest {
+        val store = FakeStore()
+        val monitor = FakeMonitor().apply { ready = null }
+        assertRequiresPhone { SessionStartCoordinator(store, monitor).startConfirmedMonitored(confirmation()) }
+        assertNull(store.existing)
+        assertEquals(0, store.unmonitoredStarts)
+        assertEquals(0, store.monitoredStarts)
+        assertEquals(1, monitor.stopCalls)
+    }
+
+    @Test fun `wrist stale or foreign ready lease cannot enter transaction`() = runTest {
+        for (foreign in listOf(false, true)) {
+            val store = FakeStore()
+            val monitor = FakeMonitor().apply {
+                if (foreign) ready = ready?.copy(generation = "other") else valid = false
+            }
+            assertRequiresPhone { SessionStartCoordinator(store, monitor).startConfirmedMonitored(confirmation()) }
+            assertNull(store.existing)
+            assertEquals(0, store.unmonitoredStarts)
+            assertEquals(0, store.monitoredStarts)
+            assertEquals(1, monitor.stopCalls)
+        }
+    }
+
+    @Test fun `wrist stale preparation is rejected before foreground service start`() = runTest {
+        val store = FakeStore().apply { stalePreparation = true }
+        val monitor = FakeMonitor()
+        try {
+            SessionStartCoordinator(store, monitor).startConfirmedMonitored(confirmation())
+            fail("Expected stale preparation")
+        } catch (_: StalePreparationException) { }
+        assertNull(store.existing)
+        assertEquals(0, monitor.startCalls)
+        assertEquals(0, store.unmonitoredStarts)
+    }
+
+    @Test fun `wrist confirmation is forwarded intact to monitored transaction`() = runTest {
+        val store = FakeStore()
+        val expected = confirmation()
+        val result = SessionStartCoordinator(store, FakeMonitor()).startConfirmedMonitored(expected)
+        assertEquals(StartMonitoringResult.MONITORED, result.monitoring)
+        assertEquals(expected, store.validatedPreparation)
+        assertEquals(expected, store.committedPreparation)
+        assertEquals(0, store.unmonitoredStarts)
+    }
+
+    @Test fun `wrist committed binding failure returns real degraded session`() = runTest {
+        val store = FakeStore()
+        val result = SessionStartCoordinator(store, FakeMonitor().apply { bindResult = false })
+            .startConfirmedMonitored(confirmation())
+        assertEquals(StartMonitoringResult.DEGRADED, result.monitoring)
+        assertEquals(store.existing?.id, result.session.id)
+        assertEquals(1, store.lossCalls)
+        assertEquals(0, store.unmonitoredStarts)
+    }
+
+    @Test fun `wrist committed verification exception settles real monitoring degradation`() = runTest {
+        val store = FakeStore()
+        val result = SessionStartCoordinator(store, FakeMonitor().apply { postCommitFailure = true })
+            .startConfirmedMonitored(confirmation())
+        assertEquals(StartMonitoringResult.DEGRADED, result.monitoring)
+        assertEquals(store.existing?.id, result.session.id)
+        assertEquals(1, store.lossCalls)
+        assertEquals(0, store.unmonitoredStarts)
+    }
+
+    @Test fun `cancelled wrist committed start settles loss even when verification throws`() = runTest {
+        val store = FakeStore().apply { afterCommitGate = CompletableDeferred() }
+        val monitor = FakeMonitor().apply { postCommitFailure = true }
+        val coordinator = SessionStartCoordinator(store, monitor)
+        val attempt = async { coordinator.startConfirmedMonitored(confirmation()) }
+        runCurrent()
+        assertNotNull(store.existing)
+        attempt.cancel()
+        runCurrent()
+        assertTrue(attempt.isCancelled)
+        assertEquals(1, store.lossCalls)
+        assertEquals(1, monitor.stopCalls)
+        assertEquals(0, store.unmonitoredStarts)
+        assertEquals(CoordinatorPhase.IDLE, coordinator.state.value.phase)
+    }
+
+    @Test fun `simultaneous wrist confirmations cannot create a second session`() = runTest {
+        val store = FakeStore().apply { beforeCommitGate = CompletableDeferred() }
+        val monitor = FakeMonitor()
+        val coordinator = SessionStartCoordinator(store, monitor)
+        val first = async { coordinator.startConfirmedMonitored(confirmation()) }
+        val second = async { coordinator.startConfirmedMonitored(confirmation()) }
+        runCurrent()
+        store.beforeCommitGate?.complete(Unit)
+        runCurrent()
+        assertEquals(first.await().session.id, second.await().session.id)
+        assertEquals(1, store.monitoredStarts)
+        assertEquals(1, monitor.startCalls)
+        assertEquals(0, store.unmonitoredStarts)
+    }
+
     @Test fun `ready evidence commits one monitored session and binds its generation`() = runTest {
         val store = FakeStore()
         val monitor = FakeMonitor()
@@ -295,6 +435,9 @@ class SessionStartCoordinatorTest {
     }
 
     private class FakeStore : MonitoredStartStore {
+        var stalePreparation = false
+        var validatedPreparation: ConfirmedSessionStart? = null
+        var committedPreparation: ConfirmedSessionStart? = null
         var existing: StudySessionEntity? = null
         var monitoredStarts = 0
         var unmonitoredStarts = 0
@@ -308,6 +451,17 @@ class SessionStartCoordinatorTest {
         var replaceCommittedWithOtherFull = false
 
         override suspend fun findActiveForIntent(intentId: String) = existing
+        override suspend fun validateConfirmedPreparation(expected: ConfirmedSessionStart) {
+            if (stalePreparation) throw StalePreparationException("第一步已变化")
+            validatedPreparation = expected
+        }
+        override suspend fun startConfirmedMonitored(
+            expected: ConfirmedSessionStart, lease: MonitoringReadyLease, proposedSessionId: String,
+            stillAuthorized: () -> Boolean,
+        ): MonitoredSessionStartResult {
+            committedPreparation = expected
+            return startMonitored(expected.intentId, expected.startPage, lease, proposedSessionId)
+        }
         override suspend fun findCommittedMonitoredForIntent(
             intentId: String, proposedSessionId: String, lease: MonitoringReadyLease,
         ): StudySessionEntity? = existing?.takeIf {
@@ -349,21 +503,34 @@ class SessionStartCoordinatorTest {
         var stopCalls = 0
         var boundSession: String? = null
         var startFailure = false
+        var postCommitFailure = false
         var preflightGate: CompletableDeferred<Unit>? = null
         var readyGate: CompletableDeferred<Unit>? = null
+        var whenReady: () -> Unit = {}
         override suspend fun preflight(): Boolean { preflightGate?.await(); return available }
         override fun start(): String { startCalls++; if (startFailure) error("FGS start denied"); return "generation" }
         override suspend fun awaitReady(generation: String, timeoutMillis: Long): MonitoringReadyLease? {
             readyGate?.await()
+            whenReady()
             return ready
         }
         override fun verify(lease: MonitoringReadyLease) = valid
-        override suspend fun verifyAfterCommit(lease: MonitoringReadyLease) = valid
+        override suspend fun verifyAfterCommit(lease: MonitoringReadyLease): Boolean {
+            if (postCommitFailure) error("Monitor verification unavailable after commit")
+            return valid
+        }
         override fun bind(sessionId: String, generation: String): Boolean {
             if (bindResult) boundSession = sessionId
             return bindResult
         }
         override fun stopUnbound(generation: String) { if (boundSession == null) stopCalls++ }
         override fun nowWall() = 1_005_100L
+    }
+
+    private fun confirmation() = ConfirmedSessionStart("intent", "item", 10, "翻到第 10 页，读第一段。")
+
+    private suspend fun assertRequiresPhone(action: suspend () -> Unit) {
+        try { action(); fail("Wrist start must stop before any session commit") }
+        catch (_: SessionStartRequiresPhoneException) { }
     }
 }

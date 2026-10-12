@@ -18,6 +18,7 @@ import java.util.Locale
 @Composable
 fun WearableSettingsScreen(coordinator: WearableCoordinator?, onBack: () -> Unit) {
     var confirmEnable by remember { mutableStateOf(false) }
+    var confirmControl by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         TextButton(onClick = onBack) { Text("返回") }
@@ -29,6 +30,19 @@ fun WearableSettingsScreen(coordinator: WearableCoordinator?, onBack: () -> Unit
             onStopOrDispose { coordinator.cancelWearAppCheck() }
         }
         val state by coordinator.state.collectAsStateWithLifecycle()
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("允许手环控制学习", style = MaterialTheme.typography.titleLarge)
+                Text("可选择休息 5 或 10 分钟、提前结束休息，以及确认手机已准备好的第一步并开始学习。默认关闭；关闭后仍可查看阅读状态。")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(if (state.controlEnabled) "已允许" else "尚未允许")
+                    Switch(checked = state.controlEnabled, enabled = state.enabled,
+                        modifier = Modifier.testTag("wearable-control-toggle"),
+                        onCheckedChange = { if (it) confirmControl = true else coordinator.setControlsFromUser(false) })
+                }
+                Text(if (state.controlNegotiated) "腕端支持学习控制；操作还需要新鲜状态和有效授权。" else "当前腕端尚未协商学习控制，继续只读同步。")
+            }
+        }
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(if (state.enabled) "手环伴侣已启用" else "尚未启用手环伴侣", style = MaterialTheme.typography.titleLarge)
@@ -66,7 +80,7 @@ fun WearableSettingsScreen(coordinator: WearableCoordinator?, onBack: () -> Unit
             }
         }
         Text("需要手机上的小米配套服务与已经配对的设备。启用后会显示小米提供的设备消息授权页。手环退出后暂停查询，再次打开时重新获取数据。")
-        Text("手机锁屏时的可达性取决于当前设备与正常学习服务；尚未通过当前设备验证。手机被强行停止时，请先打开手机 Mirra。")
+        Text("手机锁屏时的可达性取决于设备与正常学习服务。开始学习若受系统后台限制，请回手机操作。手机被强行停止时，请先打开手机 Mirra。")
         if (!state.enabled) {
             Button(onClick = { confirmEnable = true }, modifier = Modifier.fillMaxWidth().testTag("wearable-enable")) { Text("启用手环伴侣") }
         } else {
@@ -79,6 +93,12 @@ fun WearableSettingsScreen(coordinator: WearableCoordinator?, onBack: () -> Unit
         text = { Text("仅发送当前阅读信息。小米的首次授权可能同时包含通知能力；Mirra 仅请求设备消息，不主动发通知，也不读取健康、定位或麦克风。关闭伴侣不会停止学习或改变分心监测设置。") },
         confirmButton = { TextButton(onClick = { confirmEnable = false; coordinator?.enableFromUser() }) { Text("继续授权") } },
         dismissButton = { TextButton(onClick = { confirmEnable = false }) { Text("暂不开启") } })
+    if (confirmControl) AlertDialog(onDismissRequest = { confirmControl = false },
+        title = { Text("允许手环控制学习") },
+        text = { Text("只允许休息 5 或 10 分钟、提前结束休息，以及在看完实际第一步后明确确认开始。不会在手环选书、修改页码、结束学习或读取笔记。监测无法安全启动时，会保留准备并提示回手机操作。这项许可仅保存在当前手机，不随备份迁移。") },
+        confirmButton = { TextButton(onClick = { confirmControl = false; coordinator?.setControlsFromUser(true) },
+            modifier = Modifier.testTag("wearable-control-confirm")) { Text("允许这些操作") } },
+        dismissButton = { TextButton(onClick = { confirmControl = false }) { Text("保持只读") } })
 }
 
 private fun wearableErrorText(category: String): String = when (category) {

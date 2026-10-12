@@ -1,0 +1,11 @@
+{
+  "protocolVersion": 2,
+  "type": "HELLO_ACK",
+  "clientInstanceId": "client-golden",
+  "requestId": "request-hello_ack",
+  "streamId": "stream-golden",
+  "capabilities": [
+    "READ_ONLY_SNAPSHOT",
+    "SESSION_CONTROL"
+  ]
+}

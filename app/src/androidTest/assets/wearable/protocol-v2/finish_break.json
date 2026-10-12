@@ -1,0 +1,16 @@
+{
+  "protocolVersion": 2,
+  "type": "COMMAND",
+  "clientInstanceId": "client-golden",
+  "requestId": "request-command",
+  "streamId": "stream-golden",
+  "controlGrant": "grant-golden",
+  "action": "FINISH_BREAK",
+  "expectedIntentId": null,
+  "expectedSessionId": "session-golden",
+  "expectedSegmentId": "segment-golden",
+  "expectedBookId": null,
+  "expectedPage": null,
+  "expectedFirstAction": null,
+  "breakMinutes": null
+}
