@@ -4,16 +4,16 @@
 
 ## Current delivery — Mirra Band Module 03 read-only bridge
 
-**MODULE_03_DEVICE_ACCEPTANCE_IN_PROGRESS / IDLE_ROUNDTRIP_PASSED_LOCKSCREEN_USER_PASS_OTHER_SCENARIOS_PENDING**。用户已授权只读通信桥、手环设置和必要生命周期接线；Android 分支 `codex/mirra-band-readonly-bridge` 从 V1.1 验证交接 `1338b9a4e41788082f30bf3894a974c2ff652630` 创建。当前 `1.1.2-band-readonly` / code `5` 已安全覆盖目标 Xiaomi，新增只读腕端安装查询。2026-10-12 UTC 01:55:03 实际手机握手/完整发送与第八张真实腕端同步首页共同证明 IDLE 接收，安装查询报告已安装。用户随后明确确认完整“手机正在监测学习 → 锁屏 → 手环退出重开 → 最新学习状态”“包含，锁屏重进正常”，主场景记为 **USER_REPORTED_PASS**，本次没有独立配套 Session/锁屏画面/原始消息采集。其他状态画面、30 分钟观察尚未验证，不宣称整个模块完成。下方 V1.1 及更早章节保留原交付历史，不覆盖当前授权或事实。
+**MODULE_03_DEVICE_ACCEPTANCE_IN_PROGRESS / IDLE_ROUNDTRIP_PASSED_LOCKSCREEN_USER_PASS_OTHER_SCENARIOS_PENDING**。用户已授权只读通信桥、手环设置和必要生命周期接线；Android 分支 `codex/mirra-band-readonly-bridge` 从 V1.1 验证交接 `1338b9a4e41788082f30bf3894a974c2ff652630` 创建。此前 `1.1.2-band-readonly` / code `5` 已安全覆盖目标 Xiaomi并完成只读腕端安装查询；本轮已安全升级 `1.1.3-band-readonly` / code `6`，实际版本/摘要匹配，初始NO_DEVICE同进程自动恢复已真机通过，详见下方增量。2026-10-12 UTC 01:55:03 实际手机握手/完整发送与第八张真实腕端同步首页共同证明 IDLE 接收，安装查询报告已安装。用户随后明确确认完整“手机正在监测学习 → 锁屏 → 手环退出重开 → 最新学习状态”“包含，锁屏重进正常”，主场景记为 **USER_REPORTED_PASS**，本次没有独立配套 Session/锁屏画面/原始消息采集。其他状态画面与完整指标仍有未覆盖项，不宣称整个模块最终独立验收通过。下方 V1.1 及更早章节保留原交付历史，不覆盖当前授权或事实。
 
 已实现默认关闭的应用级只读伴侣、官方 SDK 消息适配、严格白名单协议与 Mine 设置入口。开关位于 `noBackupFilesDir` 的 AtomicFile，不进入 Room 或 Full Backup v1。快照读取绑定数据库实例与存储代际，在维护/退休时取消并排空；SDK 发送在事务与维护锁外。查询优先级为活动 Session → 活动 Intent → 经当前设备验证跟随的结束 Session → 主线书籍；读取失败不能伪造 IDLE，恢复/断连不能冒充业务新鲜度。
 
 
-当前新增恢复交付：恢复实现提交 **`322fbfd0288a26ba56c7b0b02d0598ab680d5dd7`**，本机 APK **1.1.3-band-readonly / code6**，**16,852,478 bytes**，SHA-256 `a7f20c1c38b416a6ece12db5f5e07db7852b2848ab7ad58a0fe91610609bac75`。最终定向 **62/62**；未过滤 JVM **741/741 / 81 suites / 0 failure/error/skip**，Lint **0 errors / 20 warnings / 1 hint** 与 1.1.2 逐项完全一致；单次 testDebugUnitTest / lintDebug / assembleDebug **14m30s / exit0**。APK 实际二进制版本、v1/v2 签名和 SHA 已核对，公开证书与既有 1.1.2 及正式 RPK 0.2.5 相同。1.1.3 尚未安装，当前目标手机最后核验版本仍为 1.1.2/code5。
+当前新增恢复交付：恢复实现提交 **`322fbfd0288a26ba56c7b0b02d0598ab680d5dd7`**，本机 APK **1.1.3-band-readonly / code6**，**16,852,478 bytes**，SHA-256 `a7f20c1c38b416a6ece12db5f5e07db7852b2848ab7ad58a0fe91610609bac75`。最终定向 **62/62**；未过滤 JVM **741/741 / 81 suites / 0 failure/error/skip**，Lint **0 errors / 20 warnings / 1 hint** 与 1.1.2 逐项完全一致；单次 testDebugUnitTest / lintDebug / assembleDebug **14m30s / exit0**。APK 实际二进制版本、v1/v2 签名和 SHA 已核对，公开证书与既有 1.1.2 及正式 RPK 0.2.5 相同。当前目标已核验安装1.1.3/code6、APK摘要一致；原1.1.2成功验收保留。
 
 首次 NO_DEVICE / 暂时 SERVICE_UNAVAILABLE / TIMEOUT 失败后，由同一个应用连接 job 按 2/5/10/30/60 秒延迟恢复，之后保持 60 秒上限；成功即停止。自动尝试 requestAuthorization=false，不新增权限弹窗、FGS、alarm 或 wake lock；系统休眠可能延迟执行，不承诺准点。身份、授权、多设备或监听清理不确定等非暂时错误停止并锁存；晚到事件/发送成功不能覆盖停止状态。关闭伴侣、维护 pause、source 退役、close 与进程 scope 取消所属重试，合法新 source owner 重新接线。SDK ready 不代表 HELLO 或 SNAPSHOT 成功。
 
-新版真机安全核查、覆盖安装和自动恢复尚待用户在对应步骤确认；不点“重新连接设备”或“检查腕端应用”进行恢复观察，避免掩盖缺口。原 1.1.2 + 0.2.5 的真实 IDLE PASS 与锁屏重进 USER_REPORTED_PASS 保留，不重复定义为待首次测试；其他状态、长文本/过期/重连与 30 分钟正常使用仍待验收。Module 03 整体未最终验收，不进入 Module 04。
+本轮安全核查、1.1.3/code6覆盖安装及首次NO_DEVICE同进程自动恢复已实际完成，原1.1.2+0.2.5真实IDLE与锁屏重进USER_REPORTED_PASS继续保留。用户改为自主试用反馈，不再逐项操作验收；其他状态画面/长文本仍有未覆盖项，低频只读30分钟窗口已结束、完整指标有未覆盖项。Module03整体尚未最终独立验收，不进入Module04。
 
 此前 1.1.2 手机实现提交 **`fcfac1d5e5a40d823598e8894ef649d4d499b215`**：官方 SDK `isWearAppInstalled` 手动只读检查，独立 job/generation/state、3 秒期限、节点/授权/owner 前后验证；退出页面取消诊断，不改消息 listener 所有权，晚到结果无效。并发 state 更新原子化，检查不改变握手或完整同步时间，不调用 launchWearApp。单次 `testDebugUnitTest lintDebug assembleDebug` 实际 **10m47s / exit 0**；全量 JVM **722/722 PASS，80 suites，0 failure/error/skip**；lint **0 errors / 20 warnings / 1 hint** 与初版相同，依赖版本未改。APK **16,852,477 bytes**，SHA-256 `6872cda1e755b8810244c6af763abc5126de983b2b5c3511e486e4d002f4cf9f`，本地文件 [Mirra-1.1.2-band-readonly-debug.apk](E:/CODEX/mirra-watch/dist/Mirra-1.1.2-band-readonly-debug.apk)。本增量未重跑 connected 或操作其他 Android 设备。
 
@@ -507,3 +507,13 @@ Phase 3D-1 Closeout Revision 已通过用户独立 review，结论为 `PASS WITH
 ## Next Recommended Task
 
 停在本轮 V1 体验的 ChatGPT 独立审阅边界，提供新版 Debug APK 与已提交执行证据。不得自称 accepted/frozen，不进入 V2。冻结业务、Room v4 / schemas 1–4 与历史失败保留；API23–36 / OEM / physical / TalkBack / release-Play / 真实断电 / 手动时钟修改和系统 transport 继续 NOT RUN，一加反馈仍只属个人试用。
+
+## Module03当前真机恢复交付增量
+
+1.1.3 已按当前同意安全覆盖：实际首页空闲、code5→6、已安装 APK 摘要与交付完全一致；无卸载/清数据/降级/重签/原始数据库访问。
+
+首次 NO_DEVICE 真机自动恢复已通过：用户同意在首页空闲时关闭蓝牙，并仅重启 Mirra 一次。冷启动 PID1642 实际 NO_DEVICE/无握手/无快照；恢复蓝牙后同 PID 自行发现9Pro并恢复服务/授权。正常腕端退出重进后用户确认“已同步”，实际手机捕获新握手与11:51:21完整发送，安装检查仍“尚未检查”。未点手机重连/安装查询依用户明确确认；SDK ready 与业务成功分段记录，旧1.1.2 IDLE/锁屏验收继续保留。
+
+用户随后明确认为逐项手动验收效率过低，要求自主开发、自然使用遇到问题再反馈；自述约5分钟体验正常，未逐项确认覆盖或回复版本，不扩大为全部状态通过。不再逐项指挥或要求重复同样流程。30分钟采用低频只读观察并已结束，缺失指标/腕端画面如实注明；安装/签名/系统权限仍保持明确授权边界，不进入 Module04。
+
+观察窗口已实际结束：UTC2026-10-12T03:57:28.0770927Z→2026-10-12T04:27:28.934Z，墙钟30.01分钟。自动低频采样从2026-10-12T04:09:51.854Z开始，实际5次，ADB读取失败0次；仅1次在Mirra前台取得固定状态（正在阅读、阅读时长8分钟、阅读中），其他前台不读UI。所有样本PID1642；手机100%→100%，系统报告AC充电。同步总数/精确RTT/全连接失败/腕端电量/放电耗电不可取得，诊断页同步时间样本为0不等于无线消息为0。此项是有缺口的被动观察窗口，不能写连续30分钟阅读或通信稳定性全PASS。
