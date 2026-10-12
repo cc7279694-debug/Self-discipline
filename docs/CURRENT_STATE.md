@@ -8,7 +8,14 @@
 
 已实现默认关闭的应用级只读伴侣、官方 SDK 消息适配、严格白名单协议与 Mine 设置入口。开关位于 `noBackupFilesDir` 的 AtomicFile，不进入 Room 或 Full Backup v1。快照读取绑定数据库实例与存储代际，在维护/退休时取消并排空；SDK 发送在事务与维护锁外。查询优先级为活动 Session → 活动 Intent → 经当前设备验证跟随的结束 Session → 主线书籍；读取失败不能伪造 IDLE，恢复/断连不能冒充业务新鲜度。
 
-当前手机实现提交 **`fcfac1d5e5a40d823598e8894ef649d4d499b215`**：官方 SDK `isWearAppInstalled` 手动只读检查，独立 job/generation/state、3 秒期限、节点/授权/owner 前后验证；退出页面取消诊断，不改消息 listener 所有权，晚到结果无效。并发 state 更新原子化，检查不改变握手或完整同步时间，不调用 launchWearApp。单次 `testDebugUnitTest lintDebug assembleDebug` 实际 **10m47s / exit 0**；全量 JVM **722/722 PASS，80 suites，0 failure/error/skip**；lint **0 errors / 20 warnings / 1 hint** 与初版相同，依赖版本未改。APK **16,852,477 bytes**，SHA-256 `6872cda1e755b8810244c6af763abc5126de983b2b5c3511e486e4d002f4cf9f`，本地文件 [Mirra-1.1.2-band-readonly-debug.apk](E:/CODEX/mirra-watch/dist/Mirra-1.1.2-band-readonly-debug.apk)。本增量未重跑 connected 或操作其他 Android 设备。
+
+当前新增恢复交付：恢复实现提交 **`322fbfd0288a26ba56c7b0b02d0598ab680d5dd7`**，本机 APK **1.1.3-band-readonly / code6**，**16,852,478 bytes**，SHA-256 `a7f20c1c38b416a6ece12db5f5e07db7852b2848ab7ad58a0fe91610609bac75`。最终定向 **62/62**；未过滤 JVM **741/741 / 81 suites / 0 failure/error/skip**，Lint **0 errors / 20 warnings / 1 hint** 与 1.1.2 逐项完全一致；单次 testDebugUnitTest / lintDebug / assembleDebug **14m30s / exit0**。APK 实际二进制版本、v1/v2 签名和 SHA 已核对，公开证书与既有 1.1.2 及正式 RPK 0.2.5 相同。1.1.3 尚未安装，当前目标手机最后核验版本仍为 1.1.2/code5。
+
+首次 NO_DEVICE / 暂时 SERVICE_UNAVAILABLE / TIMEOUT 失败后，由同一个应用连接 job 按 2/5/10/30/60 秒延迟恢复，之后保持 60 秒上限；成功即停止。自动尝试 requestAuthorization=false，不新增权限弹窗、FGS、alarm 或 wake lock；系统休眠可能延迟执行，不承诺准点。身份、授权、多设备或监听清理不确定等非暂时错误停止并锁存；晚到事件/发送成功不能覆盖停止状态。关闭伴侣、维护 pause、source 退役、close 与进程 scope 取消所属重试，合法新 source owner 重新接线。SDK ready 不代表 HELLO 或 SNAPSHOT 成功。
+
+新版真机安全核查、覆盖安装和自动恢复尚待用户在对应步骤确认；不点“重新连接设备”或“检查腕端应用”进行恢复观察，避免掩盖缺口。原 1.1.2 + 0.2.5 的真实 IDLE PASS 与锁屏重进 USER_REPORTED_PASS 保留，不重复定义为待首次测试；其他状态、长文本/过期/重连与 30 分钟正常使用仍待验收。Module 03 整体未最终验收，不进入 Module 04。
+
+此前 1.1.2 手机实现提交 **`fcfac1d5e5a40d823598e8894ef649d4d499b215`**：官方 SDK `isWearAppInstalled` 手动只读检查，独立 job/generation/state、3 秒期限、节点/授权/owner 前后验证；退出页面取消诊断，不改消息 listener 所有权，晚到结果无效。并发 state 更新原子化，检查不改变握手或完整同步时间，不调用 launchWearApp。单次 `testDebugUnitTest lintDebug assembleDebug` 实际 **10m47s / exit 0**；全量 JVM **722/722 PASS，80 suites，0 failure/error/skip**；lint **0 errors / 20 warnings / 1 hint** 与初版相同，依赖版本未改。APK **16,852,477 bytes**，SHA-256 `6872cda1e755b8810244c6af763abc5126de983b2b5c3511e486e4d002f4cf9f`，本地文件 [Mirra-1.1.2-band-readonly-debug.apk](E:/CODEX/mirra-watch/dist/Mirra-1.1.2-band-readonly-debug.apk)。本增量未重跑 connected 或操作其他 Android 设备。
 
 以下保留初版 `1.1.1-band-readonly` / code 4 的实际结果：构建 **3m41s / exit 0**；JVM **711/711 PASS，80 suites，0 failure/error/skip**；debug APK / test APK 构建，旧 APK **17,094,969 bytes**；lint **0 errors / 20 warnings / 1 hint**。定向曾通过 44 项 JVM 与隔离 `emulator-5580` 的 5 项 Reader 测试，十二张权威表读取前后完全一致。这些历史结果不算作 1.1.2 新源码设备回归。
 
@@ -26,7 +33,7 @@ Room v4、Schema 1–4、Migration、学习/监测/Closeout 算法、Full Backup
 
 八张腕端实拍保留版本与失败溯源：初版两张 INTERCONNECT_UNAVAILABLE，0.2.1 显示 INIT_READY_CALL_API_MISSING，0.2.2 显示 CHANNEL_UNAVAILABLE，0.2.3 / 0.2.4 两张均 APK_STATUS_UNKNOWN_STRING；第七张明确显示 Mirra0.2.5/7、APK_RAW_TIMEOUT，对应原生精确字符串 TIMEOUT，不是本应用握手计时器结论。0.2.4 按旧官方 CONNECTING 修补未解决真机故障，目标未证明返回该 token。0.2.5（实现 `2be4297feb06ad42cea0a5ab1d891594866317bc`）仅增加版本标签与有限 ASCII 同步状态诊断、未知值仍断连；本地154/154、检查31/3/0、构建10,521ms、同证书独立 inspect通过。第八张才证明真实 IDLE 接收；可见版本标签不等于腕端安装文件摘要核对。
 
-代码已确认首查恢复缺口：数据源绑定时一次自动 connect，NO_DEVICE 后移除 observer，onResume/进入设置不重查，UI serviceAvailable=false 不能证明 AIDL 未绑定。2026-10-12 UTC 01:53:46 NO_DEVICE 与 01:55:03 用户手动“重新连接设备 + 检查腕端应用”恢复使用同 PID `32135`，排除了本次恢复依赖新进程的解释；但两个动作未隔离，不能声称安装检查单独促成恢复、底层 TIMEOUT 根因已确定或恢复缺口已经修复。
+以下是 1.1.2 的历史缺口，已由上述 1.1.3 源码/回归修正；原真机手动恢复证据不变：数据源绑定时一次自动 connect，NO_DEVICE 后移除 observer，onResume/进入设置不重查，UI serviceAvailable=false 不能证明 AIDL 未绑定。2026-10-12 UTC 01:53:46 NO_DEVICE 与 01:55:03 用户手动“重新连接设备 + 检查腕端应用”恢复使用同 PID `32135`，排除了本次恢复依赖新进程的解释；但两个动作未隔离，不能声称安装检查单独促成恢复、底层 TIMEOUT 根因已确定或恢复缺口已经修复。
 
 用户先反馈“刚刚我测试了，没问题”，再明确确认完整监测学习锁屏重进主场景正常，状态为 USER_REPORTED_PASS，不再 Not Run。UTC 02:02:43 实际手机已经回首页，未观察到正在 Session / focus service，是测试后状态，不能反推此前没有学习或充当主场景独立证据。2026-10-12 当前又实际核对远端已安装 APK SHA-256 为 `6872cda1e755b8810244c6af763abc5126de983b2b5c3511e486e4d002f4cf9f`，与 1.1.2 配套包相同，没有再安装或修改数据。
 
