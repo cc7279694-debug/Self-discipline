@@ -1,36 +1,43 @@
 # Current State
 
-更新：2026-10-12（Asia/Shanghai）。
+更新：2026-10-13（Asia/Shanghai）。
 
 ## 当前交付
 
-**DEV_COMPLETE_AWAITING_NATURAL_USE**。用户已授权 Mirra Band Module 04 方案 B：学习常用控制，合同见 `docs/plans/MIRRA_BAND_MODULE_04_WRIST_CONTROLS.md`。Android 分支 `codex/mirra-band-control-bridge` 从接受基线 `3fecf50a208ddb145a67986749420b490193e903` 创建；Band 分支 `codex/module-04-wrist-controls` 从 `8b14819f15682fd22752dbdf2b05e8d465e255ee` 创建。继续现有隔离工作区，原手机工作区不变，不进入 Module 05。
+**05C_IMPLEMENTED_AWAITING_NATIVE_AND_DEVICE_VALIDATION**。用户批准真实书籍离线目录和正式腕端整合，选择不迁移独立实验记录。从 `codex/mirra-band-control-bridge` 实际 HEAD `30a8af3fdea225cc96db6a360d71383a85b7ea39` 在 `codex/mirra-band-05c-catalog` 开发；原手机工作区保持不变。统一合同见 Band 仓库 `docs/plans/MIRRA_BAND_05C_OFFLINE_CATALOG.md`；本端实际交付见 [05C Android 记录](evidence/module-05c/README.md)。
 
-## 已实现
+## 当前实现
 
-- 手机唯一权威的休息 5/10 分钟、提前结束休息和已有有效 Intent 的实际第一步确认开始。复用 FocusSessionActions、SessionStartCoordinator 与原 Repository，不从通信层插入 Session。
-- 严格腕端监测准入：提交前 preflight/FGS/READY 失败返回 REQUIRES_PHONE、保留 Intent，不创建意外 UNMONITORED；最终事务复核动作、页码、Intent、书籍、授权与 READY；提交后降级保留实际 Session。
-- v2 短授权控制与 v1 只读兼容、绑定存储代际的执行器、单命令、有界去重和结果未知处理。维护、撤权和资源退役无旧 owner 写入；休息的可选 guard 直达最终首次写入，原手机调用不传 guard、规则不变。
-- 默认关闭的独立 no-backup 控制许可，手机设置显式确认；权限不随备份迁移，不改 Room 或 portable preferences。
+- 复用唯一应用级 WearableCoordinator/SDK 通道，增加兼容 v1/v2 的 v3 BOOK_CATALOG 协商、完整有界分片与当前 owner/context 的持久化 ACK 确认。
+- WearableCatalogReader 捕获 Room/startup/StorageMaintenanceGate 代际，仅只读主线和明确选择的 IN_PROGRESS。FirstActionResolver.resolve 沿用原实现，合法已有动作与实际完成确认分开。
+- 新目录披露许可默认关闭；选择和许可存独立 no-backup AtomicFile，不进入 Room 或 Full Backup。手机设置有明确披露、选书与同步状态。
+- SDK 发送、握手与目录持久化确认分别记录；目录读写失败、断连、撤权、维护、旧 stream/请求或超时不得显示已同步。
+- 实际 APK 1.3.0/code8 已构建和公开验签，位于 `E:\CODEX\mirra-watch\dist\Mirra-1.3.0-band-catalog-debug.apk`。不能据此宣称已经在手机上覆盖安装。
 
-## 数据安全与基础继承
+## 数据与继承边界
 
-Room v4/schema 1–4、Migration、Full Backup v1、FirstActionResolver/过期/状态转换/监测/Closeout 算法、手机包名和签名身份保持不变。SQLite 为真实学习事实源，原 V1.1 本地优先产品和已有手机交互继承。Room v4 基线/当前 Git blob 均为 `97ae3a8a15aeb924350b4b7ecade389b314f7ebf`。没有新增依赖、云端或权限，没有原始用户数据库读取/清除。
+Room v4/schema 1–4、Migration、Full Backup v1、LearningItemEntity、FirstActionResolver、Intent/Session/监测/Closeout/统计业务、原 SDK gateway 和正式身份不变。新源使用同一门禁，Room 短只读事务完成后才发送 SDK。
 
-## 实际验证与配套版本
+05B.3 已交付的白色腕端 UI、单次确认开始、双槽/CAS/读回、参考计时、空结束页码与 pending 由 Band 继承；真机流畅度尚未明确反馈，保持待验收。旧独立实验应用与其记录保留，正式包不读取或迁移另一个包的私有文件。05D–05E 记录上传/历史整合/统计合并未实施。
 
-最终未过滤 JVM **798/798 PASS，86 suites，0 failure/error/skip**；单次 testDebugUnitTest/lintDebug/assembleDebug/assembleDebugAndroidTest 构建 **exit0 / 4m17s**。最终 APK 在自有 API37 模拟器单次相关回归 **78/78 实际 PASS，零失败/assumption/ignored**；手机控制默认关闭/明确同意/取消保持只读已通过实际原生模拟器画面检查；完整结果以 Band 仓库 `docs/evidence/module-04/verification.json` 为准，不拼接定向回归假装全量 connected。腕端 Node **184/184**、检查 **34/4/0** 和正式 RPK 构建/独立验签已通过。
+## 验证进度
 
-APK **1.2.0/code7**：`E:\CODEX\mirra-watch\dist\Mirra-1.2.0-band-control-debug.apk`。RPK **0.3.0/code8**：`E:\CODEX\mirra-watch\dist\com.guanyi.mirra.release.0.3.0.rpk`。公开证书沿用既有 `29:DE:D2:6B:EA:44:F1:AF:E4:FE:38:3A:30:2E:4B:50:74:23:D1:62:23:46:9D:7D:A3:FE:57:8D:9A:7F:83:B9`；二进制摘要和证据集中在 Band 交付报告，不重复冻结。Module 04 真机安装尚未执行。
+2026-10-13 最后一次未过滤 `testDebugUnitTest` 实际 `BUILD SUCCESSFUL in 3m 13s`；读取本轮 XML：88 suites、824 tests、0 failures/errors/skipped。其中目录 Coordinator 17 项、协议 9 项。最终 `lintDebug assembleDebug assembleDebugAndroidTest` 实际 `BUILD SUCCESSFUL in 10m 48s`；lint XML 为 0 errors、20 warnings、1 hint，不将其写为零告警。
 
-## 保留 Module 03 成功事实
+协议缺失能力 RED、早期 ACK 测试失败、独立审查新增的固定总期限/manifest 负例 RED 均已修复。ACK 最终发送与状态发布同锁，固定 30 秒含 source/encoding/send/ACK；实际 App 使用 `SystemClock.elapsedRealtime`，延迟计时任务或回退也不能使过期 ACK 变成功。原本 lint 的 NonObservableLocale 错误通过可观察 LocalLocale 修复，未抑制检查。
 
-1.1.3-band-readonly/code6 与 Band0.2.5/code7 是用户已接受基线。正式 IDLE 双端同步有手机和腕端证据；监测学习锁屏、腕端退出重进最新状态为 **USER_REPORTED_PASS**。首次 NO_DEVICE 后同进程蓝牙恢复、自动恢复设备/服务/授权、新握手及完整快照已通过。约 5 分钟自然使用正常是用户反馈。
+保留两次重负载并发验证中的旧 `ExportWorkspaceTest.concurrentWorkspaceInstancesCanReclaimRepeatedlyWithoutDeletingCurrentOperations` 超时失败历史：`.local/05c-android-full-final.log`、`.local/05c-android-final-verified.log`。没有改动该测试断言、过滤测试或隐藏失败；最后串行低并发、局部 1024m/单 worker 的未过滤全量通过。自动化成功不能外推国行手环响应速度。
 
-30 分钟被动观察有测量限制，不能改写为完整同步次数、精确 RTT 或耗电通过。历史证据保留于 Band `docs/evidence/module-03/` 和接受基线；未宣布全状态/OEM/独立最终审查通过，也不重复定义已通过项尚未完成。
+APK 16,950,769 bytes；SHA-256 `c95c9bf53634b465fff2039285d697bdf4f2587c72e0ece46caedd39203d2569`。aapt 确认 `com.guanyi.mirra`、1.3.0/code8、min23/target37；apksigner verify exit0、v1/v2，通过的公开证书 SHA-256 `29ded26bea44f1afe4fe383a302e4b507423d16223469d7da3fe578d9a7f83b9` 与实际旧 1.2.0/code7 APK 一致。元数据 `.local/05c-android-apk-metadata.json`。原生Room只读、维护退役、本地设置及Compose披露/选书在自有API37模拟器实际回归19/19通过；不能替代国行手环或配对手机真机证据。
 
-## 未执行与下一步
+## 已保留的既有证据
 
-新控制真机安装和一次自然操作证据、原生腕端渲染/触控、新控制锁屏 FGS/OEM 覆盖、其他 API/OEM、Module 04 未过滤全量 connected、9 个依赖专用阶段 fixture 的备份方法、release/生产发布、ChatGPT 独立审查 **Not Run**。
+Module 04 的 1.2.0/code7 和正式腕端 0.3.0/code8 产物、代码及自动化保留。Module 03 正式 IDLE 双端同步、监测学习锁屏/腕端重进与自动恢复既有成功事实保留，不重复定义为未完成。
 
-代码和门禁已完成，手机实现提交 `9662164bbffe9ebafdb72b7c4f99ac8d538876d3`；实现已 push 并核对远端 SHA；交付记录随同分支文档提交，接下来取得本轮安装同意，核对原配对手机当前公开版本/证书/空闲首页后安全覆盖，再自然使用并反馈实际结果。安装/权限/系统操作由用户确认；不卸载/清数据、不合并 main、不自动 PR、不进入 Module 05。
+## 当前未完成与下一步
+
+完成自有模拟器验证和配套正式 RPK 检查后，由任务主执行者提交并普通推送两端当前功能分支，再另取当前真机安装授权。物理设备当前安装版本/证书、本次正式目录同步和离线自然学习尚未验证；不卸载、清数据、降级、转换签名或操作用户原数据库。无 PR/main 合并，不自动进入 05D。
+
+原生收尾：本项目自有MirraBand_Module03_API37 / emulator-5580实际19/19 PASS，8项新增目录/设置/UI与11项既有回归；43.711s，真实Room/SQLite in-memory fixtures及受控SDK，不是目标手环无线/固件证明。自有AVD已核验原1.2.0/code7公开证书后安全覆盖1.3.0/code8，无卸载/清数据/wipe，完成后关闭所属AVD；其他设备未操作。人工截图得到系统Pixel Launcher ANR，未取得产品画面，不能归因Mirra。物理手机/手环版本预检、安装、真实目录和离线自然使用仍Not Run。
+
+配套正式RPK0.4.0/code9（80245bytes），SHA-256 bd0458ca70e63d815102d7becefe51a3c74644e87a9df29bc261ec98459fd0dc，和APK同com.guanyi.mirra/原29DE…证书。机器结果见本目录artifacts.json、verification.json；真机安装尚待当前同意，停05C。

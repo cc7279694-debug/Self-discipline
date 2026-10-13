@@ -1,5 +1,13 @@
 # Repository Collaboration Guide
 
+## Mirra Band 05C 当前授权范围
+
+2026-10-13 用户授权从 `codex/mirra-band-control-bridge` 的真实 HEAD `30a8af3fdea225cc96db6a360d71383a85b7ea39` 在 `codex/mirra-band-05c-catalog` 连续实现真实书籍离线目录。统一合同在 Band 仓库 `docs/plans/MIRRA_BAND_05C_OFFLINE_CATALOG.md`。主线自动加入，其他只可明确选择 IN_PROGRESS；通过 FirstActionResolver.resolve 构造动作，空或无效动作交腕端预设兜底，仍需每场明确完成确认。
+
+复用现有 WearableCoordinator、WearTransport 和 captured StorageMaintenanceGate/Room source；目录只读，新增披露许可与所选 ID 仅存独立 no-backup AtomicFile。Room v4、学习/监测/Intent/统计、Full Backup v1、原手机工作区和签名材料不变。v3 目录能力兼容既有 v1/v2；只有腕端完整保存读回后的精确 ACK 可以标记目录同步成功。普通开发、自动化、构建及当前功能分支 commit/push 已授权；设备安装、权限或正式包替换另取当次同意。无自动 PR/main 合并，05D–05E 记录上传及历史整合不在范围内。
+
+下方 Module 04 状态和范围是历史基线，不能覆盖此项当前授权；保留其实现和已验证证据。
+
 ## Mirra Band Module 04 授权范围
 
 用户已授权在 codex/mirra-band-control-bridge（基线 3fecf50a208ddb145a67986749420b490193e903）执行 docs/plans/MIRRA_BAND_MODULE_04_WRIST_CONTROLS.md：只开放 5/10 分钟休息、提前结束休息与手机已有 Intent 的明确第一步确认。复用当前手机业务；可增加外部控制准入 guard 和最终事务期望事实校验，但不改状态转换规则、监测阈值、Room v4/Migration、Full Backup v1、签名身份或直接调试用户数据库。

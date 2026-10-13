@@ -7,6 +7,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.core.os.ConfigurationCompat
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleStartEffect
@@ -17,8 +19,12 @@ import java.util.Locale
 
 @Composable
 fun WearableSettingsScreen(coordinator: WearableCoordinator?, onBack: () -> Unit) {
+    val displayLocale = ConfigurationCompat.getLocales(LocalConfiguration.current)[0] ?: Locale.ROOT
     var confirmEnable by remember { mutableStateOf(false) }
     var confirmControl by remember { mutableStateOf(false) }
+    var confirmCatalog by remember { mutableStateOf(false) }
+    var selectCatalogBooks by remember { mutableStateOf(false) }
+    var draftCatalogIds by remember { mutableStateOf(emptySet<String>()) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         TextButton(onClick = onBack) { Text("返回") }
@@ -30,6 +36,39 @@ fun WearableSettingsScreen(coordinator: WearableCoordinator?, onBack: () -> Unit
             onStopOrDispose { coordinator.cancelWearAppCheck() }
         }
         val state by coordinator.state.collectAsStateWithLifecycle()
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("书籍离线目录", style = MaterialTheme.typography.titleLarge)
+                Text("开启后，将主线及你选择的进行中书籍的名称、页码和已填写的合法第一步传到手环。目录保存后可离线学习；腕端记录目前仅保存在手环，不上传手机历史。")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(if (state.catalogEnabled) "已允许同步书籍" else "尚未允许")
+                    Switch(checked = state.catalogEnabled, enabled = state.enabled,
+                        modifier = Modifier.testTag("wearable-catalog-toggle"),
+                        onCheckedChange = { if (it) confirmCatalog = true else coordinator.setCatalogEnabledFromUser(false) })
+                }
+                Text("主线自动加入，另外最多选择 11 本进行中的书籍。不会修改手机书籍、学习记录或统计。")
+                Text("关闭目录同步仅停止更新，不会自动删除手环已保存的完整目录。")
+                OutlinedButton(onClick = {
+                    draftCatalogIds = state.catalogSelectedIds.toSet()
+                    selectCatalogBooks = true
+                    coordinator.loadCatalogChoicesFromUser()
+                }, enabled = state.catalogEnabled, modifier = Modifier.fillMaxWidth().testTag("wearable-catalog-select")) {
+                    Text("选择同步书籍（${state.catalogSelectedIds.size} 本）")
+                }
+                val catalogDescription = when (state.catalogStatus) {
+                    "SENDING" -> "正在发送目录，等待手环保存"
+                    "AWAITING_ACK" -> "已发送，等待手环完整保存确认"
+                    "SYNCED" -> "手环已确认完整保存，可离线使用"
+                    "ERROR" -> "目录保存尚未确认；手环仅使用完整保存的目录，请查看腕端提示。"
+                    else -> "尚未确认保存；请在手环 Mirra 点同步书籍"
+                }
+                Text(catalogDescription, Modifier.testTag("wearable-catalog-status"))
+                if (state.catalogEnabled && !state.catalogNegotiated) Text("当前腕端尚未协商离线目录，请打开配套正式腕端。")
+                state.lastCatalogAt?.let { Text("最近目录确认：${SimpleDateFormat("HH:mm:ss", displayLocale).format(Date(it))}") }
+                state.catalogError?.let { Text(catalogErrorText(it), color = MaterialTheme.colorScheme.error) }
+                Text("书名完整支持 120 字、动作 160 字；超限会明确拒绝整份目录，不截断动作。同步不会改变正在进行的腕端学习快照。")
+            }
+        }
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("允许手环控制学习", style = MaterialTheme.typography.titleLarge)
@@ -99,6 +138,51 @@ fun WearableSettingsScreen(coordinator: WearableCoordinator?, onBack: () -> Unit
         confirmButton = { TextButton(onClick = { confirmControl = false; coordinator?.setControlsFromUser(true) },
             modifier = Modifier.testTag("wearable-control-confirm")) { Text("允许这些操作") } },
         dismissButton = { TextButton(onClick = { confirmControl = false }) { Text("保持只读") } })
+    if (confirmCatalog) AlertDialog(onDismissRequest = { confirmCatalog = false },
+        title = { Text("允许同步离线书籍目录") },
+        text = { Text("新增同步范围：主线和所选进行中书籍的稳定编号、完整书名、总页数、当前页码、已填写的合法第一步及主线标记。手环可离线独立学习；本阶段不上传腕端学习记录，不修改手机历史或统计。每次开始仍需在手环实际完成第一步并确认。无需新增系统权限。") },
+        confirmButton = { TextButton(onClick = { confirmCatalog = false; coordinator?.setCatalogEnabledFromUser(true) },
+            modifier = Modifier.testTag("wearable-catalog-confirm")) { Text("允许目录同步") } },
+        dismissButton = { TextButton(onClick = { confirmCatalog = false }) { Text("暂不开启") } })
+    if (selectCatalogBooks && coordinator != null) {
+        val state by coordinator.state.collectAsStateWithLifecycle()
+        AlertDialog(onDismissRequest = { selectCatalogBooks = false },
+            title = { Text("选择离线书籍") },
+            text = {
+                Column(Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState())) {
+                    Text("只展示进行中的书籍；主线自动加入。")
+                    if (state.catalogChoicesLoading) Text("正在读取书籍…")
+                    if (!state.catalogChoicesLoading && state.catalogChoices.isEmpty()) Text("暂无进行中的书籍")
+                    state.catalogChoices.forEach { book ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(book.title + if (book.isMainline) "（主线）" else "", Modifier.weight(1f))
+                            Checkbox(checked = book.isMainline || book.id in draftCatalogIds,
+                                modifier = Modifier.testTag("wearable-catalog-book-${book.id}"),
+                                enabled = !book.isMainline && (book.id in draftCatalogIds || draftCatalogIds.size < 11),
+                                onCheckedChange = { checked -> draftCatalogIds = if (checked) draftCatalogIds + book.id else draftCatalogIds - book.id })
+                        }
+                    }
+                    state.catalogError?.let { Text(catalogErrorText(it), color = MaterialTheme.colorScheme.error) }
+                }
+            },
+            confirmButton = { TextButton(enabled = !state.catalogChoicesLoading && state.catalogError == null,
+                onClick = {
+                    val eligible = state.catalogChoices.filterNot { it.isMainline }.map { it.id }.toSet()
+                    coordinator.setCatalogBooksFromUser(draftCatalogIds.filter { it in eligible })
+                    selectCatalogBooks = false
+                }) { Text("保存选择") } },
+            dismissButton = { TextButton(onClick = { selectCatalogBooks = false }) { Text("取消") } })
+    }
+}
+
+private fun catalogErrorText(code: String) = when (code) {
+    "CATALOG_TOO_LARGE" -> "目录超出手环容量，请减少所选书籍后再同步。"
+    "INVALID_CATALOG" -> "有书籍的名称、动作、页码或编号超出兼容范围；未替换腕端完整目录，请在手机检查书籍。"
+    "CATALOG_DISABLED" -> "书籍目录同步尚未允许。"
+    "TIMEOUT" -> "未收到完整保存确认，请在手环再次同步。"
+    "PERSIST_FAILED", "RESULT_UNKNOWN" -> "腕端保存结果未确认，请查看手环提示；手机没有记录为同步成功。"
+    "CONFLICT" -> "目录版本冲突，未确认替换，请重新同步。"
+    else -> wearableErrorText(code)
 }
 
 private fun wearableErrorText(category: String): String = when (category) {

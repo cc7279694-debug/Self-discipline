@@ -13,7 +13,8 @@ data class WearableRequest(val protocolVersion: Int, val type: String, val clien
     val controlGrant: String? = null, val action: String? = null,
     val expectedIntentId: String? = null, val expectedSessionId: String? = null,
     val expectedSegmentId: String? = null, val expectedBookId: String? = null,
-    val expectedPage: Int? = null, val expectedFirstAction: String? = null, val breakMinutes: Int? = null)
+    val expectedPage: Int? = null, val expectedFirstAction: String? = null, val breakMinutes: Int? = null,
+    val knownRevision: String? = null, val catalogRevision: String? = null, val catalogCode: String? = null)
 
 /** Facts and a short-lived authorization issued by the current phone owner. */
 @Serializable data class WearableControlState(
@@ -28,6 +29,7 @@ data class WearableCommandOutcome(val code: String, val sessionId: String? = nul
 object WearableProtocol {
     const val VERSION = 1
     const val CONTROL_VERSION = 2
+    const val CATALOG_VERSION = 3
     const val MAX_BYTES = 4_096
     const val MAX_CONTROL_TTL_MS = 30_000L
     val ACTIONS = setOf("START_BREAK", "FINISH_BREAK", "CONFIRM_PREPARATION_AND_START")
@@ -46,10 +48,11 @@ object WearableProtocol {
         try {
             val version = version(tree)
             val type = string(tree, "type")
+            if (type in WearableCatalogProtocol.TYPES) return WearableCatalogProtocol.decodeRequest(tree)
             require(tree.keys == when (type) {
                 "HELLO" -> common + "capabilities"
                 "GET_SNAPSHOT" -> common + setOf("streamId", "lastSeenSessionId")
-                "COMMAND" -> { require(version == CONTROL_VERSION); common + commandKeys }
+                "COMMAND" -> { require(version >= CONTROL_VERSION); common + commandKeys }
                 else -> error("write command")
             })
             val client = string(tree, "clientInstanceId").also { require(id.matches(it)) }
@@ -78,14 +81,16 @@ object WearableProtocol {
         val version = version(tree)
         listOf("clientInstanceId", "requestId").forEach { require(id.matches(string(tree, it))) }
         val type = string(tree, "type")
-        if (type in setOf("HELLO", "GET_SNAPSHOT", "COMMAND")) {
+        if (type in WearableCatalogProtocol.TYPES) {
+            WearableCatalogProtocol.validateMessage(tree)
+        } else if (type in setOf("HELLO", "GET_SNAPSHOT", "COMMAND")) {
             decodeRequest(payload)
         } else {
             require(tree.keys == when (type) {
                 "HELLO_ACK" -> common + setOf("streamId", "capabilities")
-                "SNAPSHOT" -> common + setOf("streamId", "sequence", "sourceObservedAtUnixMs", "body") + if (version == CONTROL_VERSION) setOf("control") else emptySet()
+                "SNAPSHOT" -> common + setOf("streamId", "sequence", "sourceObservedAtUnixMs", "body") + if (version >= CONTROL_VERSION) setOf("control") else emptySet()
                 "STATUS_ERROR" -> common + "code" + if ("streamId" in tree) setOf("streamId") else emptySet()
-                "COMMAND_RESULT" -> { require(version == CONTROL_VERSION); common + setOf("streamId", "action", "code", "sessionId", "monitorDegraded") }
+                "COMMAND_RESULT" -> { require(version >= CONTROL_VERSION); common + setOf("streamId", "action", "code", "sessionId", "monitorDegraded") }
                 else -> error("unknown reply")
             })
             if ("streamId" in tree) require(id.matches(string(tree, "streamId")))
@@ -99,7 +104,7 @@ object WearableProtocol {
                     validateBodyTokens(tree.getValue("body").jsonObject)
                     val body = json.decodeFromJsonElement<WearableSnapshot>(tree.getValue("body"))
                     validateWireBody(body)
-                    if (version == CONTROL_VERSION) {
+                    if (version >= CONTROL_VERSION) {
                         require(tree.getValue("control").jsonObject.keys == controlKeys)
                         validateControlTokens(tree.getValue("control").jsonObject)
                         validateControl(json.decodeFromJsonElement(tree.getValue("control")), body, observedAt)
@@ -156,15 +161,15 @@ object WearableProtocol {
         require(sequence in 1..WearableProjection.MAX_SAFE_INTEGER && observedAt in 1..WearableProjection.MAX_SAFE_INTEGER)
         val display = displayCopy(body)
         validateBody(display)
-        if (request.protocolVersion == CONTROL_VERSION) { validateWireBody(display); validateControl(control, display, observedAt) }
+        if (request.protocolVersion >= CONTROL_VERSION) { validateWireBody(display); validateControl(control, display, observedAt) }
         return envelope(request, "SNAPSHOT", stream) {
             put("sequence", sequence); put("sourceObservedAtUnixMs", observedAt)
             put("body", json.encodeToJsonElement(display))
-            if (request.protocolVersion == CONTROL_VERSION) put("control", json.encodeToJsonElement(control))
+            if (request.protocolVersion >= CONTROL_VERSION) put("control", json.encodeToJsonElement(control))
         }
     }
     fun commandResult(request: WearableRequest, stream: String, outcome: WearableCommandOutcome): ByteArray {
-        require(request.protocolVersion == CONTROL_VERSION && request.type == "COMMAND")
+        require(request.protocolVersion >= CONTROL_VERSION && request.type == "COMMAND")
         val action = checkNotNull(request.action)
         validateOutcome(action, outcome)
         return envelope(request, "COMMAND_RESULT", stream) {
@@ -207,7 +212,7 @@ object WearableProtocol {
         if (body.phase in setOf(WearablePhase.SAVING, WearablePhase.ENDED)) require(body.timerKind in setOf(WearableTimerKind.NONE, WearableTimerKind.FINAL_SESSION_DURATION))
     }
     private fun envelope(request: WearableRequest, type: String, stream: String?, extra: JsonObjectBuilder.() -> Unit): ByteArray {
-        require(request.protocolVersion == VERSION || request.protocolVersion == CONTROL_VERSION)
+        require(request.protocolVersion in VERSION..CATALOG_VERSION)
         val value = buildJsonObject {
             put("protocolVersion", request.protocolVersion); put("type", type)
             put("clientInstanceId", request.clientInstanceId); put("requestId", request.requestId)
@@ -224,7 +229,7 @@ object WearableProtocol {
     private fun version(tree: JsonObject): Int {
         val value = tree.getValue("protocolVersion").jsonPrimitive
         require(!value.isString)
-        return checkNotNull(value.intOrNull).also { require(it == VERSION || it == CONTROL_VERSION) }
+        return checkNotNull(value.intOrNull).also { require(it in VERSION..CATALOG_VERSION) }
     }
     private fun nullableString(tree: JsonObject, key: String): String? = if (tree.getValue(key) == JsonNull) null else string(tree, key)
     private fun nullableId(tree: JsonObject, key: String): String? = nullableString(tree, key)?.also { require(id.matches(it)) }
@@ -243,11 +248,15 @@ object WearableProtocol {
         require(it.jsonPrimitive.isString && validUnicode(it.jsonPrimitive.content)); it.jsonPrimitive.content
     }.also { validateCapabilities(it, version) }
     private fun validateCapabilities(values: List<String>, version: Int) {
-        require(values == listOf("READ_ONLY_SNAPSHOT") || version == CONTROL_VERSION && values == listOf("READ_ONLY_SNAPSHOT", "SESSION_CONTROL"))
+        require(if (version == CATALOG_VERSION)
+            values == listOf("READ_ONLY_SNAPSHOT", "BOOK_CATALOG") ||
+                values == listOf("READ_ONLY_SNAPSHOT", "SESSION_CONTROL", "BOOK_CATALOG")
+        else values == listOf("READ_ONLY_SNAPSHOT") ||
+            version == CONTROL_VERSION && values == listOf("READ_ONLY_SNAPSHOT", "SESSION_CONTROL"))
     }
     private fun validActionText(value: String) = validUnicode(value) && value.isNotBlank() && value.codePointCount(0, value.length) <= 180
     fun validateCommand(request: WearableRequest) {
-        require(request.protocolVersion == CONTROL_VERSION && request.type == "COMMAND" && request.controlGrant?.let(id::matches) == true && request.action in ACTIONS)
+        require(request.protocolVersion in CONTROL_VERSION..CATALOG_VERSION && request.type == "COMMAND" && request.controlGrant?.let(id::matches) == true && request.action in ACTIONS)
         listOf(request.expectedIntentId, request.expectedSessionId, request.expectedSegmentId, request.expectedBookId).forEach { require(it == null || id.matches(it)) }
         if (request.action == "CONFIRM_PREPARATION_AND_START") {
             require(request.expectedIntentId != null && request.expectedBookId != null && request.expectedPage != null && request.expectedPage >= 1 && request.expectedFirstAction?.let(::validActionText) == true)

@@ -14,6 +14,10 @@ interface WearableSettingsStore {
     fun setEnabled(value: Boolean)
     val controlEnabled: Boolean get() = false
     fun setControlEnabled(value: Boolean) { check(!value) }
+    val catalogEnabled: Boolean get() = false
+    val catalogSelectedIds: List<String> get() = emptyList()
+    fun setCatalogEnabled(value: Boolean) { check(!value) }
+    fun setCatalogSelectedIds(value: List<String>) { check(value.isEmpty()) }
 }
 data class WearableCompanionState(
     val enabled: Boolean = false,
@@ -29,6 +33,15 @@ data class WearableCompanionState(
     val appCheckError: String? = null,
     val controlEnabled: Boolean = false,
     val controlNegotiated: Boolean = false,
+    val catalogEnabled: Boolean = false,
+    val catalogNegotiated: Boolean = false,
+    val catalogStatus: String = "NOT_SENT",
+    val catalogError: String? = null,
+    val catalogRevision: String? = null,
+    val lastCatalogAt: Long? = null,
+    val catalogSelectedIds: List<String> = emptyList(),
+    val catalogChoices: List<WearableCatalogChoice> = emptyList(),
+    val catalogChoicesLoading: Boolean = false,
 )
 
 /** Application-owned listener; no UI lifecycle owns a transport callback or learning fact. */
@@ -38,15 +51,30 @@ class WearableCoordinator(
     private val settings: WearableSettingsStore,
     private val clock: () -> Long = System::currentTimeMillis,
     private val newId: () -> String = { UUID.randomUUID().toString() },
+    private val monotonicClock: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
     private val lifecycle = Mutex()
     private val messageSerial = Mutex()
     private val channelPolicy = Any()
-    private val mutableState = MutableStateFlow(WearableCompanionState(enabled = settings.enabled, controlEnabled = settings.controlEnabled))
+    private val mutableState = MutableStateFlow(WearableCompanionState(enabled = settings.enabled,
+        controlEnabled = settings.controlEnabled, catalogEnabled = settings.catalogEnabled,
+        catalogSelectedIds = settings.catalogSelectedIds))
     val state = mutableState.asStateFlow()
     @Volatile private var epoch = 0L
     @Volatile private var source: WearableSnapshotSource? = null
     @Volatile private var executor: WearableCommandExecutor? = null
+    @Volatile private var catalogSource: WearableCatalogSource? = null
+    @Volatile private var catalogConsentEpoch = 0L
+    private var streamCatalog = false
+    private data class CatalogPending(val epoch: Long, val consent: Long, val source: WearableCatalogSource,
+        val node: String, val client: String, val stream: String, val request: String, val startedAt: Long) {
+        @Volatile var revision: String? = null
+        @Volatile var finalPartIssued = false
+    }
+    @Volatile private var catalogPending: CatalogPending? = null
+    private var catalogTimeoutJob: Job? = null
+    private var catalogChoicesJob: Job? = null
+    private var catalogChoicesGeneration = 0L
     @Volatile private var controlConsentEpoch = 0L
     private val controlAuthority = WearableControlAuthority(newId)
     private var streamVersion = 1
@@ -106,10 +134,12 @@ class WearableCoordinator(
         mutableState.update { it.copy(appInstalled = null, appCheckInProgress = false, appCheckError = null) }
     }
 
-    suspend fun bindSource(value: WearableSnapshotSource, commandExecutor: WearableCommandExecutor? = null) = lifecycle.withLock {
+    suspend fun bindSource(value: WearableSnapshotSource, commandExecutor: WearableCommandExecutor? = null,
+        catalog: WearableCatalogSource? = null) = lifecycle.withLock {
         invalidateAndDrain(resetTerminal = true)
         source = value
         executor = commandExecutor
+        catalogSource = catalog
         mutableState.update { it.copy(sourceReady = true) }
         if (settings.enabled) connect(false)
     }
@@ -117,6 +147,8 @@ class WearableCoordinator(
         invalidateAndDrain()
         source = null
         executor = null
+        catalogSource = null
+        mutableState.update { it.copy(catalogChoices = emptyList(), catalogChoicesLoading = false) }
         mutableState.update { it.copy(sourceReady = false, lastSnapshotAt = null) }
         // Listener can answer SOURCE_BUSY with no old personal payload. SDK send remains outside Room.
         if (settings.enabled && selectedNode != null) installListener(epoch)
@@ -145,6 +177,54 @@ class WearableCoordinator(
         }
         mutableState.update { it.copy(controlEnabled = value) }
     }
+    fun setCatalogEnabledFromUser(value: Boolean) {
+        catalogConsentEpoch++
+        retireCatalogTransfer()
+        try { settings.setCatalogEnabled(value) }
+        catch (_: Exception) {
+            mutableState.update { it.copy(catalogEnabled = false, catalogError = "SETTINGS_UNAVAILABLE") }
+            return
+        }
+        mutableState.update { it.copy(catalogEnabled = value, catalogStatus = "NOT_SENT", catalogError = null,
+            lastCatalogAt = null, catalogRevision = null) }
+    }
+    fun setCatalogBooksFromUser(ids: List<String>) {
+        val eligible = mutableState.value.catalogChoices.filterNot { it.isMainline }.map { it.id }.toSet()
+        if (ids.distinct().size != ids.size || ids.size > WearableCatalogProtocol.MAX_BOOKS - 1 ||
+            ids.any { it !in eligible || !WearableCatalogProtocol.validBookId(it) }) {
+            mutableState.update { it.copy(catalogError = "INVALID_CATALOG") }; return
+        }
+        catalogConsentEpoch++
+        retireCatalogTransfer()
+        try { settings.setCatalogSelectedIds(ids.sorted()) }
+        catch (_: Exception) { mutableState.update { it.copy(catalogError = "SETTINGS_UNAVAILABLE") }; return }
+        mutableState.update { it.copy(catalogSelectedIds = settings.catalogSelectedIds, catalogStatus = "NOT_SENT",
+            catalogError = null, lastCatalogAt = null, catalogRevision = null) }
+    }
+    fun loadCatalogChoicesFromUser() { scope.launch { lifecycle.withLock {
+        val reader = catalogSource ?: return@withLock
+        if (catalogChoicesJob?.isActive == true) return@withLock
+        val captured = epoch
+        val generation = ++catalogChoicesGeneration
+        mutableState.update { it.copy(catalogChoicesLoading = true, catalogError = null) }
+        catalogChoicesJob = scope.launch {
+            try {
+                val choices = withTimeout(3_000) { reader.choices() }
+                lifecycle.withLock {
+                    if (captured == epoch && generation == catalogChoicesGeneration && reader === catalogSource)
+                        mutableState.update { it.copy(catalogChoices = choices, catalogChoicesLoading = false) }
+                }
+            } catch (cancelled: CancellationException) {
+                if (cancelled !is TimeoutCancellationException) throw cancelled
+                finishCatalogChoicesFailure(captured, generation, "TIMEOUT")
+            } catch (_: WearableSourceBusy) { finishCatalogChoicesFailure(captured, generation, "SOURCE_BUSY") }
+            catch (_: Exception) { finishCatalogChoicesFailure(captured, generation, "SOURCE_UNAVAILABLE") }
+        }
+    } } }
+    private suspend fun finishCatalogChoicesFailure(captured: Long, generation: Long, code: String) = lifecycle.withLock {
+        if (captured == epoch && generation == catalogChoicesGeneration)
+            mutableState.update { it.copy(catalogChoicesLoading = false, catalogError = code) }
+    }
     fun disableFromUser() { scope.launch { lifecycle.withLock {
         try { settings.setEnabled(false) }
         catch (_: Exception) { mutableState.update { it.copy(errorCategory = "SETTINGS_UNAVAILABLE") }; return@withLock }
@@ -157,10 +237,12 @@ class WearableCoordinator(
         }
         try { transport.close() } catch (_: Exception) { /* SDK failures never reach learning owners. */ }
         selectedNode = null
-        mutableState.value = WearableCompanionState(enabled = false, sourceReady = source != null, controlEnabled = settings.controlEnabled)
+        mutableState.value = WearableCompanionState(enabled = false, sourceReady = source != null,
+            controlEnabled = settings.controlEnabled, catalogEnabled = settings.catalogEnabled,
+            catalogSelectedIds = settings.catalogSelectedIds)
     } } }
     suspend fun close() = lifecycle.withLock {
-        invalidateAndDrain(); source = null; executor = null; transport.close(); selectedNode = null
+        invalidateAndDrain(); source = null; executor = null; catalogSource = null; transport.close(); selectedNode = null
     }
 
     private suspend fun invalidateAndDrain(clearFollowed: Boolean = true, resetTerminal: Boolean = false) {
@@ -170,13 +252,17 @@ class WearableCoordinator(
             if (resetTerminal) terminalChannelError = null
         }
         retireAppCheck()
+        retireCatalogTransfer()
+        catalogChoicesGeneration++
+        catalogChoicesJob?.cancelAndJoin(); catalogChoicesJob = null
         transport.setListener(null)
         connectJob?.cancelAndJoin(); connectJob = null
         requestJob?.cancelAndJoin(); requestJob = null
         clientId = null; streamId = null; sequence = 0; usedRequests.clear()
-        streamVersion = 1; streamControl = false
+        streamVersion = 1; streamControl = false; streamCatalog = false
         if (clearFollowed) { lastFollowedSessionId = null; lastFollowedNode = null }
-        mutableState.update { it.copy(handshaken = false, lastSnapshotAt = null, controlNegotiated = false) }
+        mutableState.update { it.copy(handshaken = false, lastSnapshotAt = null, controlNegotiated = false,
+            catalogNegotiated = false, catalogChoicesLoading = false) }
     }
     private fun connect(authorization: Boolean) {
         val captured = epoch
@@ -224,10 +310,19 @@ class WearableCoordinator(
             override fun onMessage(nodeId: String, payload: ByteArray) {
                 if (!currentChannel(captured) || nodeId != selectedNode) return
                 val request = try { WearableProtocol.decodeRequest(payload) } catch (_: WearableProtocolException) { return }
+                // A durable ACK may arrive inside the final SDK send callback. It owns no Room
+                // read or SDK send and must not be dropped by the outbound message mutex.
+                if (request.type in setOf("CATALOG_ACK", "CATALOG_ERROR")) {
+                    acceptCatalogReceipt(captured, nodeId, request); return
+                }
                 // Back pressure: at most one request owns the source read/send, no detached publisher queue.
                 if (!messageSerial.tryLock()) return
                 requestJob = scope.launch(start = CoroutineStart.UNDISPATCHED) {
-                    try { withTimeout(if (request.type == "COMMAND") 12_000 else 3_000) { process(captured, nodeId, request) } }
+                    try { withTimeout(when (request.type) {
+                        "COMMAND" -> 12_000L
+                        "GET_CATALOG" -> WearableCatalogProtocol.DEADLINE_MS
+                        else -> 3_000L
+                    }) { process(captured, nodeId, request) } }
                     catch (cancelled: CancellationException) {
                         if (cancelled is TimeoutCancellationException && request.type == "COMMAND" && currentChannel(captured)) {
                             val outcome = WearableCommandOutcome("RESULT_UNKNOWN")
@@ -295,7 +390,8 @@ class WearableCoordinator(
         mutableState.update { state ->
             if (captured != epoch || !settings.enabled) state
             else state.copy(serviceAvailable = false, authorized = false, handshaken = false,
-                lastSnapshotAt = null, errorCategory = terminalChannelError ?: category, controlNegotiated = false)
+                lastSnapshotAt = null, errorCategory = terminalChannelError ?: category, controlNegotiated = false,
+                catalogNegotiated = false)
         }
         retryable
     }
@@ -310,18 +406,25 @@ class WearableCoordinator(
             if (request.clientInstanceId == clientId && request.requestId in usedRequests) return
             clientId = request.clientInstanceId; streamId = newId(); sequence = 0; usedRequests.clear()
             streamVersion = request.protocolVersion
-            streamControl = streamVersion == 2 && "SESSION_CONTROL" in request.capabilities
+            streamControl = streamVersion >= 2 && "SESSION_CONTROL" in request.capabilities
+            streamCatalog = streamVersion == 3 && "BOOK_CATALOG" in request.capabilities
+            retireCatalogTransfer()
             controlAuthority.clear()
             usedRequests += request.requestId
             if (!currentChannel(captured)) return
             transport.send(node, WearableProtocol.helloAck(request, checkNotNull(streamId)))
             updateCurrentChannel(captured) { it.copy(serviceAvailable = true,
-                authorized = true, handshaken = true, errorCategory = null, controlNegotiated = streamControl) }
+                authorized = true, handshaken = true, errorCategory = null, controlNegotiated = streamControl,
+                catalogNegotiated = streamCatalog) }
             return
         }
         if (request.clientInstanceId != clientId || request.streamId != streamId || request.protocolVersion != streamVersion) return
         if (request.type == "COMMAND") {
             processCommand(captured, node, request)
+            return
+        }
+        if (request.type == "GET_CATALOG") {
+            processCatalog(captured, node, request)
             return
         }
         if (request.requestId in usedRequests) return
@@ -387,6 +490,110 @@ class WearableCoordinator(
         controlAuthority.revokeGrants()
         // Business admission and Room transaction have returned before SDK send.
         transport.send(node, WearableProtocol.commandResult(request, stream, outcome))
+    }
+    private fun retireCatalogTransfer() {
+        catalogPending = null
+        catalogTimeoutJob?.cancel(); catalogTimeoutJob = null
+        mutableState.update { state -> if (state.catalogStatus in setOf("SENDING", "AWAITING_ACK"))
+            state.copy(catalogStatus = "NOT_SENT", lastCatalogAt = null) else state }
+    }
+    private fun catalogCurrent(value: CatalogPending) = currentChannel(value.epoch) &&
+        value.consent == catalogConsentEpoch && settings.catalogEnabled && mutableState.value.catalogEnabled &&
+        value.source === catalogSource && value.node == selectedNode && value.client == clientId &&
+        value.stream == streamId && streamCatalog
+    private fun catalogWithinDeadline(value: CatalogPending): Boolean {
+        val elapsed = monotonicClock() - value.startedAt
+        return elapsed >= 0 && elapsed < WearableCatalogProtocol.DEADLINE_MS
+    }
+    private fun timeOutCatalog(value: CatalogPending) = synchronized(channelPolicy) {
+        if (catalogPending !== value || !catalogCurrent(value)) return@synchronized
+        catalogPending = null
+        catalogTimeoutJob?.cancel(); catalogTimeoutJob = null
+        mutableState.update { it.copy(catalogStatus = "ERROR", catalogError = "TIMEOUT", lastCatalogAt = null) }
+    }
+    private fun acceptCatalogReceipt(captured: Long, node: String, request: WearableRequest) = synchronized(channelPolicy) {
+        val value = catalogPending ?: return@synchronized
+        if (value.epoch != captured || !catalogCurrent(value) || node != value.node ||
+            request.protocolVersion != 3 || request.clientInstanceId != value.client ||
+            request.streamId != value.stream || request.requestId != value.request ||
+            request.type == "CATALOG_ACK" && (request.catalogRevision != value.revision || !value.finalPartIssued)) return@synchronized
+        // The receipt deadline is checked even if a coroutine timer was delayed while asleep.
+        if (!catalogWithinDeadline(value)) { timeOutCatalog(value); return@synchronized }
+        catalogPending = null
+        catalogTimeoutJob?.cancel(); catalogTimeoutJob = null
+        mutableState.update { it.copy(catalogStatus = if (request.type == "CATALOG_ACK") "SYNCED" else "ERROR",
+            catalogRevision = if (request.type == "CATALOG_ACK") value.revision else it.catalogRevision,
+            lastCatalogAt = if (request.type == "CATALOG_ACK") clock() else null,
+            catalogError = if (request.type == "CATALOG_ACK") null else request.catalogCode) }
+    }
+    private suspend fun processCatalog(captured: Long, node: String, request: WearableRequest) {
+        val reader = catalogSource
+        val stream = checkNotNull(streamId)
+        if (!streamCatalog || !settings.catalogEnabled || !mutableState.value.catalogEnabled) {
+            transport.send(node, WearableCatalogProtocol.error(request, stream, "CATALOG_DISABLED")); return
+        }
+        if (request.requestId in usedRequests) return
+        usedRequests += request.requestId
+        if (usedRequests.size > 64) usedRequests.remove(usedRequests.first())
+        val consent = catalogConsentEpoch
+        fun contextPermitted() = currentChannel(captured) && reader != null && reader === catalogSource &&
+            consent == catalogConsentEpoch && settings.catalogEnabled && mutableState.value.catalogEnabled &&
+            streamId == stream && clientId == request.clientInstanceId && streamCatalog
+        if (reader == null) {
+            transport.send(node, WearableCatalogProtocol.error(request, stream, "SOURCE_BUSY")); return
+        }
+        val pending = CatalogPending(captured, consent, reader, node, request.clientInstanceId,
+            stream, request.requestId, monotonicClock())
+        synchronized(channelPolicy) {
+            if (!contextPermitted()) return
+            retireCatalogTransfer()
+            catalogPending = pending
+            mutableState.update { it.copy(catalogStatus = "SENDING", catalogError = null, lastCatalogAt = null) }
+            // One fixed total budget includes the captured source read, encoding and SDK sends.
+            catalogTimeoutJob = scope.launch {
+                delay(WearableCatalogProtocol.DEADLINE_MS)
+                timeOutCatalog(pending)
+            }
+        }
+        fun permitted() = contextPermitted() && catalogPending === pending && catalogWithinDeadline(pending)
+        val transfer = try {
+            WearableCatalogProtocol.encode(reader.read(settings.catalogSelectedIds))
+        } catch (cancelled: CancellationException) {
+            if (cancelled is TimeoutCancellationException) timeOutCatalog(pending)
+            throw cancelled
+        }
+        catch (failure: Exception) {
+            val code = when (failure) {
+                is WearableSourceBusy -> "SOURCE_BUSY"
+                is WearableCatalogException -> failure.code
+                else -> "SOURCE_UNAVAILABLE"
+            }
+            if (contextPermitted() && catalogPending === pending) {
+                synchronized(channelPolicy) {
+                    if (catalogPending === pending && contextPermitted()) {
+                        retireCatalogTransfer()
+                        mutableState.update { it.copy(catalogStatus = "ERROR", catalogError = code) }
+                    }
+                }
+                transport.send(node, WearableCatalogProtocol.error(request, stream, code))
+            }
+            return
+        }
+        if (!permitted()) { if (!catalogWithinDeadline(pending)) timeOutCatalog(pending); return }
+        pending.revision = transfer.revision
+        // The gate/Room read has returned. Sending the complete frozen bytes is never a receipt.
+        transport.send(node, WearableCatalogProtocol.manifest(request, stream, transfer))
+        transfer.parts.indices.forEach { index ->
+            if (!permitted()) { if (!catalogWithinDeadline(pending)) timeOutCatalog(pending); return }
+            if (index == transfer.parts.lastIndex) pending.finalPartIssued = true
+            transport.send(node, WearableCatalogProtocol.part(request, stream, transfer, index))
+        }
+        synchronized(channelPolicy) {
+            if (catalogPending === pending && contextPermitted()) {
+                if (catalogWithinDeadline(pending)) mutableState.update { it.copy(catalogStatus = "AWAITING_ACK") }
+                else timeOutCatalog(pending)
+            }
+        }
     }
     private companion object {
         val AUTO_RETRYABLE = setOf("NO_DEVICE", "SERVICE_UNAVAILABLE", "TIMEOUT")

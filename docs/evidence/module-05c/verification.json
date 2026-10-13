@@ -1,0 +1,74 @@
+{
+  "androidJvm": {
+    "source": "app/build/test-results/testDebugUnitTest/TEST-*.xml",
+    "runLog": ".local/05c-android-final-jvm.log",
+    "runResult": "BUILD SUCCESSFUL",
+    "runDuration": "3m 13s",
+    "unfiltered": true,
+    "totals": {
+      "suites": 88,
+      "tests": 824,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "oldAssertionModified": false,
+    "priorFilesystemTimeouts": [
+      ".local/05c-android-full-final.log",
+      ".local/05c-android-final-verified.log"
+    ]
+  },
+  "androidBuild": {
+    "tasks": [
+      "lintDebug",
+      "assembleDebug",
+      "assembleDebugAndroidTest"
+    ],
+    "source": ".local/05c-android-ui-final-build.log",
+    "result": "BUILD SUCCESSFUL",
+    "duration": "10m 48s",
+    "actionable": 80,
+    "executed": 21,
+    "cached": 59
+  },
+  "androidLint": {
+    "source": "app/build/reports/lint-results-debug.xml",
+    "totals": {
+      "errors": 0,
+      "warnings": 20,
+      "hints": 1
+    },
+    "priorError": "NonObservableLocale, fixed via observable LocalLocale without suppression"
+  },
+  "nativeInstrumentation": {
+    "status": "PASS",
+    "environment": "Project-owned MirraBand_Module03_API37 Android AVD only",
+    "serial": "emulator-5580",
+    "tests": 19,
+    "failures": 0,
+    "newCatalogCases": 8,
+    "existingRegressionCases": 11,
+    "runnerSeconds": 43.711,
+    "room": "in-memory test fixtures; actual Room/SQLite APIs; no user database",
+    "sdk": "controlled fixture transport in settings UI cases; no real Xiaomi channel",
+    "result": "OK (19 tests)",
+    "sameSignerUpgrade": "1.2.0/code7 to 1.3.0/code8; same public certificate verified from owned emulator APK",
+    "noUninstallOrClearOrWipe": true,
+    "ownedAvdStoppedAfterTests": true,
+    "otherDevicesOperated": false,
+    "manualScreenshotInspection": "INCONCLUSIVE: after tests, UI dump showed system Pixel Launcher ANR under host memory pressure; no product screenshot captured; no Mirra cause established",
+    "physicalPhone": "NOT_RUN",
+    "bandRadioAndFirmware": "NOT_RUN"
+  },
+  "physicalAcceptance": "NOT_RUN",
+  "failureHistory": [
+    {
+      "check": "Android new Locale lint",
+      "result": "NonObservableLocale fixed with observable configuration, no suppression"
+    },
+    {
+      "check": "Android old ExportWorkspace concurrency test",
+      "result": "Repeated 10s timeouts under heavy build/memory pressure; original test unchanged; final unfiltered 824/824 after scoped task-resource cleanup and local 1024m/single worker; resource causality inferred, not proven"
+    }
+  ]
+}

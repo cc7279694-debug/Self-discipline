@@ -1,0 +1,57 @@
+{
+  "status": "DEV_COMPLETE_AWAITING_PHYSICAL_ACCEPTANCE",
+  "phone": {
+    "path": "E:\\CODEX\\mirra-watch\\dist\\Mirra-1.3.0-band-catalog-debug.apk",
+    "size": 16950769,
+    "sha256": "c95c9bf53634b465fff2039285d697bdf4f2587c72e0ece46caedd39203d2569",
+    "applicationId": "com.guanyi.mirra",
+    "versionName": "1.3.0",
+    "versionCode": 8,
+    "minSdk": 23,
+    "targetSdk": 37,
+    "signatureVerified": true,
+    "signatureVerificationExitCode": 0,
+    "signatureSchemes": [
+      "v1",
+      "v2"
+    ],
+    "publicCertificateSha256": "29ded26bea44f1afe4fe383a302e4b507423d16223469d7da3fe578d9a7f83b9",
+    "sameCertificateAsModule04Apk": true,
+    "physicalInstalledVersionChecked": false,
+    "safePhysicalOverwriteConclusion": "NOT_CHECKED"
+  },
+  "pairedBand": {
+    "path": "E:\\CODEX\\mirra-watch\\dist\\com.guanyi.mirra.release.0.4.0.rpk",
+    "bytes": 80245,
+    "sha256": "bd0458ca70e63d815102d7becefe51a3c74644e87a9df29bc261ec98459fd0dc",
+    "package": "com.guanyi.mirra",
+    "version": "0.4.0",
+    "versionCode": 9,
+    "profile": "live",
+    "signature": "RSA-SHA256 verified; content and per-file SHA-256 verified; signed metadata verified",
+    "certificateSubject": "CN=Android Debug\nO=Android\nC=US",
+    "certificateFingerprint256": "29:DE:D2:6B:EA:44:F1:AF:E4:FE:38:3A:30:2E:4B:50:74:23:D1:62:23:46:9D:7D:A3:FE:57:8D:9A:7F:83:B9",
+    "certificateValidTo": "Sep  2 07:14:40 2056 GMT",
+    "zipCRC32": "verified",
+    "sharedStyles": "present in all compiled pages",
+    "tamperChecks": "payload, primary signature and file digest signature mutations rejected",
+    "files": [
+      "META-INF/CERT",
+      "manifest-watch.json",
+      "manifest.json",
+      "app.js",
+      "pages/Mode/index.js",
+      "common/icon.png",
+      "common/icon.svg",
+      "pages/Connection/index.js",
+      "pages/Control/index.js",
+      "pages/Detail/index.js",
+      "pages/Home/index.js",
+      "pages/LocalSession/index.js",
+      "META-INF/build.txt"
+    ]
+  },
+  "certificateSha256": "29ded26bea44f1afe4fe383a302e4b507423d16223469d7da3fe578d9a7f83b9",
+  "physicalSafeToInstall": "NOT_CHECKED",
+  "installationAuthorization": "05C_NOT_REQUESTED_YET"
+}

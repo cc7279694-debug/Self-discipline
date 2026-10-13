@@ -75,6 +75,8 @@ Mirra Band Module 03 获用户明确授权，在独立 Android 分支 `codex/mir
 
 ## V1 Non-Goals
 
+Mirra Band 05C 为已授权的本地扩展：同一应用级通信 owner 从现有 Room v4 只读投影主线及用户明确选择的进行中书籍，新增目录许可/选择仅存 no-backup 设置。v3 完整分片目录须由腕端持久化确认，之后腕端独立 Session 自己拥有本地学习事实；手机控制 Session 继续由手机权威管理。05C 不上传腕端历史、不合并统计、不改 Room/Full Backup 格式，也不迁移独立实验包中的测试记录。
+
 V1 不实现登录、云同步、Supabase、服务器、Web App、iOS、AI、OCR、PDF 阅读器、重型 Block Editor、完整知识图谱、FSRS、游戏化系统、统一注意力评分或无障碍服务式强锁手机。
 
 ## Success Criterion

@@ -1,5 +1,29 @@
 # Decisions
 
+## 2026-10-13 — 05C 真实书籍离线目录与单一通信所有者
+
+### Decision
+
+按用户正式批准的方案 A，在正式 `com.guanyi.mirra` 同身份配套包接入目录；不卸载、清空或迁移独立实验记录。主线自动加入，用户仅从 IN_PROGRESS 选择最多 11 本其他书籍；FirstActionResolver.resolve 只提供已有合法动作，建议不当作实际完成确认。书籍字段只读构造，独立目录许可/选择存 no-backup AtomicFile。
+
+v3 保留 v1/v2 的快照与受控学习行为，复用原 WearableCoordinator/SDK owner。目录 canonical JSON 使用 schemaVersion 1、最多 12 书籍/16384 UTF-8 bytes/32 分片，各帧不超过 4096 bytes；CRC32 是传输损坏检查，不是加密真实性凭证。相同 revision 仍传完整内容。手机只在当前 epoch、source、consent、node、client、stream、request、revision 匹配的 PERSISTED ACK 后记成功；SDK send 不当作保存完成。
+
+### Context
+
+腕端需要最后一份可靠目录来离线独立学习。扩大的书籍数据范围必须由用户明确披露同意，旧只读许可不能静默扩展。05B.3 自动化成果已交付，真机流畅度仍未得到明确反馈；不将此开发包当作该项通过。
+
+### Alternatives
+
+第二 SDK 连接所有者、在 Room 加选择列、复用备份便携许可、按 checksum-only 回复幂等成功、截断动作语义或导入实验记录均不采用。
+
+### Reason
+
+捕获的 gate/数据库代际与既有退役门禁可以隔离维护、撤权和晚到响应。短只读事务之后再发送 SDK 消息，不在 Room 锁内等待设备。完整目录确认保留断连时腕端上一份有效目录，不污染活动 Session 自包含快照。
+
+### Consequences
+
+Room v4、Migration、Session/Intent/监测/统计和 Full Backup v1 保持不变。书名超过 120 字符或数据不可表示时整份目录明确拒绝；动作完整支持 160 字符，不静默截断。目录许可可关闭，但已保存目录在腕端仍可离线用，需明确说明。设备安装和权限另行授权，05D–05E 历史上传未实现。
+
 ## 2026-10-11 — Mirra Band Module 03 只读伴侣与存储代际隔离
 
 ### Decision

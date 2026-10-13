@@ -1,0 +1,58 @@
+{
+  "catalog": {
+    "schemaVersion": 1,
+    "books": [
+      {
+        "id": "book_main",
+        "title": "真实目录 · 中文与📖",
+        "totalPages": 300,
+        "currentPage": 12,
+        "firstAction": "翻到第12页，读第一段。",
+        "isMainline": true
+      },
+      {
+        "id": "book_extra",
+        "title": "离线选择的另一本书",
+        "totalPages": null,
+        "currentPage": 0,
+        "firstAction": null,
+        "isMainline": false
+      }
+    ]
+  },
+  "canonical": "{\"schemaVersion\":1,\"books\":[{\"id\":\"book_main\",\"title\":\"真实目录 · 中文与📖\",\"totalPages\":300,\"currentPage\":12,\"firstAction\":\"翻到第12页，读第一段。\",\"isMainline\":true},{\"id\":\"book_extra\",\"title\":\"离线选择的另一本书\",\"totalPages\":null,\"currentPage\":0,\"firstAction\":null,\"isMainline\":false}]}",
+  "request": {
+    "protocolVersion": 3,
+    "clientInstanceId": "catalog-client",
+    "requestId": "catalog-request",
+    "streamId": "catalog-stream",
+    "type": "GET_CATALOG",
+    "knownRevision": null
+  },
+  "frames": [
+    {
+      "protocolVersion": 3,
+      "clientInstanceId": "catalog-client",
+      "requestId": "catalog-request",
+      "streamId": "catalog-stream",
+      "type": "CATALOG_MANIFEST",
+      "revision": "catalog-0bc5a2c8-319",
+      "schemaVersion": 1,
+      "totalBytes": 319,
+      "partCount": 1,
+      "bookCount": 2,
+      "checksum": "0bc5a2c8"
+    },
+    {
+      "protocolVersion": 3,
+      "clientInstanceId": "catalog-client",
+      "requestId": "catalog-request",
+      "streamId": "catalog-stream",
+      "type": "CATALOG_PART",
+      "revision": "catalog-0bc5a2c8-319",
+      "index": 0,
+      "data": "{\"schemaVersion\":1,\"books\":[{\"id\":\"book_main\",\"title\":\"真实目录 · 中文与📖\",\"totalPages\":300,\"currentPage\":12,\"firstAction\":\"翻到第12页，读第一段。\",\"isMainline\":true},{\"id\":\"book_extra\",\"title\":\"离线选择的另一本书\",\"totalPages\":null,\"currentPage\":0,\"firstAction\":null,\"isMainline\":false}]}",
+      "checksum": "0bc5a2c8"
+    }
+  ]
+}

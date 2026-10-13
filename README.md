@@ -12,6 +12,7 @@
 - [docs/DECISIONS.md](docs/DECISIONS.md)：已经确认的关键产品与技术决策
 - [docs/plans/PHASE_0_1_IMPLEMENTATION.md](docs/plans/PHASE_0_1_IMPLEMENTATION.md)：Phase 0 + Phase 1 实施方案
 - [AGENTS.md](AGENTS.md)：Codex 与工程协作规则
+- [05C 配套交付记录](docs/evidence/module-05c/README.md)：真实书籍目录、权限披露、实际 APK 与验收边界
 
 ## 本地构建
 

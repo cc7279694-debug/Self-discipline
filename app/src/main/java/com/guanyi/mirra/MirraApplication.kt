@@ -32,7 +32,8 @@ class MirraApplication : Application(), BackupStorageHost {
     val wearableCompanion by lazy {
         com.guanyi.mirra.domain.wearable.WearableCoordinator(wearableScope,
             com.guanyi.mirra.platform.wearable.XiaomiWearTransport(applicationContext),
-            com.guanyi.mirra.data.wearable.WearableLocalSettings(applicationContext))
+            com.guanyi.mirra.data.wearable.WearableLocalSettings(applicationContext),
+            monotonicClock = android.os.SystemClock::elapsedRealtime)
     }
     private val maintenanceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val restoreSerial = Mutex()
@@ -98,7 +99,7 @@ class MirraApplication : Application(), BackupStorageHost {
         val selected = checkNotNull(generation.selected)
         selected.startup.await()
         if (presentation == StoragePresentation.OPEN)
-            selected.wearableSnapshotSource.let { wearableCompanion.bindSource(it, selected.wearableCommandExecutor) }
+            selected.wearableSnapshotSource.let { wearableCompanion.bindSource(it, selected.wearableCommandExecutor, selected.wearableCatalogSource) }
         withContext(Dispatchers.Main.immediate) {
             currentRuntime = checkNotNull(generation.runtime)
             RestoreFileAccess.blocked = false
@@ -159,7 +160,7 @@ class MirraApplication : Application(), BackupStorageHost {
         }
         if (!busy && mutableStorageState.value.phase == StoragePresentation.OPEN) {
             mutableStorageState.value.container?.let { selected ->
-                selected.wearableSnapshotSource?.let { wearableCompanion.bindSource(it, selected.wearableCommandExecutor) }
+                selected.wearableSnapshotSource?.let { wearableCompanion.bindSource(it, selected.wearableCommandExecutor, selected.wearableCatalogSource) }
             }
         }
     }
