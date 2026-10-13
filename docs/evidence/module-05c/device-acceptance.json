@@ -1,6 +1,6 @@
 {
-  "status": "INSTALLATION_AUTHORIZED_AWAITING_PAIRED_PHONE",
-  "recordedAt": "2026-10-13T08:07:03.646Z",
+  "status": "WRIST040_SYNC_RECOVERED_USER_REPORTED_CATALOG_ACCEPTANCE_PENDING",
+  "recordedAt": "2026-10-13T08:56:54Z",
   "userAuthorization": "User explicitly agreed to read-only preflight followed by paired APK/RPK installation",
   "scope": [
     "original paired Xiaomi phone and formal Mirra Band only",
@@ -8,9 +8,19 @@
     "safe same-identity increasing-version upgrade",
     "preserve experimental application and all records"
   ],
-  "physicalAdbConnection": "NOT_PRESENT: only unrelated emulator-5586 and emulator-5596 at last inventory",
+  "physicalAdbConnection": "NOT_PRESENT: read-only inventory now shows only unrelated emulator-5596; not operated",
   "physicalDeviceActions": [],
-  "requiredNextInput": "Connect paired phone and confirm USB debug/idle home; provide formal wrist version",
+  "physicalPreflight": "NOT_RUN: installed phone version and public signer not independently checked",
+  "userEvidence": {
+    "wristVersion": "Photo visibly shows Mirra 0.4.0 / 9; installed file hash not extracted",
+    "initialFailure": "Photo shows APK_RAW_TIMEOUT; source maps exact synchronous native getApkStatus TIMEOUT, before application handshake",
+    "subsequentFeedback": ["已同步", "手环已显示正常同步内容"],
+    "connectionRecovery": "USER_REPORTED_PASS; recovery trigger and underlying timeout cause not isolated",
+    "catalogDurableAck": "NOT_CONFIRMED: normal synchronized content alone does not prove catalog persistence",
+    "offlineLocalSession": "NOT_CONFIRMED",
+    "agentChanges": "Read-only wrist/Android startup audit; no source changes, builds or device writes"
+  },
+  "requiredNextInput": "Natural use feedback: real book catalog saved, offline same-session recovery and completed record retention; no repeated connection matrix",
   "doNotRepeatInstallationPermission": true,
   "notAuthorized": [
     "05D/05E",

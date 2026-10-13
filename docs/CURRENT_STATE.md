@@ -42,6 +42,8 @@ Module 04 的 1.2.0/code7 和正式腕端 0.3.0/code8 产物、代码及自动�
 
 配套正式RPK0.4.0/code9（80245bytes），SHA-256 bd0458ca70e63d815102d7becefe51a3c74644e87a9df29bc261ec98459fd0dc，和APK同com.guanyi.mirra/原29DE…证书。机器结果见本目录artifacts.json、verification.json；真机安装尚待当前同意，停05C。
 
+后续当前事实：本轮安装同意已取得，用户改为自行体验。腕端实拍0.4.0/code9最初APK_RAW_TIMEOUT，随后明确确认“手环已显示正常同步内容”，连接恢复为USER_REPORTED_PASS。底层原因/恢复触发未隔离；手机实际安装版本和公开证书未独立核查。真实目录持久化ACK与离线学习/结束保留未收到确认，不能将连接恢复扩大为05C验收通过。只读ADB仅见无关5596；未操作设备、改代码或构建新包，详细记录见device-acceptance.json。
+
 ## Git交付
 
 Android实现c159983919093f031553b9e5e17f245635b5c15e、Band实现502f47a21a6d0b0c8a70b28179425f907ca786ee已普通push且远端SHA一致；Git记录后置文档提交不改源码或产物，停05C。
