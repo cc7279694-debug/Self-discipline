@@ -41,3 +41,7 @@ Module 04 的 1.2.0/code7 和正式腕端 0.3.0/code8 产物、代码及自动�
 原生收尾：本项目自有MirraBand_Module03_API37 / emulator-5580实际19/19 PASS，8项新增目录/设置/UI与11项既有回归；43.711s，真实Room/SQLite in-memory fixtures及受控SDK，不是目标手环无线/固件证明。自有AVD已核验原1.2.0/code7公开证书后安全覆盖1.3.0/code8，无卸载/清数据/wipe，完成后关闭所属AVD；其他设备未操作。人工截图得到系统Pixel Launcher ANR，未取得产品画面，不能归因Mirra。物理手机/手环版本预检、安装、真实目录和离线自然使用仍Not Run。
 
 配套正式RPK0.4.0/code9（80245bytes），SHA-256 bd0458ca70e63d815102d7becefe51a3c74644e87a9df29bc261ec98459fd0dc，和APK同com.guanyi.mirra/原29DE…证书。机器结果见本目录artifacts.json、verification.json；真机安装尚待当前同意，停05C。
+
+## Git交付
+
+Android实现c159983919093f031553b9e5e17f245635b5c15e、Band实现502f47a21a6d0b0c8a70b28179425f907ca786ee已普通push且远端SHA一致；Git记录后置文档提交不改源码或产物，停05C。

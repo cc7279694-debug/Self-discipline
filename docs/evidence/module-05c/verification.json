@@ -70,5 +70,20 @@
       "check": "Android old ExportWorkspace concurrency test",
       "result": "Repeated 10s timeouts under heavy build/memory pressure; original test unchanged; final unfiltered 824/824 after scoped task-resource cleanup and local 1024m/single worker; resource causality inferred, not proven"
     }
-  ]
+  ],
+  "git": {
+    "band": {
+      "repository": "cc7279694-debug/mirra-band",
+      "branch": "codex/module-05c-offline-catalog",
+      "implementationCommit": "502f47a21a6d0b0c8a70b28179425f907ca786ee",
+      "remoteVerified": true
+    },
+    "android": {
+      "repository": "cc7279694-debug/Self-discipline",
+      "branch": "codex/mirra-band-05c-catalog",
+      "implementationCommit": "c159983919093f031553b9e5e17f245635b5c15e",
+      "remoteVerified": true
+    },
+    "noPrOrMainMerge": true
+  }
 }

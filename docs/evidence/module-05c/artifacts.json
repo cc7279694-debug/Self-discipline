@@ -53,5 +53,20 @@
   },
   "certificateSha256": "29ded26bea44f1afe4fe383a302e4b507423d16223469d7da3fe578d9a7f83b9",
   "physicalSafeToInstall": "NOT_CHECKED",
-  "installationAuthorization": "05C_NOT_REQUESTED_YET"
+  "installationAuthorization": "05C_NOT_REQUESTED_YET",
+  "git": {
+    "band": {
+      "repository": "cc7279694-debug/mirra-band",
+      "branch": "codex/module-05c-offline-catalog",
+      "implementationCommit": "502f47a21a6d0b0c8a70b28179425f907ca786ee",
+      "remoteVerified": true
+    },
+    "android": {
+      "repository": "cc7279694-debug/Self-discipline",
+      "branch": "codex/mirra-band-05c-catalog",
+      "implementationCommit": "c159983919093f031553b9e5e17f245635b5c15e",
+      "remoteVerified": true
+    },
+    "noPrOrMainMerge": true
+  }
 }

@@ -49,7 +49,7 @@ CatalogReader 使用当前容器捕获的 startup、Room 和 StorageMaintenanceG
 
 ## 6. Git
 
-Android 分支 `codex/mirra-band-05c-catalog`，基线 `30a8af3fdea225cc96db6a360d71383a85b7ea39`。最终 Commit / Push 由任务主执行者在差异、敏感信息、双端产物及原生验证检查后执行。本记录编写时未自动 PR、未合并 main，原手机 checkout 未修改。
+Android 分支 `codex/mirra-band-05c-catalog`，基线 `30a8af3fdea225cc96db6a360d71383a85b7ea39`。Android实现提交 `c159983919093f031553b9e5e17f245635b5c15e`、Band配套实现 `502f47a21a6d0b0c8a70b28179425f907ca786ee` 已普通push，ls-remote匹配；此Git记录为后续文档提交，无源码/产物改动。未自动PR、未合并main，原手机checkout干净且未修改。
 
 ## 7. 自然使用与停止点
 
