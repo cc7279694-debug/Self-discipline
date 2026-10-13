@@ -52,8 +52,8 @@
     ]
   },
   "certificateSha256": "29ded26bea44f1afe4fe383a302e4b507423d16223469d7da3fe578d9a7f83b9",
-  "physicalSafeToInstall": "NOT_CHECKED",
-  "installationAuthorization": "05C_NOT_REQUESTED_YET",
+  "physicalSafeToInstall": "NOT_CHECKED_DEVICE_NOT_CONNECTED",
+  "installationAuthorization": "USER_AUTHORIZED_READ_ONLY_PREFLIGHT_THEN_PAIRED_INSTALL",
   "git": {
     "band": {
       "repository": "cc7279694-debug/mirra-band",

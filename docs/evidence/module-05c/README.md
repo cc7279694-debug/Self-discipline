@@ -59,4 +59,8 @@ Android 分支 `codex/mirra-band-05c-catalog`，基线 `30a8af3fdea225cc96db6a36
 
 原生收尾：本项目自有MirraBand_Module03_API37 / emulator-5580实际19/19 PASS，8项新增目录/设置/UI与11项既有回归；43.711s，真实Room/SQLite in-memory fixtures及受控SDK，不是目标手环无线/固件证明。自有AVD已核验原1.2.0/code7公开证书后安全覆盖1.3.0/code8，无卸载/清数据/wipe，完成后关闭所属AVD；其他设备未操作。人工截图得到系统Pixel Launcher ANR，未取得产品画面，不能归因Mirra。物理手机/手环版本预检、安装、真实目录和离线自然使用仍Not Run。
 
-配套正式RPK0.4.0/code9（80245bytes），SHA-256 bd0458ca70e63d815102d7becefe51a3c74644e87a9df29bc261ec98459fd0dc，和APK同com.guanyi.mirra/原29DE…证书。机器结果见本目录artifacts.json、verification.json；真机安装尚待当前同意，停05C。
+配套正式RPK0.4.0/code9（80245bytes），SHA-256 bd0458ca70e63d815102d7becefe51a3c74644e87a9df29bc261ec98459fd0dc，和APK同com.guanyi.mirra/原29DE…证书。机器结果见本目录artifacts.json、verification.json；真机安装已获当前同意，待原配对手机连接和只读安全预检，停05C。
+
+## 当前安装授权
+
+用户已明确同意“先只读预检，再安装配套包”。授权已满足，不重复询问。当前ADB仅见两台无关模拟器，尚未操作物理手机或腕端；等待原配对手机USB/调试和空闲首页，以及正式腕端版本号。预检通过后按此授权安装，仍禁止卸载/清数据/降级/更换签名/实验迁移/用户数据库操作。见[设备记录](device-acceptance.json)。
