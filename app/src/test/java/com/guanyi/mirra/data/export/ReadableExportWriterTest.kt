@@ -13,6 +13,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.boolean
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -32,11 +33,12 @@ class ReadableExportWriterTest {
         assertTrue(document.getValue("tables").jsonObject.values.all { it.jsonArray.isEmpty() })
         val metadata = document.getValue("metadata").jsonObject
         assertEquals("1", metadata.getValue("exportFormatVersion").jsonPrimitive.content)
-        assertEquals("4", metadata.getValue("roomSchemaVersion").jsonPrimitive.content)
+        assertEquals("5", metadata.getValue("roomSchemaVersion").jsonPrimitive.content)
+        assertEquals("phone_business_tables", metadata.getValue("scope").jsonPrimitive.content)
+        assertFalse(metadata.getValue("includesWearableRecords").jsonPrimitive.boolean)
         assertEquals("1700000000000", metadata.getValue("createdAt").jsonPrimitive.content)
         assertEquals("false", metadata.getValue("isBackup").jsonPrimitive.content)
         assertEquals("false", metadata.getValue("includesImageBytes").jsonPrimitive.content)
-        assertEquals("authoritative_business_tables", metadata.getValue("scope").jsonPrimitive.content)
         val units = metadata.getValue("units").jsonObject
         assertEquals("unix_epoch_milliseconds", units.getValue("timestamps").jsonPrimitive.content)
         assertEquals("milliseconds", units.getValue("durations").jsonPrimitive.content)

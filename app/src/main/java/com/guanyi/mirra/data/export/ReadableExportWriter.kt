@@ -25,6 +25,7 @@ class ReadableExportException(message: String, cause: Throwable? = null) :
 class ReadableExportWriter(
     private val limits: ReadableExportLimits = ReadableExportLimits(),
     private val monotonicMillis: () -> Long = { System.nanoTime() / 1_000_000 },
+    private val appVersion: String = "0.1.0",
 ) {
     init {
         require(limits.rowsPerTable >= 0 && limits.totalRows >= 0)
@@ -67,11 +68,12 @@ class ReadableExportWriter(
 
     private fun metadata(createdAt: Long, counts: Map<String, Long>) = JsonObject(linkedMapOf(
         "appId" to JsonPrimitive("com.guanyi.mirra"),
-        "appVersion" to JsonPrimitive("0.1.0"),
+        "appVersion" to JsonPrimitive(appVersion),
         "exportFormatVersion" to JsonPrimitive(ReadableExportSchema.EXPORT_FORMAT_VERSION),
         "roomSchemaVersion" to JsonPrimitive(ReadableExportSchema.ROOM_SCHEMA_VERSION),
         "createdAt" to JsonPrimitive(createdAt),
-        "scope" to JsonPrimitive("authoritative_business_tables"),
+        "scope" to JsonPrimitive("phone_business_tables"),
+        "includesWearableRecords" to JsonPrimitive(false),
         "isBackup" to JsonPrimitive(false),
         "includesImageBytes" to JsonPrimitive(false),
         "runtimeOwnershipIncluded" to JsonPrimitive(false),
@@ -335,7 +337,8 @@ class ReadableExportWriter(
     private companion object {
         val FORMULA_PREFIXES = setOf('='.code, '+'.code, '-'.code, '@'.code, '＝'.code, '＋'.code, '－'.code, '＠'.code)
         val README = """
-            Mirra readable CSV export, format version 1 / Room schema 4.
+            Mirra readable CSV export, format version 1 / source Room schema 5.
+            This readable subset contains the existing twelve phone business tables. Independent original wrist records are excluded here and retained by Full Backup format 2.
             UTF-8 CSV files use CRLF records; text cells are quoted and embedded quotes are doubled.
             An unquoted empty field means NULL; a quoted empty field means empty text. Spreadsheet import may collapse this distinction; use JSON when exact values are needed.
             Timestamps are Unix epoch milliseconds, durations are milliseconds, fileSize is bytes, dimensions are pixels; every column type, nullable flag and unit appears in schema.json.

@@ -157,7 +157,7 @@ class InstalledRestoreBootstrapFixture {
             }
             marker.setProperty("stage", "bootstrap_asserted")
             writeMarker(root, marker)
-            println("MIRRA_4C_INSTALLED_BOOTSTRAP_ASSERTED boundary=${request.boundary} selected=${if (committed) "new" else "old"} actualApplicationBootstrap=true resources=3 tables=12 independentRecoverCall=false")
+            println("MIRRA_4C_INSTALLED_BOOTSTRAP_ASSERTED boundary=${request.boundary} selected=${if (committed) "new" else "old"} actualApplicationBootstrap=true resources=3 tables=${AUTHORITATIVE_TABLES.size} independentRecoverCall=false")
 
             val safetySnapshot = original(root)
             assertEquals("Original safety snapshot must remain intact", marker.getProperty("original.resources"), resourceDigest(safetySnapshot))

@@ -1,0 +1,439 @@
+{
+  "Band": [
+    {
+      "status": "M",
+      "path": "AGENTS.md"
+    },
+    {
+      "status": "M",
+      "path": "PROJECT.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/ARCHITECTURE.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/CURRENT_STATE.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/DECISIONS.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/ROADMAP.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/evidence/module-05c-1/README.md"
+    },
+    {
+      "status": "M",
+      "path": "scripts/build-profiles.cjs"
+    },
+    {
+      "status": "M",
+      "path": "scripts/check-project.cjs"
+    },
+    {
+      "status": "M",
+      "path": "scripts/inspect-rpk.cjs"
+    },
+    {
+      "status": "M",
+      "path": "scripts/source-profile.cjs"
+    },
+    {
+      "status": "M",
+      "path": "src/formal-app.ux"
+    },
+    {
+      "status": "M",
+      "path": "src/lib/catalog-protocol.js"
+    },
+    {
+      "status": "M",
+      "path": "src/lib/catalog-wire.js"
+    },
+    {
+      "status": "M",
+      "path": "src/lib/companion-protocol.js"
+    },
+    {
+      "status": "M",
+      "path": "src/lib/companion-store.js"
+    },
+    {
+      "status": "M",
+      "path": "src/lib/formal-local-runtime.js"
+    },
+    {
+      "status": "M",
+      "path": "src/lib/local-journal.js"
+    },
+    {
+      "status": "M",
+      "path": "src/lib/local-owner.js"
+    },
+    {
+      "status": "M",
+      "path": "src/lib/local-presentation.js"
+    },
+    {
+      "status": "M",
+      "path": "src/lib/local-ui-flow.js"
+    },
+    {
+      "status": "M",
+      "path": "src/pages/Connection/index.ux"
+    },
+    {
+      "status": "M",
+      "path": "src/pages/Mode/index.ux"
+    },
+    {
+      "status": "M",
+      "path": "src/platform/probe-storage.js"
+    },
+    {
+      "status": "M",
+      "path": "src/profile.js"
+    },
+    {
+      "status": "M",
+      "path": "tests/click-profiles.test.cjs"
+    },
+    {
+      "status": "M",
+      "path": "tests/companion-v3-integration.test.cjs"
+    },
+    {
+      "status": "M",
+      "path": "tests/formal-local-runtime.test.cjs"
+    },
+    {
+      "status": "M",
+      "path": "tests/formal-local-ui.test.cjs"
+    },
+    {
+      "status": "M",
+      "path": "tests/formal-profile.test.cjs"
+    },
+    {
+      "status": "M",
+      "path": "tests/local-profiles.test.cjs"
+    },
+    {
+      "status": "M",
+      "path": "tests/pages.test.cjs"
+    },
+    {
+      "status": "M",
+      "path": "tests/probe-profiles.test.cjs"
+    },
+    {
+      "status": "M",
+      "path": "tests/profiles.test.cjs"
+    },
+    {
+      "status": "A",
+      "path": "docs/plans/MIRRA_BAND_05D_RECORD_SYNC.md"
+    },
+    {
+      "status": "A",
+      "path": "protocol/v4/fixtures/record-v4.json"
+    },
+    {
+      "status": "A",
+      "path": "protocol/v4/schema.json"
+    },
+    {
+      "status": "A",
+      "path": "scripts/check-record-sync-rpk.cjs"
+    },
+    {
+      "status": "A",
+      "path": "src/lib/record-archive.js"
+    },
+    {
+      "status": "A",
+      "path": "src/lib/record-checksum.js"
+    },
+    {
+      "status": "A",
+      "path": "src/lib/record-envelope.js"
+    },
+    {
+      "status": "A",
+      "path": "src/lib/record-history-guard.js"
+    },
+    {
+      "status": "A",
+      "path": "src/lib/record-model.js"
+    },
+    {
+      "status": "A",
+      "path": "src/lib/record-sync.js"
+    },
+    {
+      "status": "A",
+      "path": "src/lib/record-wire.js"
+    },
+    {
+      "status": "A",
+      "path": "src/platform/record-digest.js"
+    },
+    {
+      "status": "A",
+      "path": "tests/local-record-presentation.test.cjs"
+    },
+    {
+      "status": "A",
+      "path": "tests/local-record-retirement.test.cjs"
+    },
+    {
+      "status": "A",
+      "path": "tests/record-archive-native.test.cjs"
+    },
+    {
+      "status": "A",
+      "path": "tests/record-archive.test.cjs"
+    },
+    {
+      "status": "A",
+      "path": "tests/record-companion.test.cjs"
+    },
+    {
+      "status": "A",
+      "path": "tests/record-protocol.test.cjs"
+    },
+    {
+      "status": "A",
+      "path": "tests/record-sync-integration.test.cjs"
+    },
+    {
+      "status": "A",
+      "path": "tests/record-sync.test.cjs"
+    }
+  ],
+  "Android": [
+    {
+      "status": "M",
+      "path": "AGENTS.md"
+    },
+    {
+      "status": "M",
+      "path": "PROJECT.md"
+    },
+    {
+      "status": "M",
+      "path": "app/build.gradle.kts"
+    },
+    {
+      "status": "M",
+      "path": "app/src/androidTest/java/com/guanyi/mirra/data/backup/BackupDatabaseSnapshotTest.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/androidTest/java/com/guanyi/mirra/data/backup/FullBackupServiceTest.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/androidTest/java/com/guanyi/mirra/data/backup/InstalledBackupJourneyFixture.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/androidTest/java/com/guanyi/mirra/data/backup/InstalledRestoreBootstrapFixture.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/androidTest/java/com/guanyi/mirra/data/backup/RestoreCrashProcessFixture.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/androidTest/java/com/guanyi/mirra/data/backup/RestoreJournalAndroidTest.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/androidTest/java/com/guanyi/mirra/data/backup/V1DataSafetyPerformanceTest.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/MirraApplication.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/data/backup/AndroidBackupFiles.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/data/backup/BackupArchive.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/data/backup/BackupDatabaseSnapshot.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/data/backup/BackupValidation.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/data/backup/DefaultFullBackupService.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/data/export/DefaultDataExportService.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/data/export/ReadableExportSchema.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/data/export/ReadableExportWriter.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/data/local/Migrations.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/data/local/MirraDatabase.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/data/wearable/WearableLocalSettings.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/di/AppContainer.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/domain/wearable/WearableBookCatalog.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/domain/wearable/WearableCoordinator.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/domain/wearable/WearableProtocol.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/feature/wearable/WearableSettingsScreen.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/main/java/com/guanyi/mirra/platform/wearable/OwnedWearTransport.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/test/java/com/guanyi/mirra/data/backup/BackupArchiveTest.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/test/java/com/guanyi/mirra/data/export/ReadableExportWriterTest.kt"
+    },
+    {
+      "status": "M",
+      "path": "app/src/test/java/com/guanyi/mirra/platform/wearable/OwnedWearTransportTest.kt"
+    },
+    {
+      "status": "M",
+      "path": "docs/CURRENT_STATE.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/DECISIONS.md"
+    },
+    {
+      "status": "A",
+      "path": "app/schemas/com.guanyi.mirra.data.local.MirraDatabase/5.json"
+    },
+    {
+      "status": "A",
+      "path": "app/src/androidTest/assets/wearable/protocol-v4/record-v4.json"
+    },
+    {
+      "status": "A",
+      "path": "app/src/androidTest/assets/wearable/protocol-v4/schema.json"
+    },
+    {
+      "status": "A",
+      "path": "app/src/androidTest/java/com/guanyi/mirra/WearableRecordSettingsUiTest.kt"
+    },
+    {
+      "status": "A",
+      "path": "app/src/androidTest/java/com/guanyi/mirra/data/MigrationFourToFiveTest.kt"
+    },
+    {
+      "status": "A",
+      "path": "app/src/androidTest/java/com/guanyi/mirra/data/backup/BackupFiveCompatibilityTest.kt"
+    },
+    {
+      "status": "A",
+      "path": "app/src/androidTest/java/com/guanyi/mirra/data/wearable/WearableRecordReceiverTest.kt"
+    },
+    {
+      "status": "A",
+      "path": "app/src/androidTest/java/com/guanyi/mirra/data/wearable/WearableRecordSettingsTest.kt"
+    },
+    {
+      "status": "A",
+      "path": "app/src/main/java/com/guanyi/mirra/data/backup/InstalledAppVersion.kt"
+    },
+    {
+      "status": "A",
+      "path": "app/src/main/java/com/guanyi/mirra/data/backup/LegacyBackupDatabaseV4.kt"
+    },
+    {
+      "status": "A",
+      "path": "app/src/main/java/com/guanyi/mirra/data/local/dao/WearableCompletedRecordDao.kt"
+    },
+    {
+      "status": "A",
+      "path": "app/src/main/java/com/guanyi/mirra/data/local/entity/WearableCompletedRecordEntity.kt"
+    },
+    {
+      "status": "A",
+      "path": "app/src/main/java/com/guanyi/mirra/data/wearable/RoomWearableRecordReceiver.kt"
+    },
+    {
+      "status": "A",
+      "path": "app/src/main/java/com/guanyi/mirra/domain/wearable/WearableLocalRecord.kt"
+    },
+    {
+      "status": "A",
+      "path": "app/src/main/java/com/guanyi/mirra/domain/wearable/WearableRecordProtocol.kt"
+    },
+    {
+      "status": "A",
+      "path": "app/src/main/java/com/guanyi/mirra/domain/wearable/WearableRecordReceiver.kt"
+    },
+    {
+      "status": "A",
+      "path": "app/src/test/java/com/guanyi/mirra/data/backup/BackupArchiveVersionTest.kt"
+    },
+    {
+      "status": "A",
+      "path": "app/src/test/java/com/guanyi/mirra/domain/wearable/WearableRecordCoordinatorTest.kt"
+    },
+    {
+      "status": "A",
+      "path": "app/src/test/java/com/guanyi/mirra/domain/wearable/WearableRecordProtocolTest.kt"
+    },
+    {
+      "status": "A",
+      "path": "app/src/test/resources/wearable/protocol-v4/record-v4.json"
+    },
+    {
+      "status": "A",
+      "path": "app/src/test/resources/wearable/protocol-v4/schema.json"
+    }
+  ],
+  "deletions": []
+}

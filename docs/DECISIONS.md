@@ -1,5 +1,31 @@
 # Decisions
 
+## 2026-10-14 — 05D独立原始记录接收与完整备份演进
+
+### Decision
+
+复用唯一WearableCoordinator/OwnedWearTransport及captured StorageMaintenanceGate，新增兼容旧v1/v2/v3的v4 `LOCAL_RECORD_SYNC`。独立记录披露许可默认关闭，保存于no-backup AtomicFile，不静默扩大旧只读/目录许可。完整原文严格验证后在独立不可变`wearable_completed_records`表保存，稳定installationId/sessionId复合键，同ID同原字节幂等、不同原文冲突；Room事务提交及UTF-8原文核对后才允许当前通信context返回ACK。
+
+Room4→5只新增该表和receivedAt索引，保留schemas1–4及旧业务数据，不注入study_sessions、不占用Active Session、不更新手机页码或统计。Full Backup升级format2/schema5，包含完整原始记录及全部既有权威数据和媒体。旧format1/schema4按冻结可信v4布局验证，完整复制到干净v5并再次验证；闭库恢复日志兼容合法v4/v5，保留回滚保护，不直接迁移不可信incoming数据库。可读JSON/CSV仍只包含原手机业务12表，明确不含腕端原文。
+
+### Context
+
+用户已确认05C.1正式0.4.1/code10真机视觉正常，记USER_REPORTED_PASS — PASS WITH NOTES，继承05C真实目录/离线保存反馈。当前授权05D设计、隔离开发和自动化，尚未授权正式设备安装、真实用户数据库升级/恢复或05E历史/统计整合。原手机工作区与签名材料不修改，独立实验应用和记录不迁移。
+
+### Alternatives
+
+把腕端记录注入手机Session、digest-only返回已保存、覆盖相同ID的不同内容、SDK send后提前ACK、另建SDK owner、无限缓存分片、直接迁移不可信旧备份或自动丢弃腕端档案均不采用。
+
+### Reason
+
+原始事实与手机权威学习算法分离可避免污染Active Session、页码与有效专注。事务提交后ACK和字节级幂等可处理提交后ACK丢失及重启；固定30秒、8192字节原文、8片×1024字节、4096字节帧限制传输资源。既有transport仅为严格v4记录增加单worker有界队列（最多10条在途/等待、32768字节），每帧重新核对授权，溢出退役当前代际；旧v1/v2/v3行为保持。
+
+### Consequences
+
+腕端主schema1不变，新有界档案保存完整原文与稳定回执，双份最新镜像精确读回后才释放pending，不自动删除原文。每次新握手核对重放档案及pending，可补回手机旧备份回退后缺失的行；保证依赖腕端仍保留档案，64条/64KiB容量满时安全阻断。新源及新流重置旧成功展示，当前数据库条数失败显示待核对，不伪造零记录。
+
+参考墙钟不计入已验证有效专注，跨重启可信连续性、目标固件SHA、OEM、流畅度和长期耐久仍需实际证据。05D最终产物/测试及Not Run见CURRENT_STATE与Band统一证据；正式安装、真实用户数据库升级/恢复另获当前明确同意，停05D，不进入05E。
+
 ## 2026-10-13 — 05C 真实书籍离线目录与单一通信所有者
 
 ### Decision

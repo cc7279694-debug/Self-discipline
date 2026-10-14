@@ -1,8 +1,13 @@
 package com.guanyi.mirra.platform.wearable
 
+import com.guanyi.mirra.domain.wearable.WearableProtocol
+import com.guanyi.mirra.domain.wearable.WearableProtocolException
+import com.guanyi.mirra.domain.wearable.WearableRecordProtocol
+import java.util.ArrayDeque
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
@@ -11,6 +16,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 internal data class SdkWearNode(val id: String, val name: String?)
 
@@ -46,6 +53,12 @@ internal class OwnedWearTransport(
     @Volatile private var ownedNode: String? = null
     private var cleanupUncertain = false
     private var incomingJob: Job? = null
+    private data class Incoming(val nodeId: String, val payload: ByteArray, val target: WearTransportListener)
+    private val incoming = ArrayDeque<Incoming>()
+    private var incomingGeneration = 0L
+    // Include the frame currently awaiting authorization, not only the FIFO's waiting entries.
+    private var incomingCount = 0
+    private var incomingBytes = 0
     private var pendingAvailabilityEpoch: Long? = null
     @Volatile private var listener: WearTransportListener? = null
     @Volatile private var connected = false
@@ -53,6 +66,7 @@ internal class OwnedWearTransport(
 
     override fun setListener(listener: WearTransportListener?) {
         val availableListener = synchronized(callbackLock) {
+            if (this.listener !== listener) cancelIncomingLocked()
             this.listener = listener
             takeAvailableListener()
         }
@@ -201,34 +215,105 @@ internal class OwnedWearTransport(
             return
         }
         val immutableMessage = bytes.copyOf()
+        val recordFrame = isRecordFrame(immutableMessage)
+        var startWorker: Job? = null
+        var overflowTarget: WearTransportListener? = null
         synchronized(callbackLock) {
-            // One callback read in flight; bursts cannot create an unbounded coroutine queue.
-            if (incomingJob?.isActive == true) return
-            incomingJob = callbackScope.launch {
-                try {
-                    val sdk = gateway ?: return@launch
-                    if (!bounded { sdk.authorized(sourceNode) }) {
-                        if (epoch.get() == currentEpoch) retireConnection("NOT_AUTHORIZED")
-                        return@launch
+            if (epoch.get() != currentEpoch || !connected || ownedNode != expectedNode) return
+            val target = listener ?: return
+            if (callbackScope.coroutineContext[Job]?.isActive == false) return
+            // Legacy busy-drop behavior remains; only fully validated v4 record frames may wait.
+            if (incomingJob != null && !recordFrame) return
+            if (incomingCount >= MAX_INCOMING_COUNT || immutableMessage.size > MAX_INCOMING_BYTES - incomingBytes) {
+                overflowTarget = retireConnectionLocked(currentEpoch)
+            } else {
+                incoming.addLast(Incoming(sourceNode, immutableMessage, target))
+                incomingCount++
+                incomingBytes += immutableMessage.size
+                if (incomingJob == null) {
+                    val generation = incomingGeneration
+                    // Assign ownership before starting: native callbacks may run synchronously.
+                    val worker = callbackScope.launch(start = CoroutineStart.LAZY) {
+                        drainIncoming(currentEpoch, expectedNode, generation)
                     }
-                    if (epoch.get() == currentEpoch && connected) {
-                        listener?.onMessage(sourceNode, immutableMessage)
-                    }
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: WearTransportException) {
-                    if (epoch.get() == currentEpoch) listener?.onError(error.category)
-                } catch (_: Exception) {
-                    if (epoch.get() == currentEpoch) listener?.onError("SDK_ERROR")
+                    incomingJob = worker
+                    startWorker = worker
                 }
             }
         }
+        // Do not invoke domain callbacks under callbackLock: their policy lock installs listeners.
+        overflowTarget?.onError("MESSAGE_OVERFLOW")
+        startWorker?.start()
     }
 
-    private fun cancelIncoming() = synchronized(callbackLock) {
-        incomingJob?.cancel()
-        incomingJob = null
+    private fun isRecordFrame(payload: ByteArray): Boolean = try {
+        val tree = WearableProtocol.decodeMessage(payload)
+        tree["protocolVersion"]?.jsonPrimitive?.intOrNull == WearableRecordProtocol.VERSION &&
+            tree["type"]?.jsonPrimitive?.content in WearableRecordProtocol.TYPES
+    } catch (_: WearableProtocolException) { false }
+
+    private suspend fun drainIncoming(currentEpoch: Long, expectedNode: String, generation: Long) {
+        try {
+            while (true) {
+                val message = synchronized(callbackLock) {
+                    if (incomingGeneration != generation || epoch.get() != currentEpoch || !connected || ownedNode != expectedNode) null
+                    else incoming.pollFirst().also { if (it == null) finishIncomingLocked(generation) }
+                } ?: return
+                try {
+                    val sdk = gateway ?: return
+                    // Authorization is fresh for every queued frame; never reuse a burst-wide grant.
+                    if (!bounded { sdk.authorized(message.nodeId) }) {
+                        retireConnection("NOT_AUTHORIZED", currentEpoch)
+                        return
+                    }
+                    val target = synchronized(callbackLock) {
+                        if (incomingGeneration == generation && epoch.get() == currentEpoch && connected &&
+                            ownedNode == expectedNode && listener === message.target) message.target else null
+                    }
+                    target?.onMessage(message.nodeId, message.payload)
+                } finally {
+                    synchronized(callbackLock) {
+                        if (incomingGeneration == generation) {
+                            incomingCount--
+                            incomingBytes -= message.payload.size
+                        }
+                    }
+                }
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: WearTransportException) {
+            failIncoming(currentEpoch, generation, error.category)
+        } catch (_: Exception) {
+            failIncoming(currentEpoch, generation, "SDK_ERROR")
+        } finally {
+            synchronized(callbackLock) { finishIncomingLocked(generation) }
+        }
     }
+
+    private fun failIncoming(currentEpoch: Long, generation: Long, category: String) {
+        val target = synchronized(callbackLock) {
+            if (incomingGeneration != generation || epoch.get() != currentEpoch) null
+            else listener.also { finishIncomingLocked(generation) }
+        }
+        target?.onError(category)
+    }
+
+    private fun finishIncomingLocked(generation: Long) {
+        if (incomingGeneration != generation) return
+        incomingGeneration++
+        incomingJob = null
+        incoming.clear()
+        incomingCount = 0
+        incomingBytes = 0
+    }
+
+    private fun cancelIncomingLocked() {
+        incomingJob?.cancel()
+        finishIncomingLocked(incomingGeneration)
+    }
+
+    private fun cancelIncoming() = synchronized(callbackLock) { cancelIncomingLocked() }
 
     /** Called under callbackLock. Availability never restores authorization or message ownership. */
     private fun takeAvailableListener(): WearTransportListener? {
@@ -244,13 +329,19 @@ internal class OwnedWearTransport(
 
     private fun clearAvailability() = synchronized(callbackLock) { pendingAvailabilityEpoch = null }
 
-    private fun retireConnection(category: String) {
+    private fun retireConnectionLocked(expectedEpoch: Long? = null): WearTransportListener? {
+        if (expectedEpoch != null && epoch.get() != expectedEpoch) return null
         connected = false
         epoch.incrementAndGet()
         serviceLost = false
-        clearAvailability()
-        cancelIncoming()
-        listener?.onError(category)
+        pendingAvailabilityEpoch = null
+        cancelIncomingLocked()
+        return listener
+    }
+
+    private fun retireConnection(category: String, expectedEpoch: Long? = null) {
+        val target = synchronized(callbackLock) { retireConnectionLocked(expectedEpoch) }
+        target?.onError(category)
     }
 
     private suspend fun removeOwnedListener() {
@@ -274,5 +365,9 @@ internal class OwnedWearTransport(
         throw WearTransportException("TIMEOUT")
     }
 
-    private companion object { const val MAX_MESSAGE_BYTES = 4_096 }
+    private companion object {
+        const val MAX_MESSAGE_BYTES = 4_096
+        const val MAX_INCOMING_COUNT = 10
+        const val MAX_INCOMING_BYTES = 32_768
+    }
 }

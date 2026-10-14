@@ -2,14 +2,17 @@ package com.guanyi.mirra.data.backup
 
 import android.database.Cursor
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.guanyi.mirra.domain.wearable.WearableLocalRecord
 
 /** Reads untrusted SQLite through the caller's bounded, cancellable query boundary. */
 internal class BackupValidation(private val limits: BackupLimits) {
-    fun validateSchema(incomingQuery: (String) -> Cursor, trusted: SupportSQLiteDatabase) {
-        requireValid(scalar(incomingQuery, "PRAGMA user_version") == 4L, "Unsupported Room schema version")
+    fun validateSchema(incomingQuery: (String) -> Cursor, trusted: SupportSQLiteDatabase, schemaVersion: Int = 5) {
+        val schemaTables = backupTablesForSchema(schemaVersion) + INTERNAL_SCHEMA_TABLES
+        requireValid(scalar(incomingQuery, "PRAGMA user_version") == schemaVersion.toLong(), "Unsupported Room schema version")
+        requireValid(scalar({ trusted.query(it) }, "PRAGMA user_version") == schemaVersion.toLong(), "Wrong trusted schema reference")
         val expected = schemaObjects { sql -> trusted.query(sql) }
         requireValid(expected.values.none { it.type == "trigger" || it.type == "view" }, "Unexpected trusted schema")
-        requireValid(expected.values.filter { it.type == "table" }.all { it.name in SCHEMA_TABLES }, "Unexpected trusted table")
+        requireValid(expected.values.filter { it.type == "table" }.all { it.name in schemaTables }, "Unexpected trusted table")
 
         val seen = mutableSetOf<String>()
         incomingQuery(SCHEMA_QUERY).use { rows ->
@@ -18,24 +21,25 @@ internal class BackupValidation(private val limits: BackupLimits) {
                 val actual = schemaObject(rows)
                 requireValid(actual.type != "trigger" && actual.type != "view", "SQLite triggers and views are not supported")
                 requireValid(seen.add(actual.name), "Duplicate SQLite schema object")
-                requireValid(expected[actual.name] == actual, "SQLite schema does not match Room v4")
+                requireValid(expected[actual.name] == actual, "SQLite schema does not match trusted Room version")
             }
         }
         requireValid(seen == expected.keys, "Missing SQLite schema object")
         // Only locally declared names are used as identifiers, never SQL or names from the archive.
-        SCHEMA_TABLES.filter { expected[it]?.type == "table" }.forEach { table ->
+        schemaTables.filter { expected[it]?.type == "table" }.forEach { table ->
             val sql = "PRAGMA table_info(`$table`)"
-            requireValid(tableInfo(incomingQuery, sql) == tableInfo({ trusted.query(it) }, sql), "SQLite columns do not match Room v4")
+            requireValid(tableInfo(incomingQuery, sql) == tableInfo({ trusted.query(it) }, sql), "SQLite columns do not match trusted Room version")
         }
         val expectedIdentity = roomIdentity { trusted.query(it) }
         requireValid(roomIdentity(incomingQuery) == expectedIdentity, "Room identity does not match")
     }
 
-    fun validateBusiness(query: (String) -> Cursor, requirePortableOwnership: Boolean): Map<String, Long> {
+    fun validateBusiness(query: (String) -> Cursor, requirePortableOwnership: Boolean, schemaVersion: Int = 5): Map<String, Long> {
+        val tables = backupTablesForSchema(schemaVersion)
         requireValid(limits.rowsPerTable >= 0L && limits.totalRows >= 0L && limits.rowTextBytes > 0, "Invalid backup row limits")
         val counts = linkedMapOf<String, Long>()
         var total = 0L
-        AUTHORITATIVE_TABLES.forEach { table ->
+        tables.forEach { table ->
             val count = scalar(query, "SELECT COUNT(*) FROM `$table`")
             requireValid(count in 0L..limits.rowsPerTable, "Backup table row limit exceeded")
             requireValid(count <= limits.totalRows - total, "Backup total row limit exceeded")
@@ -48,15 +52,16 @@ internal class BackupValidation(private val limits: BackupLimits) {
         query("PRAGMA foreign_key_check").use { rows ->
             requireValid(!rows.moveToFirst(), "SQLite foreign key check failed")
         }
-        validateStorageTypes(query)
+        validateStorageTypes(query, tables)
         validateEnums(query)
         validateWorkflow(query)
         validateFocus(query, requirePortableOwnership)
+        if (schemaVersion == 5) validateWearableRecords(query)
         return counts
     }
 
-    private fun validateStorageTypes(query: (String) -> Cursor) {
-        COLUMNS.forEach { (table, columns) ->
+    private fun validateStorageTypes(query: (String) -> Cursor, tables: List<String>) {
+        COLUMNS.filterKeys { it in tables }.forEach { (table, columns) ->
             val predicates = columns.map { column ->
                 val allowed = if (column.nullable) "('${column.storageType}','null')" else "('${column.storageType}')"
                 "typeof(`${column.name}`) NOT IN $allowed"
@@ -71,13 +76,30 @@ internal class BackupValidation(private val limits: BackupLimits) {
             if (textBytes.isNotEmpty()) rejectRows(query,
                 "SELECT 1 FROM `$table` WHERE ($textBytes) > ${limits.rowTextBytes} LIMIT 1", "SQLite row text exceeds byte limit")
         }
-        IDENTIFIERS.forEach { (table, names) ->
+        IDENTIFIERS.filterKeys { it in tables }.forEach { (table, names) ->
             rejectRows(query, "SELECT 1 FROM `$table` WHERE ${names.joinToString(" OR ") { "LENGTH(TRIM(`$it`)) = 0" }} LIMIT 1", "Empty business identifier")
         }
         rejectRows(query, "SELECT 1 FROM learning_items WHERE LENGTH(TRIM(name)) = 0 LIMIT 1", "Empty learning item name")
         rejectRows(query, "SELECT 1 FROM notes WHERE LENGTH(TRIM(content)) = 0 LIMIT 1", "Empty note content")
         rejectRows(query, "SELECT 1 FROM topics WHERE LENGTH(TRIM(name)) = 0 LIMIT 1", "Empty topic name")
         rejectRows(query, "SELECT 1 FROM image_assets WHERE width <= 0 OR height <= 0 OR fileSize <= 0 OR fileSize > ${limits.imageBytes} LIMIT 1", "Invalid image metadata")
+    }
+
+    private fun validateWearableRecords(query: (String) -> Cursor) {
+        // Check bytes in SQLite before materializing an untrusted raw payload in CursorWindow.
+        rejectRows(query, """
+            SELECT 1 FROM wearable_completed_records WHERE bytes < 1 OR bytes > 8192 OR receivedAt < 0
+                OR LENGTH(CAST(canonical AS BLOB)) <> bytes OR LENGTH(digest) <> 64 LIMIT 1
+        """.trimIndent(), "Invalid wearable record size or receipt metadata")
+        query("SELECT installationId,sessionId,canonical,CAST(canonical AS BLOB),digest,bytes,receivedAt FROM wearable_completed_records LIMIT ${limits.rowsPerTable + 1}").use { rows ->
+            while (rows.moveToNext()) {
+                val record = try { WearableLocalRecord.parse(rows.getString(2), rows.getString(4)) }
+                catch (failure: Exception) { throw BackupValidationException("Invalid wearable original record", failure) }
+                requireValid(rows.getString(0) == record.installationId && rows.getString(1) == record.sessionId &&
+                    rows.getInt(5) == record.bytes && rows.getLong(6) >= 0, "Wearable record identity or size disagrees")
+                requireValid(record.canonical.toByteArray(Charsets.UTF_8).contentEquals(rows.getBlob(3)), "Wearable raw UTF-8 bytes changed")
+            }
+        }
     }
 
     private fun validateEnums(query: (String) -> Cursor) {
@@ -227,7 +249,7 @@ internal class BackupValidation(private val limits: BackupLimits) {
     private companion object {
         const val SCHEMA_QUERY = "SELECT type, name, tbl_name, sql FROM sqlite_master ORDER BY name"
         val WHITESPACE = Regex("\\s+")
-        val SCHEMA_TABLES = AUTHORITATIVE_TABLES + setOf("room_master_table", "android_metadata", "search_fts",
+        val INTERNAL_SCHEMA_TABLES = setOf("room_master_table", "android_metadata", "search_fts",
             "search_fts_content", "search_fts_segments", "search_fts_segdir", "search_fts_docsize", "search_fts_stat")
         val RULE_DURATIONS = listOf("pollIntervalMillis", "riskEventDedupeMillis", "riskConfirmMillis",
             "secondFrictionMillis", "thirdPlusFrictionMillis", "replyAllowanceMillis", "researchAllowanceMillis",
@@ -253,6 +275,7 @@ internal class BackupValidation(private val limits: BackupLimits) {
             "session_risk_app_snapshots" to columns(text = "sessionId packageName labelSnapshot"),
             "session_segments" to columns(text = "id sessionId type", nullableText = "packageName reason relatedSegmentId", integer = "startedAt extensionCount", nullableInteger = "endedAt plannedEndAt activeSlot", intValues = "extensionCount activeSlot"),
             "focus_events" to columns(text = "id sessionId type", nullableText = "packageName segmentId deliveryChannel", integer = "occurredAt"),
+            "wearable_completed_records" to columns(text = "installationId sessionId canonical digest", integer = "bytes receivedAt", intValues = "bytes"),
         )
         val IDENTIFIERS = linkedMapOf(
             "learning_items" to listOf("id"), "study_intents" to listOf("id", "learningItemId"),
@@ -261,6 +284,7 @@ internal class BackupValidation(private val limits: BackupLimits) {
             "note_topic_cross_refs" to listOf("noteId", "topicId"), "risk_apps" to listOf("packageName"),
             "session_focus_contexts" to listOf("sessionId"), "session_risk_app_snapshots" to listOf("sessionId", "packageName"),
             "session_segments" to listOf("id", "sessionId", "relatedSegmentId"), "focus_events" to listOf("id", "sessionId", "segmentId"),
+            "wearable_completed_records" to listOf("installationId", "sessionId"),
         )
         val ENUMS = listOf(
             EnumColumn("learning_items", "status", "'IN_PROGRESS','PAUSED','COMPLETED'"),

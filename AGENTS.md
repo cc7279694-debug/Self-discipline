@@ -1,5 +1,11 @@
 # Repository Collaboration Guide
 
+## Mirra Band 05D 当前授权范围
+
+2026-10-14用户授权05D方案、隔离开发和自动化，统一合同在Band docs/plans/MIRRA_BAND_05D_RECORD_SYNC.md；本树基线6589a19，分支codex/mirra-band-05d-record-sync，原手机工作区不改。05C.1视觉USER_REPORTED_PASS — PASS WITH NOTES继承。
+
+允许Room4→5专用不可变腕端完成记录表及Full Backup2/schema5，并严格兼容旧1/schema4和闭库恢复日志。不写真实用户DB，不安装设备、不清数据/破坏性迁移。复用既有Coordinator/SDK/gate，完整原始事实和精确字节去重，事务返回后ACK。档案在腕端有界保留，新握手重放，不新增手机restore epoch或第二SDK owner。手机Session/Intent/监测/学习算法/进度/统计不变，05E未授权；普通当前分支commit/push允许，无PR/main合并。本条明确替代下方旧05C的Room4/备份1不变约束。
+
 ## Mirra Band 05C 当前授权范围
 
 2026-10-13 用户授权从 `codex/mirra-band-control-bridge` 的真实 HEAD `30a8af3fdea225cc96db6a360d71383a85b7ea39` 在 `codex/mirra-band-05c-catalog` 连续实现真实书籍离线目录。统一合同在 Band 仓库 `docs/plans/MIRRA_BAND_05C_OFFLINE_CATALOG.md`。主线自动加入，其他只可明确选择 IN_PROGRESS；通过 FirstActionResolver.resolve 构造动作，空或无效动作交腕端预设兜底，仍需每场明确完成确认。

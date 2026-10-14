@@ -1,0 +1,911 @@
+{
+  "record": {
+    "schemaVersion": 1,
+    "installationId": "install-a",
+    "session": {
+      "id": "install-a:1",
+      "ordinal": 1,
+      "bookSnapshot": {
+        "id": "book-a",
+        "title": "中文与📖",
+        "startPage": 12
+      },
+      "firstActionSnapshot": {
+        "id": "preset-read",
+        "text": "翻到第12页，读第一段。"
+      },
+      "confirmedAt": {
+        "wallMs": 1000,
+        "ownerId": "owner-a",
+        "monotonicMs": null,
+        "monotonicVerified": false
+      },
+      "startAt": {
+        "wallMs": 1000,
+        "ownerId": "owner-a",
+        "monotonicMs": null,
+        "monotonicVerified": false
+      },
+      "intervals": [
+        {
+          "kind": "FOCUS",
+          "start": {
+            "wallMs": 1000,
+            "ownerId": "owner-a",
+            "monotonicMs": null,
+            "monotonicVerified": false
+          },
+          "end": {
+            "wallMs": 61000,
+            "ownerId": "owner-a",
+            "monotonicMs": null,
+            "monotonicVerified": false
+          },
+          "plannedMinutes": null
+        }
+      ],
+      "finishedAt": {
+        "wallMs": 61000,
+        "ownerId": "owner-a",
+        "monotonicMs": null,
+        "monotonicVerified": false
+      },
+      "endPage": null
+    }
+  },
+  "canonical": "{\"schemaVersion\":1,\"installationId\":\"install-a\",\"session\":{\"id\":\"install-a:1\",\"ordinal\":1,\"bookSnapshot\":{\"id\":\"book-a\",\"title\":\"中文与📖\",\"startPage\":12},\"firstActionSnapshot\":{\"id\":\"preset-read\",\"text\":\"翻到第12页，读第一段。\"},\"confirmedAt\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"startAt\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"intervals\":[{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"end\":{\"wallMs\":61000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"plannedMinutes\":null}],\"finishedAt\":{\"wallMs\":61000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"endPage\":null}}",
+  "digest": "c0dccdebd1718deea0c4c59748222a0695466df99e799d70bb0a2a85d2928423",
+  "bytes": 772,
+  "messages": [
+    {
+      "protocolVersion": 4,
+      "type": "HELLO",
+      "clientInstanceId": "record-client",
+      "requestId": "record-request",
+      "capabilities": [
+        "READ_ONLY_SNAPSHOT",
+        "SESSION_CONTROL",
+        "BOOK_CATALOG",
+        "LOCAL_RECORD_SYNC"
+      ]
+    },
+    {
+      "protocolVersion": 4,
+      "type": "HELLO_ACK",
+      "clientInstanceId": "record-client",
+      "requestId": "record-request",
+      "capabilities": [
+        "READ_ONLY_SNAPSHOT",
+        "SESSION_CONTROL",
+        "BOOK_CATALOG",
+        "LOCAL_RECORD_SYNC"
+      ],
+      "streamId": "record-stream",
+      "recordSyncEnabled": false
+    },
+    {
+      "protocolVersion": 4,
+      "clientInstanceId": "record-client",
+      "requestId": "record-request",
+      "streamId": "record-stream",
+      "sourceInstallationId": "install-a",
+      "localSessionId": "install-a:1",
+      "recordDigest": "c0dccdebd1718deea0c4c59748222a0695466df99e799d70bb0a2a85d2928423",
+      "totalBytes": 772,
+      "type": "LOCAL_RECORD_OFFER",
+      "schemaVersion": 1,
+      "partCount": 1
+    },
+    {
+      "protocolVersion": 4,
+      "clientInstanceId": "record-client",
+      "requestId": "record-request",
+      "streamId": "record-stream",
+      "sourceInstallationId": "install-a",
+      "localSessionId": "install-a:1",
+      "recordDigest": "c0dccdebd1718deea0c4c59748222a0695466df99e799d70bb0a2a85d2928423",
+      "totalBytes": 772,
+      "type": "LOCAL_RECORD_NEED",
+      "code": "NEED"
+    },
+    {
+      "protocolVersion": 4,
+      "clientInstanceId": "record-client",
+      "requestId": "record-request",
+      "streamId": "record-stream",
+      "sourceInstallationId": "install-a",
+      "localSessionId": "install-a:1",
+      "recordDigest": "c0dccdebd1718deea0c4c59748222a0695466df99e799d70bb0a2a85d2928423",
+      "totalBytes": 772,
+      "type": "LOCAL_RECORD_PART",
+      "index": 0,
+      "data": "{\"schemaVersion\":1,\"installationId\":\"install-a\",\"session\":{\"id\":\"install-a:1\",\"ordinal\":1,\"bookSnapshot\":{\"id\":\"book-a\",\"title\":\"中文与📖\",\"startPage\":12},\"firstActionSnapshot\":{\"id\":\"preset-read\",\"text\":\"翻到第12页，读第一段。\"},\"confirmedAt\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"startAt\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"intervals\":[{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"end\":{\"wallMs\":61000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"plannedMinutes\":null}],\"finishedAt\":{\"wallMs\":61000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"endPage\":null}}",
+      "checksum": "c5e6b031"
+    },
+    {
+      "protocolVersion": 4,
+      "clientInstanceId": "record-client",
+      "requestId": "record-request",
+      "streamId": "record-stream",
+      "sourceInstallationId": "install-a",
+      "localSessionId": "install-a:1",
+      "recordDigest": "c0dccdebd1718deea0c4c59748222a0695466df99e799d70bb0a2a85d2928423",
+      "totalBytes": 772,
+      "type": "LOCAL_RECORD_COMMIT"
+    },
+    {
+      "protocolVersion": 4,
+      "clientInstanceId": "record-client",
+      "requestId": "record-request",
+      "streamId": "record-stream",
+      "sourceInstallationId": "install-a",
+      "localSessionId": "install-a:1",
+      "recordDigest": "c0dccdebd1718deea0c4c59748222a0695466df99e799d70bb0a2a85d2928423",
+      "totalBytes": 772,
+      "type": "LOCAL_RECORD_ACK",
+      "code": "IMPORTED"
+    },
+    {
+      "protocolVersion": 4,
+      "clientInstanceId": "record-client",
+      "requestId": "record-request",
+      "streamId": "record-stream",
+      "sourceInstallationId": "install-a",
+      "localSessionId": "install-a:1",
+      "recordDigest": "c0dccdebd1718deea0c4c59748222a0695466df99e799d70bb0a2a85d2928423",
+      "totalBytes": 772,
+      "type": "LOCAL_RECORD_ACK",
+      "code": "ALREADY_IMPORTED"
+    },
+    {
+      "protocolVersion": 4,
+      "clientInstanceId": "record-client",
+      "requestId": "record-request",
+      "streamId": "record-stream",
+      "sourceInstallationId": "install-a",
+      "localSessionId": "install-a:1",
+      "recordDigest": "c0dccdebd1718deea0c4c59748222a0695466df99e799d70bb0a2a85d2928423",
+      "totalBytes": 772,
+      "type": "LOCAL_RECORD_ERROR",
+      "code": "CONFLICT"
+    }
+  ],
+  "cases": [
+    {
+      "name": "multilingual-multichunk",
+      "record": {
+        "schemaVersion": 1,
+        "installationId": "install-a",
+        "session": {
+          "id": "install-a:1",
+          "ordinal": 1,
+          "bookSnapshot": {
+            "id": "book-a",
+            "title": "📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖",
+            "startPage": 12
+          },
+          "firstActionSnapshot": {
+            "id": "preset-read",
+            "text": "📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖"
+          },
+          "confirmedAt": {
+            "wallMs": 1000,
+            "ownerId": "owner-a",
+            "monotonicMs": null,
+            "monotonicVerified": false
+          },
+          "startAt": {
+            "wallMs": 1000,
+            "ownerId": "owner-a",
+            "monotonicMs": null,
+            "monotonicVerified": false
+          },
+          "intervals": [
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 1000,
+                "ownerId": "owner-a",
+                "monotonicMs": null,
+                "monotonicVerified": false
+              },
+              "end": {
+                "wallMs": 61000,
+                "ownerId": "owner-a",
+                "monotonicMs": null,
+                "monotonicVerified": false
+              },
+              "plannedMinutes": null
+            }
+          ],
+          "finishedAt": {
+            "wallMs": 61000,
+            "ownerId": "owner-a",
+            "monotonicMs": null,
+            "monotonicVerified": false
+          },
+          "endPage": null
+        }
+      },
+      "canonical": "{\"schemaVersion\":1,\"installationId\":\"install-a\",\"session\":{\"id\":\"install-a:1\",\"ordinal\":1,\"bookSnapshot\":{\"id\":\"book-a\",\"title\":\"📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖\",\"startPage\":12},\"firstActionSnapshot\":{\"id\":\"preset-read\",\"text\":\"📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖📖\"},\"confirmedAt\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"startAt\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"intervals\":[{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"end\":{\"wallMs\":61000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"plannedMinutes\":null}],\"finishedAt\":{\"wallMs\":61000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"endPage\":null}}",
+      "digest": "60f2e746f914a70b495c2b7fc65a888945512f2a212c5aa1e9d605723252f9b5",
+      "bytes": 1847
+    },
+    {
+      "name": "unknown-time-cross-owner",
+      "record": {
+        "schemaVersion": 1,
+        "installationId": "install-a",
+        "session": {
+          "id": "install-a:1",
+          "ordinal": 1,
+          "bookSnapshot": {
+            "id": "book-a",
+            "title": "中文与📖",
+            "startPage": 12
+          },
+          "firstActionSnapshot": {
+            "id": "preset-read",
+            "text": "翻到第12页，读第一段。"
+          },
+          "confirmedAt": {
+            "wallMs": 1000,
+            "ownerId": "owner-a",
+            "monotonicMs": null,
+            "monotonicVerified": false
+          },
+          "startAt": {
+            "wallMs": 1000,
+            "ownerId": "owner-a",
+            "monotonicMs": null,
+            "monotonicVerified": false
+          },
+          "intervals": [
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 1000,
+                "ownerId": "owner-a",
+                "monotonicMs": null,
+                "monotonicVerified": false
+              },
+              "end": {
+                "wallMs": null,
+                "ownerId": "owner-b",
+                "monotonicMs": null,
+                "monotonicVerified": false
+              },
+              "plannedMinutes": null
+            }
+          ],
+          "finishedAt": {
+            "wallMs": null,
+            "ownerId": "owner-b",
+            "monotonicMs": null,
+            "monotonicVerified": false
+          },
+          "endPage": 22
+        }
+      },
+      "canonical": "{\"schemaVersion\":1,\"installationId\":\"install-a\",\"session\":{\"id\":\"install-a:1\",\"ordinal\":1,\"bookSnapshot\":{\"id\":\"book-a\",\"title\":\"中文与📖\",\"startPage\":12},\"firstActionSnapshot\":{\"id\":\"preset-read\",\"text\":\"翻到第12页，读第一段。\"},\"confirmedAt\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"startAt\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"intervals\":[{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":null,\"monotonicVerified\":false},\"end\":{\"wallMs\":null,\"ownerId\":\"owner-b\",\"monotonicMs\":null,\"monotonicVerified\":false},\"plannedMinutes\":null}],\"finishedAt\":{\"wallMs\":null,\"ownerId\":\"owner-b\",\"monotonicMs\":null,\"monotonicVerified\":false},\"endPage\":22}}",
+      "digest": "56296ad90bb5277aaa571e3f25e8e45a65df7f817035f84519cc3cfe2bd2fc2c",
+      "bytes": 768
+    },
+    {
+      "name": "fractional-32-intervals",
+      "record": {
+        "schemaVersion": 1,
+        "installationId": "install-a",
+        "session": {
+          "id": "install-a:1",
+          "ordinal": 1,
+          "bookSnapshot": {
+            "id": "book-a",
+            "title": "中文与📖",
+            "startPage": 12
+          },
+          "firstActionSnapshot": {
+            "id": "preset-read",
+            "text": "翻到第12页，读第一段。"
+          },
+          "confirmedAt": {
+            "wallMs": 0,
+            "ownerId": "owner-a",
+            "monotonicMs": 0.0000010000000000000002,
+            "monotonicVerified": true
+          },
+          "startAt": {
+            "wallMs": 0,
+            "ownerId": "owner-a",
+            "monotonicMs": 0.0000010000000000000002,
+            "monotonicVerified": true
+          },
+          "intervals": [
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 0,
+                "ownerId": "owner-a",
+                "monotonicMs": 0.0000010000000000000002,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 1000,
+                "ownerId": "owner-a",
+                "monotonicMs": 1000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": null
+            },
+            {
+              "kind": "BREAK",
+              "start": {
+                "wallMs": 1000,
+                "ownerId": "owner-a",
+                "monotonicMs": 1000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 2000,
+                "ownerId": "owner-a",
+                "monotonicMs": 2000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": 5
+            },
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 2000,
+                "ownerId": "owner-a",
+                "monotonicMs": 2000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 3000,
+                "ownerId": "owner-a",
+                "monotonicMs": 3000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": null
+            },
+            {
+              "kind": "BREAK",
+              "start": {
+                "wallMs": 3000,
+                "ownerId": "owner-a",
+                "monotonicMs": 3000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 4000,
+                "ownerId": "owner-a",
+                "monotonicMs": 4000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": 5
+            },
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 4000,
+                "ownerId": "owner-a",
+                "monotonicMs": 4000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 5000,
+                "ownerId": "owner-a",
+                "monotonicMs": 5000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": null
+            },
+            {
+              "kind": "BREAK",
+              "start": {
+                "wallMs": 5000,
+                "ownerId": "owner-a",
+                "monotonicMs": 5000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 6000,
+                "ownerId": "owner-a",
+                "monotonicMs": 6000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": 5
+            },
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 6000,
+                "ownerId": "owner-a",
+                "monotonicMs": 6000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 7000,
+                "ownerId": "owner-a",
+                "monotonicMs": 7000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": null
+            },
+            {
+              "kind": "BREAK",
+              "start": {
+                "wallMs": 7000,
+                "ownerId": "owner-a",
+                "monotonicMs": 7000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 8000,
+                "ownerId": "owner-a",
+                "monotonicMs": 8000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": 5
+            },
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 8000,
+                "ownerId": "owner-a",
+                "monotonicMs": 8000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 9000,
+                "ownerId": "owner-a",
+                "monotonicMs": 9000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": null
+            },
+            {
+              "kind": "BREAK",
+              "start": {
+                "wallMs": 9000,
+                "ownerId": "owner-a",
+                "monotonicMs": 9000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 10000,
+                "ownerId": "owner-a",
+                "monotonicMs": 10000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": 5
+            },
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 10000,
+                "ownerId": "owner-a",
+                "monotonicMs": 10000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 11000,
+                "ownerId": "owner-a",
+                "monotonicMs": 11000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": null
+            },
+            {
+              "kind": "BREAK",
+              "start": {
+                "wallMs": 11000,
+                "ownerId": "owner-a",
+                "monotonicMs": 11000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 12000,
+                "ownerId": "owner-a",
+                "monotonicMs": 12000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": 5
+            },
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 12000,
+                "ownerId": "owner-a",
+                "monotonicMs": 12000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 13000,
+                "ownerId": "owner-a",
+                "monotonicMs": 13000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": null
+            },
+            {
+              "kind": "BREAK",
+              "start": {
+                "wallMs": 13000,
+                "ownerId": "owner-a",
+                "monotonicMs": 13000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 14000,
+                "ownerId": "owner-a",
+                "monotonicMs": 14000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": 5
+            },
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 14000,
+                "ownerId": "owner-a",
+                "monotonicMs": 14000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 15000,
+                "ownerId": "owner-a",
+                "monotonicMs": 15000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": null
+            },
+            {
+              "kind": "BREAK",
+              "start": {
+                "wallMs": 15000,
+                "ownerId": "owner-a",
+                "monotonicMs": 15000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 16000,
+                "ownerId": "owner-a",
+                "monotonicMs": 16000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": 5
+            },
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 16000,
+                "ownerId": "owner-a",
+                "monotonicMs": 16000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 17000,
+                "ownerId": "owner-a",
+                "monotonicMs": 17000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": null
+            },
+            {
+              "kind": "BREAK",
+              "start": {
+                "wallMs": 17000,
+                "ownerId": "owner-a",
+                "monotonicMs": 17000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 18000,
+                "ownerId": "owner-a",
+                "monotonicMs": 18000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": 5
+            },
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 18000,
+                "ownerId": "owner-a",
+                "monotonicMs": 18000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 19000,
+                "ownerId": "owner-a",
+                "monotonicMs": 19000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": null
+            },
+            {
+              "kind": "BREAK",
+              "start": {
+                "wallMs": 19000,
+                "ownerId": "owner-a",
+                "monotonicMs": 19000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 20000,
+                "ownerId": "owner-a",
+                "monotonicMs": 20000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": 5
+            },
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 20000,
+                "ownerId": "owner-a",
+                "monotonicMs": 20000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 21000,
+                "ownerId": "owner-a",
+                "monotonicMs": 21000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": null
+            },
+            {
+              "kind": "BREAK",
+              "start": {
+                "wallMs": 21000,
+                "ownerId": "owner-a",
+                "monotonicMs": 21000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 22000,
+                "ownerId": "owner-a",
+                "monotonicMs": 22000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": 5
+            },
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 22000,
+                "ownerId": "owner-a",
+                "monotonicMs": 22000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 23000,
+                "ownerId": "owner-a",
+                "monotonicMs": 23000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": null
+            },
+            {
+              "kind": "BREAK",
+              "start": {
+                "wallMs": 23000,
+                "ownerId": "owner-a",
+                "monotonicMs": 23000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 24000,
+                "ownerId": "owner-a",
+                "monotonicMs": 24000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": 5
+            },
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 24000,
+                "ownerId": "owner-a",
+                "monotonicMs": 24000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 25000,
+                "ownerId": "owner-a",
+                "monotonicMs": 25000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": null
+            },
+            {
+              "kind": "BREAK",
+              "start": {
+                "wallMs": 25000,
+                "ownerId": "owner-a",
+                "monotonicMs": 25000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 26000,
+                "ownerId": "owner-a",
+                "monotonicMs": 26000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": 5
+            },
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 26000,
+                "ownerId": "owner-a",
+                "monotonicMs": 26000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 27000,
+                "ownerId": "owner-a",
+                "monotonicMs": 27000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": null
+            },
+            {
+              "kind": "BREAK",
+              "start": {
+                "wallMs": 27000,
+                "ownerId": "owner-a",
+                "monotonicMs": 27000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 28000,
+                "ownerId": "owner-a",
+                "monotonicMs": 28000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": 5
+            },
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 28000,
+                "ownerId": "owner-a",
+                "monotonicMs": 28000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 29000,
+                "ownerId": "owner-a",
+                "monotonicMs": 29000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": null
+            },
+            {
+              "kind": "BREAK",
+              "start": {
+                "wallMs": 29000,
+                "ownerId": "owner-a",
+                "monotonicMs": 29000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 30000,
+                "ownerId": "owner-a",
+                "monotonicMs": 30000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": 5
+            },
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 30000,
+                "ownerId": "owner-a",
+                "monotonicMs": 30000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 31000,
+                "ownerId": "owner-a",
+                "monotonicMs": 31000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": null
+            },
+            {
+              "kind": "BREAK",
+              "start": {
+                "wallMs": 31000,
+                "ownerId": "owner-a",
+                "monotonicMs": 31000,
+                "monotonicVerified": true
+              },
+              "end": {
+                "wallMs": 32000,
+                "ownerId": "owner-a",
+                "monotonicMs": 32000,
+                "monotonicVerified": true
+              },
+              "plannedMinutes": 5
+            }
+          ],
+          "finishedAt": {
+            "wallMs": 32000,
+            "ownerId": "owner-a",
+            "monotonicMs": 32000,
+            "monotonicVerified": true
+          },
+          "endPage": null
+        }
+      },
+      "canonical": "{\"schemaVersion\":1,\"installationId\":\"install-a\",\"session\":{\"id\":\"install-a:1\",\"ordinal\":1,\"bookSnapshot\":{\"id\":\"book-a\",\"title\":\"中文与📖\",\"startPage\":12},\"firstActionSnapshot\":{\"id\":\"preset-read\",\"text\":\"翻到第12页，读第一段。\"},\"confirmedAt\":{\"wallMs\":0,\"ownerId\":\"owner-a\",\"monotonicMs\":0.0000010000000000000002,\"monotonicVerified\":true},\"startAt\":{\"wallMs\":0,\"ownerId\":\"owner-a\",\"monotonicMs\":0.0000010000000000000002,\"monotonicVerified\":true},\"intervals\":[{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":0,\"ownerId\":\"owner-a\",\"monotonicMs\":0.0000010000000000000002,\"monotonicVerified\":true},\"end\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":1000,\"monotonicVerified\":true},\"plannedMinutes\":null},{\"kind\":\"BREAK\",\"start\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":1000,\"monotonicVerified\":true},\"end\":{\"wallMs\":2000,\"ownerId\":\"owner-a\",\"monotonicMs\":2000,\"monotonicVerified\":true},\"plannedMinutes\":5},{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":2000,\"ownerId\":\"owner-a\",\"monotonicMs\":2000,\"monotonicVerified\":true},\"end\":{\"wallMs\":3000,\"ownerId\":\"owner-a\",\"monotonicMs\":3000,\"monotonicVerified\":true},\"plannedMinutes\":null},{\"kind\":\"BREAK\",\"start\":{\"wallMs\":3000,\"ownerId\":\"owner-a\",\"monotonicMs\":3000,\"monotonicVerified\":true},\"end\":{\"wallMs\":4000,\"ownerId\":\"owner-a\",\"monotonicMs\":4000,\"monotonicVerified\":true},\"plannedMinutes\":5},{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":4000,\"ownerId\":\"owner-a\",\"monotonicMs\":4000,\"monotonicVerified\":true},\"end\":{\"wallMs\":5000,\"ownerId\":\"owner-a\",\"monotonicMs\":5000,\"monotonicVerified\":true},\"plannedMinutes\":null},{\"kind\":\"BREAK\",\"start\":{\"wallMs\":5000,\"ownerId\":\"owner-a\",\"monotonicMs\":5000,\"monotonicVerified\":true},\"end\":{\"wallMs\":6000,\"ownerId\":\"owner-a\",\"monotonicMs\":6000,\"monotonicVerified\":true},\"plannedMinutes\":5},{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":6000,\"ownerId\":\"owner-a\",\"monotonicMs\":6000,\"monotonicVerified\":true},\"end\":{\"wallMs\":7000,\"ownerId\":\"owner-a\",\"monotonicMs\":7000,\"monotonicVerified\":true},\"plannedMinutes\":null},{\"kind\":\"BREAK\",\"start\":{\"wallMs\":7000,\"ownerId\":\"owner-a\",\"monotonicMs\":7000,\"monotonicVerified\":true},\"end\":{\"wallMs\":8000,\"ownerId\":\"owner-a\",\"monotonicMs\":8000,\"monotonicVerified\":true},\"plannedMinutes\":5},{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":8000,\"ownerId\":\"owner-a\",\"monotonicMs\":8000,\"monotonicVerified\":true},\"end\":{\"wallMs\":9000,\"ownerId\":\"owner-a\",\"monotonicMs\":9000,\"monotonicVerified\":true},\"plannedMinutes\":null},{\"kind\":\"BREAK\",\"start\":{\"wallMs\":9000,\"ownerId\":\"owner-a\",\"monotonicMs\":9000,\"monotonicVerified\":true},\"end\":{\"wallMs\":10000,\"ownerId\":\"owner-a\",\"monotonicMs\":10000,\"monotonicVerified\":true},\"plannedMinutes\":5},{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":10000,\"ownerId\":\"owner-a\",\"monotonicMs\":10000,\"monotonicVerified\":true},\"end\":{\"wallMs\":11000,\"ownerId\":\"owner-a\",\"monotonicMs\":11000,\"monotonicVerified\":true},\"plannedMinutes\":null},{\"kind\":\"BREAK\",\"start\":{\"wallMs\":11000,\"ownerId\":\"owner-a\",\"monotonicMs\":11000,\"monotonicVerified\":true},\"end\":{\"wallMs\":12000,\"ownerId\":\"owner-a\",\"monotonicMs\":12000,\"monotonicVerified\":true},\"plannedMinutes\":5},{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":12000,\"ownerId\":\"owner-a\",\"monotonicMs\":12000,\"monotonicVerified\":true},\"end\":{\"wallMs\":13000,\"ownerId\":\"owner-a\",\"monotonicMs\":13000,\"monotonicVerified\":true},\"plannedMinutes\":null},{\"kind\":\"BREAK\",\"start\":{\"wallMs\":13000,\"ownerId\":\"owner-a\",\"monotonicMs\":13000,\"monotonicVerified\":true},\"end\":{\"wallMs\":14000,\"ownerId\":\"owner-a\",\"monotonicMs\":14000,\"monotonicVerified\":true},\"plannedMinutes\":5},{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":14000,\"ownerId\":\"owner-a\",\"monotonicMs\":14000,\"monotonicVerified\":true},\"end\":{\"wallMs\":15000,\"ownerId\":\"owner-a\",\"monotonicMs\":15000,\"monotonicVerified\":true},\"plannedMinutes\":null},{\"kind\":\"BREAK\",\"start\":{\"wallMs\":15000,\"ownerId\":\"owner-a\",\"monotonicMs\":15000,\"monotonicVerified\":true},\"end\":{\"wallMs\":16000,\"ownerId\":\"owner-a\",\"monotonicMs\":16000,\"monotonicVerified\":true},\"plannedMinutes\":5},{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":16000,\"ownerId\":\"owner-a\",\"monotonicMs\":16000,\"monotonicVerified\":true},\"end\":{\"wallMs\":17000,\"ownerId\":\"owner-a\",\"monotonicMs\":17000,\"monotonicVerified\":true},\"plannedMinutes\":null},{\"kind\":\"BREAK\",\"start\":{\"wallMs\":17000,\"ownerId\":\"owner-a\",\"monotonicMs\":17000,\"monotonicVerified\":true},\"end\":{\"wallMs\":18000,\"ownerId\":\"owner-a\",\"monotonicMs\":18000,\"monotonicVerified\":true},\"plannedMinutes\":5},{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":18000,\"ownerId\":\"owner-a\",\"monotonicMs\":18000,\"monotonicVerified\":true},\"end\":{\"wallMs\":19000,\"ownerId\":\"owner-a\",\"monotonicMs\":19000,\"monotonicVerified\":true},\"plannedMinutes\":null},{\"kind\":\"BREAK\",\"start\":{\"wallMs\":19000,\"ownerId\":\"owner-a\",\"monotonicMs\":19000,\"monotonicVerified\":true},\"end\":{\"wallMs\":20000,\"ownerId\":\"owner-a\",\"monotonicMs\":20000,\"monotonicVerified\":true},\"plannedMinutes\":5},{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":20000,\"ownerId\":\"owner-a\",\"monotonicMs\":20000,\"monotonicVerified\":true},\"end\":{\"wallMs\":21000,\"ownerId\":\"owner-a\",\"monotonicMs\":21000,\"monotonicVerified\":true},\"plannedMinutes\":null},{\"kind\":\"BREAK\",\"start\":{\"wallMs\":21000,\"ownerId\":\"owner-a\",\"monotonicMs\":21000,\"monotonicVerified\":true},\"end\":{\"wallMs\":22000,\"ownerId\":\"owner-a\",\"monotonicMs\":22000,\"monotonicVerified\":true},\"plannedMinutes\":5},{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":22000,\"ownerId\":\"owner-a\",\"monotonicMs\":22000,\"monotonicVerified\":true},\"end\":{\"wallMs\":23000,\"ownerId\":\"owner-a\",\"monotonicMs\":23000,\"monotonicVerified\":true},\"plannedMinutes\":null},{\"kind\":\"BREAK\",\"start\":{\"wallMs\":23000,\"ownerId\":\"owner-a\",\"monotonicMs\":23000,\"monotonicVerified\":true},\"end\":{\"wallMs\":24000,\"ownerId\":\"owner-a\",\"monotonicMs\":24000,\"monotonicVerified\":true},\"plannedMinutes\":5},{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":24000,\"ownerId\":\"owner-a\",\"monotonicMs\":24000,\"monotonicVerified\":true},\"end\":{\"wallMs\":25000,\"ownerId\":\"owner-a\",\"monotonicMs\":25000,\"monotonicVerified\":true},\"plannedMinutes\":null},{\"kind\":\"BREAK\",\"start\":{\"wallMs\":25000,\"ownerId\":\"owner-a\",\"monotonicMs\":25000,\"monotonicVerified\":true},\"end\":{\"wallMs\":26000,\"ownerId\":\"owner-a\",\"monotonicMs\":26000,\"monotonicVerified\":true},\"plannedMinutes\":5},{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":26000,\"ownerId\":\"owner-a\",\"monotonicMs\":26000,\"monotonicVerified\":true},\"end\":{\"wallMs\":27000,\"ownerId\":\"owner-a\",\"monotonicMs\":27000,\"monotonicVerified\":true},\"plannedMinutes\":null},{\"kind\":\"BREAK\",\"start\":{\"wallMs\":27000,\"ownerId\":\"owner-a\",\"monotonicMs\":27000,\"monotonicVerified\":true},\"end\":{\"wallMs\":28000,\"ownerId\":\"owner-a\",\"monotonicMs\":28000,\"monotonicVerified\":true},\"plannedMinutes\":5},{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":28000,\"ownerId\":\"owner-a\",\"monotonicMs\":28000,\"monotonicVerified\":true},\"end\":{\"wallMs\":29000,\"ownerId\":\"owner-a\",\"monotonicMs\":29000,\"monotonicVerified\":true},\"plannedMinutes\":null},{\"kind\":\"BREAK\",\"start\":{\"wallMs\":29000,\"ownerId\":\"owner-a\",\"monotonicMs\":29000,\"monotonicVerified\":true},\"end\":{\"wallMs\":30000,\"ownerId\":\"owner-a\",\"monotonicMs\":30000,\"monotonicVerified\":true},\"plannedMinutes\":5},{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":30000,\"ownerId\":\"owner-a\",\"monotonicMs\":30000,\"monotonicVerified\":true},\"end\":{\"wallMs\":31000,\"ownerId\":\"owner-a\",\"monotonicMs\":31000,\"monotonicVerified\":true},\"plannedMinutes\":null},{\"kind\":\"BREAK\",\"start\":{\"wallMs\":31000,\"ownerId\":\"owner-a\",\"monotonicMs\":31000,\"monotonicVerified\":true},\"end\":{\"wallMs\":32000,\"ownerId\":\"owner-a\",\"monotonicMs\":32000,\"monotonicVerified\":true},\"plannedMinutes\":5}],\"finishedAt\":{\"wallMs\":32000,\"ownerId\":\"owner-a\",\"monotonicMs\":32000,\"monotonicVerified\":true},\"endPage\":null}}",
+      "digest": "7c1040bf4fd1b0359d8a7f764284a56243d6f3d501723eaca77d0a0216a85ce0",
+      "bytes": 7463
+    },
+    {
+      "name": "scientific-and-minimum-double",
+      "record": {
+        "schemaVersion": 1,
+        "installationId": "install-a",
+        "session": {
+          "id": "install-a:1",
+          "ordinal": 1,
+          "bookSnapshot": {
+            "id": "book-a",
+            "title": "中文与📖",
+            "startPage": 12
+          },
+          "firstActionSnapshot": {
+            "id": "preset-read",
+            "text": "翻到第12页，读第一段。"
+          },
+          "confirmedAt": {
+            "wallMs": 1000,
+            "ownerId": "owner-a",
+            "monotonicMs": 5e-324,
+            "monotonicVerified": false
+          },
+          "startAt": {
+            "wallMs": 1000,
+            "ownerId": "owner-a",
+            "monotonicMs": 5e-324,
+            "monotonicVerified": false
+          },
+          "intervals": [
+            {
+              "kind": "FOCUS",
+              "start": {
+                "wallMs": 1000,
+                "ownerId": "owner-a",
+                "monotonicMs": 5e-324,
+                "monotonicVerified": false
+              },
+              "end": {
+                "wallMs": 61000,
+                "ownerId": "owner-a",
+                "monotonicMs": 1e-7,
+                "monotonicVerified": false
+              },
+              "plannedMinutes": null
+            }
+          ],
+          "finishedAt": {
+            "wallMs": 61000,
+            "ownerId": "owner-a",
+            "monotonicMs": 1e-7,
+            "monotonicVerified": false
+          },
+          "endPage": null
+        }
+      },
+      "canonical": "{\"schemaVersion\":1,\"installationId\":\"install-a\",\"session\":{\"id\":\"install-a:1\",\"ordinal\":1,\"bookSnapshot\":{\"id\":\"book-a\",\"title\":\"中文与📖\",\"startPage\":12},\"firstActionSnapshot\":{\"id\":\"preset-read\",\"text\":\"翻到第12页，读第一段。\"},\"confirmedAt\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":5e-324,\"monotonicVerified\":false},\"startAt\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":5e-324,\"monotonicVerified\":false},\"intervals\":[{\"kind\":\"FOCUS\",\"start\":{\"wallMs\":1000,\"ownerId\":\"owner-a\",\"monotonicMs\":5e-324,\"monotonicVerified\":false},\"end\":{\"wallMs\":61000,\"ownerId\":\"owner-a\",\"monotonicMs\":1e-7,\"monotonicVerified\":false},\"plannedMinutes\":null}],\"finishedAt\":{\"wallMs\":61000,\"ownerId\":\"owner-a\",\"monotonicMs\":1e-7,\"monotonicVerified\":false},\"endPage\":null}}",
+      "digest": "05a90a55f71c591f3e807b2a93cf9c92c95c40894e64973f3b81e990be90c77a",
+      "bytes": 778
+    }
+  ]
+}

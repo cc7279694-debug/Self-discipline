@@ -14,7 +14,7 @@ data class ExportTable(val name: String, val columns: List<ExportColumn>)
 /** Explicit business-data whitelist; never inferred from runtime database tables. */
 object ReadableExportSchema {
     const val EXPORT_FORMAT_VERSION = 1
-    const val ROOM_SCHEMA_VERSION = 4
+    const val ROOM_SCHEMA_VERSION = 5
     private const val TIMESTAMP = "unix_epoch_milliseconds"
     private const val DURATION = "milliseconds"
 

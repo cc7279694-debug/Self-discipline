@@ -6,6 +6,7 @@ import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import com.guanyi.mirra.data.backup.BackupArchive
 import com.guanyi.mirra.data.backup.androidDurableFiles
+import com.guanyi.mirra.data.backup.installedAppVersion
 import com.guanyi.mirra.domain.backup.*
 import java.io.BufferedOutputStream
 import java.io.File
@@ -70,8 +71,8 @@ class DefaultDataExportService(
                     }
                     FileOutputStream(output).use { stream ->
                         val buffered = BufferedOutputStream(stream)
-                        ReadableExportWriter(limits).write(format, source, buffered, snapshot.createdAt,
-                            captured.metadata.tableCounts) {
+                        ReadableExportWriter(limits, appVersion = installedAppVersion(context)).write(format, source, buffered, snapshot.createdAt,
+                            captured.metadata.tableCounts.filterKeys { name -> ReadableExportSchema.tables.any { it.name == name } }) {
                             operation.ensureActive()
                             requireSpace(RESERVE_BYTES)
                         }

@@ -31,6 +31,7 @@ internal fun verifyClosedDatabase(resources: RestoreResources) {
             check(rows.moveToFirst() && rows.getString(0) == "ok" && !rows.moveToNext()) { "Database integrity check failed" }
         }
         database.rawQuery("PRAGMA foreign_key_check", null).use { check(!it.moveToFirst()) { "Database references are invalid" } }
-        database.rawQuery("PRAGMA user_version", null).use { check(it.moveToFirst() && it.getInt(0) == 4) { "Unsupported restored database" } }
+        // Bootstrap can recover a legitimate v4 journal before the selected DB migrates to v5.
+        database.rawQuery("PRAGMA user_version", null).use { check(it.moveToFirst() && it.getInt(0) in 4..5) { "Unsupported restored database" } }
     }
 }

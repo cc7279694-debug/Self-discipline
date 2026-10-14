@@ -76,7 +76,7 @@ class BackupArchiveTest {
         rejected { BackupArchive().validateAndExtract(changed, File(root, "stage")) }
     }
 
-    @Test fun emptyBackupRetainsAllTwelveAuthoritativeCounts() {
+    @Test fun emptyBackupRetainsAllAuthoritativeCounts() {
         val dir = File(root, "snapshot").apply { mkdir() }
         File(dir, "database.sqlite").writeText("db")
         File(dir, "images").mkdir()
@@ -87,7 +87,7 @@ class BackupArchiveTest {
 
     @Test fun unsupportedFormatSchemaAndOwnershipVersionFailClosed() {
         val entries = validEntries()
-        listOf("backupFormatVersion" to 2, "roomSchemaVersion" to 3, "ownershipNormalizationVersion" to 0).forEachIndexed { index, (key, value) ->
+        listOf("backupFormatVersion" to 3, "roomSchemaVersion" to 3, "ownershipNormalizationVersion" to 0).forEachIndexed { index, (key, value) ->
             val original = entries.getValue("metadata.json").toString(Charsets.UTF_8)
             val changed = original.replace(Regex("\"$key\":\\d+"), "\"$key\":$value")
             rejected { BackupArchive().validateAndExtract(zip("v$index.zip", entries + ("metadata.json" to changed.toByteArray())), File(root, "v$index")) }
@@ -150,7 +150,7 @@ class BackupArchiveTest {
         return java.util.zip.ZipFile(file).use { zip -> zip.entries().asSequence().associate { it.name to zip.getInputStream(it).readBytes() } }
     }
 
-    private fun counts() = listOf("learning_items", "study_intents", "study_sessions", "notes", "image_assets", "topics", "note_topic_cross_refs", "risk_apps", "session_focus_contexts", "session_risk_app_snapshots", "session_segments", "focus_events").associateWith { 0L }
+    private fun counts() = AUTHORITATIVE_TABLES.associateWith { 0L }
     private fun zip(name: String, entries: Map<String, ByteArray>): File = File(root, name).also { file ->
         ZipOutputStream(file.outputStream()).use { zip -> entries.forEach { (path, bytes) -> zip.putNextEntry(ZipEntry(path)); zip.write(bytes); zip.closeEntry() } }
     }

@@ -1,0 +1,1546 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirra.local/wearable/protocol-v4.schema.json",
+  "title": "Mirra Band protocol v4",
+  "description": "UTF-8 frame <=4096B. Preserves v1/v2/v3 behavior; LOCAL_RECORD_SYNC requires explicit recordSyncEnabled. Raw canonical completed record <=8192B, <=8 codepoint-safe parts of <=1024B, fixed30000ms deadline. OFFER always NEED/full raw; final ACK only after exact canonical DB persistence. SHA256 identifies full raw facts; CRC32 per part detects accidental corruption only. Local Session ID is exact sourceInstallationId:ordinal, ordinal<=9007199254740991.",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "HELLO"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "capabilities": {
+          "oneOf": [
+            {
+              "const": [
+                "READ_ONLY_SNAPSHOT",
+                "BOOK_CATALOG",
+                "LOCAL_RECORD_SYNC"
+              ]
+            },
+            {
+              "const": [
+                "READ_ONLY_SNAPSHOT",
+                "SESSION_CONTROL",
+                "BOOK_CATALOG",
+                "LOCAL_RECORD_SYNC"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "capabilities"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "HELLO_ACK"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "capabilities": {
+          "oneOf": [
+            {
+              "const": [
+                "READ_ONLY_SNAPSHOT",
+                "BOOK_CATALOG",
+                "LOCAL_RECORD_SYNC"
+              ]
+            },
+            {
+              "const": [
+                "READ_ONLY_SNAPSHOT",
+                "SESSION_CONTROL",
+                "BOOK_CATALOG",
+                "LOCAL_RECORD_SYNC"
+              ]
+            }
+          ]
+        },
+        "recordSyncEnabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "capabilities",
+        "recordSyncEnabled"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "GET_SNAPSHOT"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "lastSeenSessionId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "lastSeenSessionId"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "SNAPSHOT"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "sourceObservedAtUnixMs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "body": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "phase",
+            "intentId",
+            "sessionId",
+            "learningItemId",
+            "bookTitle",
+            "currentPage",
+            "totalPages",
+            "firstAction",
+            "bookTitleTruncated",
+            "firstActionTruncated",
+            "segmentType",
+            "coverage",
+            "monitorAvailability",
+            "elapsedMs",
+            "remainingMs",
+            "timerKind",
+            "endType"
+          ],
+          "properties": {
+            "phase": {
+              "enum": [
+                "IDLE",
+                "PREPARING",
+                "ACTIVE",
+                "SAVING",
+                "ENDED"
+              ]
+            },
+            "intentId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sessionId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "learningItemId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "bookTitle": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 120
+            },
+            "firstAction": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 180
+            },
+            "bookTitleTruncated": {
+              "type": "boolean"
+            },
+            "firstActionTruncated": {
+              "type": "boolean"
+            },
+            "currentPage": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "totalPages": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "segmentType": {
+              "enum": [
+                null,
+                "FOCUS",
+                "DEEP_FOCUS",
+                "BREAK",
+                "TEMPORARY_ALLOWANCE",
+                "DISTRACTION",
+                "RECOVERY",
+                "UNMONITORED"
+              ]
+            },
+            "coverage": {
+              "enum": [
+                null,
+                "FULL",
+                "PARTIAL",
+                "NONE"
+              ]
+            },
+            "monitorAvailability": {
+              "enum": [
+                "AVAILABLE",
+                "UNAVAILABLE",
+                "UNKNOWN"
+              ]
+            },
+            "elapsedMs": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "remainingMs": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "timerKind": {
+              "enum": [
+                "NONE",
+                "PREPARATION_ELAPSED",
+                "SESSION_ELAPSED",
+                "BREAK_REMAINING",
+                "ALLOWANCE_REMAINING",
+                "FINAL_SESSION_DURATION"
+              ]
+            },
+            "endType": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 40
+            }
+          }
+        },
+        "control": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "activeSegmentId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "allowedActions": {
+              "type": "array",
+              "uniqueItems": true,
+              "maxItems": 3,
+              "items": {
+                "enum": [
+                  "START_BREAK",
+                  "FINISH_BREAK",
+                  "CONFIRM_PREPARATION_AND_START"
+                ]
+              }
+            },
+            "controlGrant": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "grantExpiresAtUnixMs": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "expectedFirstAction": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 180,
+                  "pattern": "\\S"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "activeSegmentId",
+            "allowedActions",
+            "controlGrant",
+            "grantExpiresAtUnixMs",
+            "expectedFirstAction"
+          ],
+          "oneOf": [
+            {
+              "properties": {
+                "allowedActions": {
+                  "const": []
+                },
+                "controlGrant": {
+                  "type": "null"
+                },
+                "grantExpiresAtUnixMs": {
+                  "type": "null"
+                },
+                "expectedFirstAction": {
+                  "type": "null"
+                }
+              }
+            },
+            {
+              "properties": {
+                "allowedActions": {
+                  "minItems": 1
+                },
+                "controlGrant": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+                },
+                "grantExpiresAtUnixMs": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                }
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "sequence",
+        "sourceObservedAtUnixMs",
+        "body",
+        "control"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "STATUS_ERROR"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "code": {
+          "enum": [
+            "SOURCE_BUSY",
+            "DISABLED",
+            "UNSUPPORTED_PROTOCOL",
+            "SOURCE_UNAVAILABLE",
+            "UNAUTHORIZED",
+            "IDENTITY_ERROR"
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "code"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "COMMAND"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "controlGrant": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "action": {
+          "const": "START_BREAK"
+        },
+        "expectedIntentId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expectedSessionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "expectedSegmentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "expectedBookId": {
+          "type": "null"
+        },
+        "expectedPage": {
+          "type": "null"
+        },
+        "expectedFirstAction": {
+          "type": "null"
+        },
+        "breakMinutes": {
+          "enum": [
+            5,
+            10
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "controlGrant",
+        "action",
+        "expectedIntentId",
+        "expectedSessionId",
+        "expectedSegmentId",
+        "expectedBookId",
+        "expectedPage",
+        "expectedFirstAction",
+        "breakMinutes"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "COMMAND"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "controlGrant": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "action": {
+          "const": "FINISH_BREAK"
+        },
+        "expectedIntentId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expectedSessionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "expectedSegmentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "expectedBookId": {
+          "type": "null"
+        },
+        "expectedPage": {
+          "type": "null"
+        },
+        "expectedFirstAction": {
+          "type": "null"
+        },
+        "breakMinutes": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "controlGrant",
+        "action",
+        "expectedIntentId",
+        "expectedSessionId",
+        "expectedSegmentId",
+        "expectedBookId",
+        "expectedPage",
+        "expectedFirstAction",
+        "breakMinutes"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "COMMAND"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "controlGrant": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "action": {
+          "const": "CONFIRM_PREPARATION_AND_START"
+        },
+        "expectedIntentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "expectedSessionId": {
+          "type": "null"
+        },
+        "expectedSegmentId": {
+          "type": "null"
+        },
+        "expectedBookId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "expectedPage": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "expectedFirstAction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180,
+          "pattern": "\\S"
+        },
+        "breakMinutes": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "controlGrant",
+        "action",
+        "expectedIntentId",
+        "expectedSessionId",
+        "expectedSegmentId",
+        "expectedBookId",
+        "expectedPage",
+        "expectedFirstAction",
+        "breakMinutes"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "COMMAND_RESULT"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "action": {
+          "enum": [
+            "START_BREAK",
+            "FINISH_BREAK",
+            "CONFIRM_PREPARATION_AND_START"
+          ]
+        },
+        "code": {
+          "enum": [
+            "APPLIED",
+            "ALREADY_APPLIED",
+            "STALE_STATE",
+            "REQUIRES_PHONE",
+            "DISABLED",
+            "UNAUTHORIZED",
+            "BUSY",
+            "FAILED",
+            "RESULT_UNKNOWN"
+          ]
+        },
+        "sessionId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "monitorDegraded": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "action",
+        "code",
+        "sessionId",
+        "monitorDegraded"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "monitorDegraded": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "CONFIRM_PREPARATION_AND_START"
+              },
+              "code": {
+                "enum": [
+                  "APPLIED",
+                  "ALREADY_APPLIED"
+                ]
+              },
+              "sessionId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "enum": [
+                  "APPLIED",
+                  "ALREADY_APPLIED"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "sessionId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "GET_CATALOG"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "knownRevision": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^catalog-[0-9a-f]{8}-[1-9][0-9]{0,4}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "knownRevision"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "CATALOG_MANIFEST"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^catalog-[0-9a-f]{8}-[1-9][0-9]{0,4}$"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "totalBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        },
+        "partCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32
+        },
+        "bookCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 12
+        },
+        "checksum": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}$"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "revision",
+        "schemaVersion",
+        "totalBytes",
+        "partCount",
+        "bookCount",
+        "checksum"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "CATALOG_PART"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^catalog-[0-9a-f]{8}-[1-9][0-9]{0,4}$"
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 31
+        },
+        "data": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checksum": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}$"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "revision",
+        "index",
+        "data",
+        "checksum"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "CATALOG_ACK"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^catalog-[0-9a-f]{8}-[1-9][0-9]{0,4}$"
+        },
+        "code": {
+          "const": "PERSISTED"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "revision",
+        "code"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "CATALOG_ERROR"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "code": {
+          "enum": [
+            "CATALOG_DISABLED",
+            "CATALOG_TOO_LARGE",
+            "SOURCE_UNAVAILABLE",
+            "SOURCE_BUSY",
+            "INVALID_CATALOG",
+            "TIMEOUT",
+            "CONFLICT",
+            "PERSIST_FAILED",
+            "RESULT_UNKNOWN"
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "code"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "LOCAL_RECORD_OFFER"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "sourceInstallationId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "localSessionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}:[1-9][0-9]{0,15}$",
+          "maxLength": 81
+        },
+        "recordDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "totalBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "partCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "sourceInstallationId",
+        "localSessionId",
+        "recordDigest",
+        "totalBytes",
+        "schemaVersion",
+        "partCount"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "LOCAL_RECORD_NEED"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "sourceInstallationId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "localSessionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}:[1-9][0-9]{0,15}$",
+          "maxLength": 81
+        },
+        "recordDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "totalBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "code": {
+          "const": "NEED"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "sourceInstallationId",
+        "localSessionId",
+        "recordDigest",
+        "totalBytes",
+        "code"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "LOCAL_RECORD_PART"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "sourceInstallationId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "localSessionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}:[1-9][0-9]{0,15}$",
+          "maxLength": 81
+        },
+        "recordDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "totalBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "data": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "checksum": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}$"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "sourceInstallationId",
+        "localSessionId",
+        "recordDigest",
+        "totalBytes",
+        "index",
+        "data",
+        "checksum"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "LOCAL_RECORD_COMMIT"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "sourceInstallationId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "localSessionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}:[1-9][0-9]{0,15}$",
+          "maxLength": 81
+        },
+        "recordDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "totalBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "sourceInstallationId",
+        "localSessionId",
+        "recordDigest",
+        "totalBytes"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "LOCAL_RECORD_ACK"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "sourceInstallationId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "localSessionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}:[1-9][0-9]{0,15}$",
+          "maxLength": 81
+        },
+        "recordDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "totalBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "code": {
+          "enum": [
+            "IMPORTED",
+            "ALREADY_IMPORTED"
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "sourceInstallationId",
+        "localSessionId",
+        "recordDigest",
+        "totalBytes",
+        "code"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 4
+        },
+        "type": {
+          "const": "LOCAL_RECORD_ERROR"
+        },
+        "clientInstanceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "streamId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,80}$"
+        },
+        "sourceInstallationId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$"
+        },
+        "localSessionId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}:[1-9][0-9]{0,15}$",
+          "maxLength": 81
+        },
+        "recordDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "totalBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "code": {
+          "enum": [
+            "DISABLED",
+            "BUSY",
+            "INVALID_RECORD",
+            "CONFLICT",
+            "TIMEOUT",
+            "DB_FAILED",
+            "RESULT_UNKNOWN",
+            "RECORD_TOO_LARGE",
+            "SOURCE_UNAVAILABLE",
+            "PERSIST_FAILED"
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "type",
+        "clientInstanceId",
+        "requestId",
+        "streamId",
+        "sourceInstallationId",
+        "localSessionId",
+        "recordDigest",
+        "totalBytes",
+        "code"
+      ]
+    }
+  ],
+  "$defs": {
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "books": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,48}$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "totalPages": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 999999
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "currentPage": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 999999
+              },
+              "firstAction": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "isMainline": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "totalPages",
+              "currentPage",
+              "firstAction",
+              "isMainline"
+            ]
+          }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "books"
+      ]
+    }
+  }
+}

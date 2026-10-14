@@ -90,7 +90,7 @@ class RestoreJournalAndroidTest {
                 fixture.assertGeneration(if (committed) RestoreTestGeneration.NEW else RestoreTestGeneration.OLD)
                 assertFalse(restarted.hasPendingRecovery())
                 if (committed) newSelections++ else oldSelections++
-                println("MIRRA_4C_ANDROID_JOURNAL boundary=$boundary selected=${if (committed) "new" else "old"} resources=3 tables=12 unknownOldTypes=8")
+                println("MIRRA_4C_ANDROID_JOURNAL boundary=$boundary selected=${if (committed) "new" else "old"} resources=3 tables=${AUTHORITATIVE_TABLES.size} unknownOldTypes=8")
             } finally { fixture.removeSyntheticRoot() }
         }
         assertEquals(9, oldSelections)
@@ -132,7 +132,7 @@ class RestoreJournalAndroidTest {
         } finally { fixture.removeSyntheticRoot() }
     }
 
-    @Test fun thousandNoteSnapshotArchiveAndJournalRoundTripRetainsAllTwelveTables() = runBlocking {
+    @Test fun thousandNoteSnapshotArchiveAndJournalRoundTripRetainsAllAuthoritativeTables() = runBlocking {
         val fixture = RestoreAndroidFixture(context, restoreAndroidTestRoot(context, "restore-journal-android", UUID.randomUUID().toString()))
         try {
             fixture.seed(noteCount = 1_000)
@@ -140,9 +140,10 @@ class RestoreJournalAndroidTest {
             val snapshot = try {
                 BackupDatabaseSnapshot(context).capture(source, fixture.live.images, File(fixture.root, "snapshot"))
             } finally { source.close() }
-            assertEquals(12, snapshot.tableCounts.size)
+            assertEquals(13, snapshot.tableCounts.size)
             assertEquals(1_000L, snapshot.tableCounts.getValue("notes"))
-            assertTrue(snapshot.tableCounts.filterKeys { it != "notes" }.values.all { it == 1L })
+            assertTrue(LEGACY_AUTHORITATIVE_TABLES.filter { it != "notes" }.all { snapshot.tableCounts.getValue(it) == 1L })
+            assertEquals(0L, snapshot.tableCounts.getValue("wearable_completed_records"))
             val archive = File(fixture.root, "synthetic-backup.zip")
             BackupArchive().create(snapshot, archive, restoreTestPortablePreferences(RestoreTestGeneration.OLD), 60_002)
             val validated = BackupArchive().validateAndExtract(archive, File(fixture.root, "extracted"))
@@ -157,7 +158,7 @@ class RestoreJournalAndroidTest {
             journal.apply(journal.prepare(candidate))
             fixture.assertGeneration(RestoreTestGeneration.OLD, noteCount = 1_000, includeOldUnknownKeys = false)
             assertFalse(journal.hasPendingRecovery())
-            println("MIRRA_4C_ANDROID_LARGE_ROUNDTRIP notes=1000 tables=12 jpeg=1 chineseSearch=true formalArchive=true")
+            println("MIRRA_4C_ANDROID_LARGE_ROUNDTRIP notes=1000 tables=${AUTHORITATIVE_TABLES.size} jpeg=1 chineseSearch=true formalArchive=true")
         } finally { fixture.removeSyntheticRoot() }
     }
 }
@@ -296,7 +297,11 @@ internal class RestoreAndroidFixture(private val context: Context, val root: Fil
             AUTHORITATIVE_TABLES.forEach { table ->
                 raw.query("SELECT COUNT(*) FROM `$table`").use {
                     assertTrue(it.moveToFirst())
-                    assertEquals("Preserve $table", if (table == "notes") noteCount.toLong() else 1L, it.getLong(0))
+                    assertEquals("Preserve $table", when (table) {
+                        "notes" -> noteCount.toLong()
+                        "wearable_completed_records" -> 0L
+                        else -> 1L
+                    }, it.getLong(0))
                 }
             }
             assertEquals("${generation.text}学习", database.learningItemDao().get("${generation.token}-book")?.name)

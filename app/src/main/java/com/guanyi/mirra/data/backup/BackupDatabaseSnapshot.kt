@@ -65,10 +65,19 @@ class BackupDatabaseSnapshot(private val context: Context, private val limits: B
                     incoming.execSQL("PRAGMA trusted_schema=OFF")
                     val query: (String) -> Cursor = { sql -> budget.check(); incoming.rawQuery(sql, null, budget.signal) }
                     val validator = BackupValidation(limits)
-                    validator.validateSchema(query, target)
-                    val counts = validator.validateBusiness(query, requirePortableOwnership = true)
-                    demand(counts == validated.metadata.tableCounts && counts.getValue("image_assets") == validated.metadata.imageCount.toLong(), "Database and manifest counts disagree")
-                    copyRows(query, target, normalizeOwnership = false, budget)
+                    val version = validated.metadata.roomSchemaVersion
+                    val tables = backupTablesForSchema(version)
+                    // This empty reference is compiled solely from locally owned frozen v4 entities.
+                    // It never opens incoming bytes and never migrates or publishes their schema.
+                    val legacy = if (version == 4) Room.inMemoryDatabaseBuilder(context, LegacyBackupDatabaseV4::class.java).build() else null
+                    val incomingCounts = try {
+                        validator.validateSchema(query, legacy?.openHelper?.readableDatabase ?: target, version)
+                        validator.validateBusiness(query, requirePortableOwnership = true, schemaVersion = version)
+                    } finally { legacy?.close() }
+                    demand(incomingCounts == validated.metadata.tableCounts && incomingCounts.getValue("image_assets") == validated.metadata.imageCount.toLong(), "Database and manifest counts disagree")
+                    copyRows(query, target, normalizeOwnership = false, budget, tables)
+                    // A full old backup restores its exact old facts; the new archive begins empty.
+                    val counts = AUTHORITATIVE_TABLES.associateWith { incomingCounts[it] ?: 0L }
                     copyImages(query, File(validated.root, "images"), File(newEmptyDir, "images"), budget)
                     finishCleanDatabase(target, counts, portable = true, budget)
                     clean.close()
@@ -95,10 +104,11 @@ class BackupDatabaseSnapshot(private val context: Context, private val limits: B
         budget.check(); database.query(SimpleSQLiteQuery(sql), budget.signal)
     }
 
-    private fun copyRows(query: (String) -> Cursor, target: SupportSQLiteDatabase, normalizeOwnership: Boolean, budget: SqlBudget) {
+    private fun copyRows(query: (String) -> Cursor, target: SupportSQLiteDatabase, normalizeOwnership: Boolean, budget: SqlBudget,
+        tables: List<String> = AUTHORITATIVE_TABLES) {
         target.beginTransaction()
         try {
-            AUTHORITATIVE_TABLES.forEach { table ->
+            tables.forEach { table ->
                 val columns = target.query("PRAGMA table_info(`$table`)").use { rows -> buildList { while (rows.moveToNext()) add(rows.getString(rows.getColumnIndexOrThrow("name"))) } }
                 val names = columns.joinToString(",") { "`$it`" }
                 val parameters = columns.joinToString(",") { "?" }

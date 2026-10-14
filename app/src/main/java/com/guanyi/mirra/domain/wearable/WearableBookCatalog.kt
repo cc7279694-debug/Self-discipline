@@ -100,7 +100,7 @@ object WearableCatalogProtocol {
     fun decodeRequest(tree: JsonObject): WearableRequest {
         validateMessage(tree)
         require(tree.getValue("type").jsonPrimitive.content in setOf("GET_CATALOG", "CATALOG_ACK", "CATALOG_ERROR"))
-        return WearableRequest(3, tree.getValue("type").jsonPrimitive.content,
+        return WearableRequest(tree.getValue("protocolVersion").jsonPrimitive.int, tree.getValue("type").jsonPrimitive.content,
             tree.getValue("clientInstanceId").jsonPrimitive.content, tree.getValue("requestId").jsonPrimitive.content,
             tree.getValue("streamId").jsonPrimitive.content,
             knownRevision = tree["knownRevision"]?.takeIf { it != JsonNull }?.jsonPrimitive?.content,
@@ -112,7 +112,7 @@ object WearableCatalogProtocol {
         fun number(key: String) = tree.getValue(key).jsonPrimitive.let { require(!it.isString); checkNotNull(it.intOrNull) }
         fun validRevision(value: String): Boolean = revision.matches(value) &&
             value.substringAfterLast('-').toIntOrNull()?.let { it in 1..MAX_CATALOG_BYTES } == true
-        require(number("protocolVersion") == 3)
+        require(number("protocolVersion") in 3..4)
         listOf("clientInstanceId", "requestId", "streamId").forEach { require(wireId.matches(text(it))) }
         val type = text("type")
         require(tree.keys == common + when (type) {
@@ -140,9 +140,9 @@ object WearableCatalogProtocol {
         }
     }
     private fun frame(request: WearableRequest, stream: String, type: String, fields: JsonObjectBuilder.() -> Unit): ByteArray {
-        require(request.protocolVersion == 3)
+        require(request.protocolVersion in 3..4)
         val tree = buildJsonObject {
-            put("protocolVersion", 3); put("type", type); put("clientInstanceId", request.clientInstanceId)
+            put("protocolVersion", request.protocolVersion); put("type", type); put("clientInstanceId", request.clientInstanceId)
             put("requestId", request.requestId); put("streamId", stream); fields()
         }
         validateMessage(tree)

@@ -1,5 +1,8 @@
 package com.guanyi.mirra.platform.wearable
 
+import com.guanyi.mirra.domain.wearable.WearableCatalogProtocol
+import com.guanyi.mirra.domain.wearable.WearableRecordFrame
+import com.guanyi.mirra.domain.wearable.WearableRecordProtocol
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -16,6 +19,171 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class OwnedWearTransportTest {
+    @Test fun recordBurstSurvivesSuspendedAuthorizationInOrderWithOneWorker() = runTest {
+        val sdk = FakeGateway()
+        val listener = RecordingListener()
+        val transport = OwnedWearTransport({ sdk }, this)
+        transport.setListener(listener); transport.connect()
+        val before = sdk.authorizationChecks
+        sdk.authorizationCheckBarrier = CompletableDeferred()
+        val expected = (0 until 8).map { recordPart(it) } + recordCommit()
+        expected.forEachIndexed { index, raw ->
+            val nativeBuffer = raw.copyOf()
+            sdk.messageCallback?.invoke("node-1", nativeBuffer)
+            nativeBuffer.fill(0)
+            if (index == 0) runCurrent()
+        }
+        assertEquals(before + 1, sdk.authorizationChecks)
+        assertTrue(listener.messages.isEmpty())
+        sdk.authorizationCheckBarrier?.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(expected.map { it.toList() }, listener.messages.map { it.toList() })
+        assertEquals(before + expected.size, sdk.authorizationChecks)
+        assertEquals(1, sdk.maxAuthorizationChecksInFlight)
+        assertEquals(1, sdk.listenCalls)
+        assertEquals(0, sdk.authorizationRequests)
+        transport.close()
+    }
+
+    @Test fun recordQueueAcceptsTenEntriesAndRetiresAnEleventhBeforeDelivery() = runTest {
+        for (count in listOf(10, 11)) {
+            val sdk = FakeGateway()
+            val listener = RecordingListener()
+            val transport = OwnedWearTransport({ sdk }, this)
+            transport.setListener(listener); transport.connect()
+            sdk.authorizationCheckBarrier = CompletableDeferred()
+            repeat(count) { index ->
+                sdk.messageCallback?.invoke("node-1", recordPart(index % 8))
+                if (index == 0) runCurrent()
+            }
+            sdk.authorizationCheckBarrier?.complete(Unit)
+            advanceUntilIdle()
+            if (count == 10) {
+                assertEquals(10, listener.messages.size)
+                assertTrue(listener.errors.isEmpty())
+            } else {
+                assertTrue(listener.messages.isEmpty())
+                assertEquals(listOf("MESSAGE_OVERFLOW"), listener.errors)
+                assertCategory("SERVICE_UNAVAILABLE") { transport.send("node-1", byteArrayOf(1)) }
+            }
+            transport.close()
+        }
+    }
+
+    @Test fun recordQueueBoundsAllRetainedWireBytesAtThirtyTwoKiB() = runTest {
+        for (count in listOf(8, 9)) {
+            val sdk = FakeGateway()
+            val listener = RecordingListener()
+            val transport = OwnedWearTransport({ sdk }, this)
+            transport.setListener(listener); transport.connect()
+            sdk.authorizationCheckBarrier = CompletableDeferred()
+            val raw = recordPart(0)
+            val padded = ByteArray(4_096 - raw.size) { 32 } + raw
+            repeat(count) { index ->
+                sdk.messageCallback?.invoke("node-1", padded)
+                if (index == 0) runCurrent()
+            }
+            sdk.authorizationCheckBarrier?.complete(Unit)
+            advanceUntilIdle()
+            assertEquals(if (count == 8) 8 else 0, listener.messages.size)
+            assertEquals(if (count == 8) emptyList<String>() else listOf("MESSAGE_OVERFLOW"), listener.errors)
+            transport.close()
+        }
+    }
+
+    @Test fun closeAndMaintenanceDetachCancelQueuedRecordsBeforeReplacementListener() = runTest {
+        for (detach in listOf(false, true)) {
+            val sdk = FakeGateway()
+            val listener = RecordingListener()
+            val replacement = RecordingListener()
+            val transport = OwnedWearTransport({ sdk }, this)
+            transport.setListener(listener); transport.connect()
+            val oldCallback = checkNotNull(sdk.messageCallback)
+            sdk.authorizationCheckBarrier = CompletableDeferred()
+            oldCallback("node-1", recordPart(0)); runCurrent()
+            oldCallback("node-1", recordPart(1))
+            if (detach) transport.setListener(null) else transport.close()
+            transport.setListener(replacement)
+            sdk.authorizationCheckBarrier?.complete(Unit)
+            advanceUntilIdle()
+            assertTrue(listener.messages.isEmpty())
+            assertTrue(replacement.messages.isEmpty())
+            if (!detach) {
+                transport.connect()
+                oldCallback("node-1", recordPart(2))
+            }
+            sdk.messageCallback?.invoke("node-1", recordCommit())
+            advanceUntilIdle()
+            assertEquals(listOf(recordCommit().toList()), replacement.messages.map { it.toList() })
+            assertEquals(if (detach) 1 else 2, sdk.listenCalls)
+            transport.close()
+        }
+    }
+
+    @Test fun authorizationRevocationDropsTheWholeRecordQueueAndRequiresReconnect() = runTest {
+        val sdk = FakeGateway()
+        val listener = RecordingListener()
+        val transport = OwnedWearTransport({ sdk }, this)
+        transport.setListener(listener); transport.connect()
+        val before = sdk.authorizationChecks
+        sdk.authorizationCheckBarrier = CompletableDeferred()
+        sdk.messageCallback?.invoke("node-1", recordPart(0)); runCurrent()
+        sdk.messageCallback?.invoke("node-1", recordPart(1))
+        sdk.messageCallback?.invoke("node-1", recordCommit())
+        sdk.authorized = false
+        sdk.authorizationCheckBarrier?.complete(Unit)
+        advanceUntilIdle()
+        assertTrue(listener.messages.isEmpty())
+        assertEquals(listOf("NOT_AUTHORIZED"), listener.errors)
+        assertEquals(before + 1, sdk.authorizationChecks)
+        sdk.authorized = true
+        sdk.messageCallback?.invoke("node-1", recordCommit())
+        advanceUntilIdle()
+        assertTrue(listener.messages.isEmpty())
+        transport.connect()
+        sdk.messageCallback?.invoke("node-1", recordCommit())
+        advanceUntilIdle()
+        assertEquals(1, listener.messages.size)
+        transport.close()
+    }
+
+    @Test fun busyLegacyMessagesStillDropAndOnlyStrictV4RecordsCanQueue() = runTest {
+        val sdk = FakeGateway()
+        val listener = RecordingListener()
+        val transport = OwnedWearTransport({ sdk }, this)
+        transport.setListener(listener); transport.connect()
+        sdk.authorizationCheckBarrier = CompletableDeferred()
+        sdk.messageCallback?.invoke("node-1", recordPart(0)); runCurrent()
+        val raw = recordPart(1).toString(Charsets.UTF_8)
+        val rejected = listOf(
+            byteArrayOf(42),
+            raw.replace("\"protocolVersion\":4", "\"protocolVersion\":3").toByteArray(),
+            raw.replace("\"index\":1", "\"index\":1,\"extra\":true").toByteArray(),
+            raw.replace("\"requestId\":\"request-a\"", "\"requestId\":\"request-a\",\"requestId\":\"request-a\"").toByteArray(),
+            raw.replace("\"checksum\":\"${WearableCatalogProtocol.checksum("part-1".toByteArray())}\"", "\"checksum\":\"00000000\"").toByteArray(),
+        )
+        rejected.forEach { sdk.messageCallback?.invoke("node-1", it) }
+        sdk.messageCallback?.invoke("foreign", recordPart(1))
+        sdk.messageCallback?.invoke("node-1", ByteArray(4_097))
+        sdk.messageCallback?.invoke("node-1", recordCommit())
+        sdk.authorizationCheckBarrier?.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(listOf(recordPart(0).toList(), recordCommit().toList()), listener.messages.map { it.toList() })
+        assertEquals(listOf("WRONG_DEVICE", "INVALID_MESSAGE"), listener.errors)
+        transport.close()
+    }
+
+    private fun recordPart(index: Int): ByteArray {
+        val data = "part-$index"
+        return WearableRecordProtocol.encode(recordFrame("LOCAL_RECORD_PART").copy(index = index,
+            data = data, checksum = WearableCatalogProtocol.checksum(data.toByteArray(Charsets.UTF_8))))
+    }
+
+    private fun recordCommit() = WearableRecordProtocol.encode(recordFrame("LOCAL_RECORD_COMMIT"))
+
+    private fun recordFrame(type: String) = WearableRecordFrame(type, "client-a", "request-a", "stream-a",
+        "install-a", "install-a:1", "a".repeat(64), 8_192)
+
     @Test fun startupEmptyNodesRecoverThroughTheRealCoordinatorAndOwnedTransport() = runTest {
         val sdk = FakeGateway().apply { nodes = emptyList() }
         val transport = OwnedWearTransport({ sdk }, backgroundScope)
@@ -429,11 +597,21 @@ class OwnedWearTransportTest {
         var registrationBarrier: CompletableDeferred<Unit>? = null
         var removalBarrier: CompletableDeferred<Unit>? = null
         var authorizationBarrier: CompletableDeferred<Unit>? = null
+        var authorizationCheckBarrier: CompletableDeferred<Unit>? = null
+        var authorizationChecks = 0
+        var authorizationChecksInFlight = 0
+        var maxAuthorizationChecksInFlight = 0
         val removedNodes = mutableListOf<String>()
         val sentMessages = mutableListOf<ByteArray>()
         override suspend fun serviceApiLevel() = 1
         override suspend fun connectedNodes() = nodes
-        override suspend fun authorized(nodeId: String) = authorized
+        override suspend fun authorized(nodeId: String): Boolean {
+            authorizationChecks++
+            authorizationChecksInFlight++
+            maxAuthorizationChecksInFlight = maxOf(maxAuthorizationChecksInFlight, authorizationChecksInFlight)
+            try { authorizationCheckBarrier?.await(); return authorized }
+            finally { authorizationChecksInFlight-- }
+        }
         override suspend fun requestAuthorization(nodeId: String): Boolean {
             authorizationRequests++
             authorizationBarrier?.await()

@@ -121,3 +121,17 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_focus_events_sessionId_occurredAt` ON `focus_events` (`sessionId`, `occurredAt`)")
     }
 }
+
+/** Additive independent archive: does not modify any phone learning fact or link book deletion. */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `wearable_completed_records` (
+              `installationId` TEXT NOT NULL, `sessionId` TEXT NOT NULL,
+              `canonical` TEXT NOT NULL, `digest` TEXT NOT NULL,
+              `bytes` INTEGER NOT NULL, `receivedAt` INTEGER NOT NULL,
+              PRIMARY KEY(`installationId`, `sessionId`))
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_wearable_completed_records_receivedAt` ON `wearable_completed_records` (`receivedAt`)")
+    }
+}

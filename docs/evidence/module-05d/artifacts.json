@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-14",
+  "stage": "05D",
+  "artifacts": [
+    {
+      "type": "APK",
+      "path": "E:\\CODEX\\mirra-watch\\dist\\Mirra-1.4.0-band-record-sync-debug.apk",
+      "package": "com.guanyi.mirra",
+      "versionName": "1.4.0",
+      "versionCode": 9,
+      "bytes": 17016301,
+      "sha256": "1f1ad829a179318d640190b6d1ddaefd37a23431c3e03b66a7426fe5ab0faaac",
+      "certificateSha256": "29ded26bea44f1afe4fe383a302e4b507423d16223469d7da3fe578d9a7f83b9"
+    },
+    {
+      "type": "RPK",
+      "path": "E:\\CODEX\\mirra-watch\\dist\\com.guanyi.mirra.release.0.5.0.rpk",
+      "package": "com.guanyi.mirra",
+      "versionName": "0.5.0",
+      "versionCode": 11,
+      "bytes": 87768,
+      "sha256": "e3063f93832f4113585a1490fc2e9def54fd0c7bcfae90534a4af7dc48b56d3f",
+      "certificateSha256": "29ded26bea44f1afe4fe383a302e4b507423d16223469d7da3fe578d9a7f83b9"
+    }
+  ],
+  "protectedPreviousArtifactsAndDependencies": {
+    "count": 27,
+    "mismatches": []
+  },
+  "signature": {
+    "APK": "apksigner verify v1/v2, original 1.3.0 certificate matched",
+    "RPK": "RSA-SHA256; content and per-file digests; ZIP CRC; tamper checks verified"
+  },
+  "installation": {
+    "physical": "NOT_RUN",
+    "realUserDatabaseUpgrade": "NOT_RUN",
+    "reason": "Current authorization excludes formal installation and real user database operations",
+    "comparison": "Host artifacts only; no installed physical version/fingerprint preflight"
+  },
+  "baselines": {
+    "Band": "1c2ac537545f4d5cb365dfa7e276cbd24cd2425f",
+    "Android": "6589a19f0305245fe0e63bf77f105f61f27a913e",
+    "originalPhoneCheckout": "1338b9a4e41788082f30bf3894a974c2ff652630"
+  }
+}

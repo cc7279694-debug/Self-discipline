@@ -337,7 +337,7 @@ class InstalledBackupJourneyFixture {
 
     private fun assertSyntheticReferences(owner: BackupStorageOwner, marker: Properties) {
         val keys = syntheticKeys()
-        assertEquals(AUTHORITATIVE_TABLES.toSet(), keys.keys)
+        assertEquals(LEGACY_AUTHORITATIVE_TABLES.toSet(), keys.keys)
         keys.forEach { (table, key) ->
             owner.backupDatabase.openHelper.readableDatabase.query("SELECT COUNT(*) FROM `$table` WHERE `${key.first}`=?", arrayOf(marker.id(key.second))).use { rows ->
                 assertTrue(rows.moveToFirst()); assertEquals("Synthetic identifier missing from $table", 1L, rows.getLong(0))
@@ -360,7 +360,7 @@ class InstalledBackupJourneyFixture {
         val counts = linkedMapOf<String, Long>()
         owner.backupDatabase.withTransaction {
             val database = owner.backupDatabase.openHelper.readableDatabase
-            assertEquals(12, AUTHORITATIVE_TABLES.size)
+            assertEquals(13, AUTHORITATIVE_TABLES.size)
             for (table in AUTHORITATIVE_TABLES.sorted()) {
                 hash.text(table)
                 val columns = database.query("PRAGMA table_info(`$table`)").use { rows ->

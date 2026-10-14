@@ -1,0 +1,736 @@
+{
+  "date": "2026-10-14",
+  "stage": "05D",
+  "Node": {
+    "tests": 740,
+    "passed": 740,
+    "failed": 0,
+    "skipped": 0,
+    "command": "node --test --test-concurrency=2 tests/*.test.cjs",
+    "log": ".local/05d-node-verified.log"
+  },
+  "syntax": {
+    "checkedScripts": 124,
+    "pages": 4,
+    "errors": []
+  },
+  "JVM": {
+    "suites": 91,
+    "tests": 849,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 20,
+    "hints": 1
+  },
+  "build": {
+    "Android": "BUILD SUCCESSFUL in 12m 40s; testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest",
+    "RPK": "Actual aiot-toolkit 2.0.5 release live; Node24.18.1"
+  },
+  "compiledRecordSync": {
+    "status": "PASS",
+    "version": "0.5.0/code11",
+    "certificate": "29:DE:D2:6B:EA:44:F1:AF:E4:FE:38:3A:30:2E:4B:50:74:23:D1:62:23:46:9D:7D:A3:FE:57:8D:9A:7F:83:B9",
+    "checks": [
+      "signed compiled app owner",
+      "native-shaped file and SHA oracle",
+      "initial snapshot before upload",
+      "competing controls blocked during record commit",
+      "phone commit without ACK retains pending",
+      "v4 HELLO/NEED/full record/ACK",
+      "one Interconnect instance",
+      "dual sealed raw archive before pending release",
+      "retired resources"
+    ],
+    "boundary": "Actual signed RPK JavaScript in Node with synthetic native callbacks and phone commit; no firmware, wireless or real Room proof"
+  },
+  "compiledTheme": {
+    "status": "PASS",
+    "pages": [
+      {
+        "page": "Mode",
+        "status": "PASS",
+        "branchFixtures": 256
+      },
+      {
+        "page": "Home",
+        "status": "PASS",
+        "branchFixtures": 256
+      },
+      {
+        "page": "Detail",
+        "status": "PASS",
+        "branchFixtures": 256
+      },
+      {
+        "page": "Control",
+        "status": "PASS",
+        "branchFixtures": 256
+      },
+      {
+        "page": "Connection",
+        "status": "PASS",
+        "branchFixtures": 256
+      },
+      {
+        "page": "LocalSession",
+        "status": "PASS",
+        "branchFixtures": 256
+      }
+    ],
+    "boundary": "Signed compiled declarations and native bindings in Node fixtures; no firmware pixels/layout proof"
+  },
+  "native": {
+    "status": "PASS",
+    "total": 70,
+    "passed": 70,
+    "failed": 0,
+    "skipped": 0,
+    "assumptions": 0,
+    "reportedNumTests": 70,
+    "environment": {
+      "kind": "Project-owned isolated Android emulator",
+      "serial": "emulator-5580",
+      "avd": "MirraBand_Module03_API37",
+      "api": 37,
+      "appVersion": "1.4.0",
+      "appVersionCode": 9,
+      "appSha256": "1f1ad829a179318d640190b6d1ddaefd37a23431c3e03b66a7426fe5ab0faaac",
+      "testSha256": "76808be7ab920fc4dfa5d4d742c7d4c44c047669e937b39d013b9276528f0b15",
+      "certificateSha256": "29ded26bea44f1afe4fe383a302e4b507423d16223469d7da3fe578d9a7f83b9"
+    },
+    "boundaries": {
+      "fixtureOnly": true,
+      "physicalDevice": "NOT_RUN",
+      "realUserDatabase": "NOT_RUN",
+      "velaRuntime": "NOT_RUN",
+      "oem": "NOT_RUN",
+      "noWipe": true,
+      "noUninstall": true,
+      "noClearData": true,
+      "installedOldCertificateExtraction": "NOT_COMPLETED: slow public-APK pull stopped; Android installer enforced identity on successful install-r"
+    },
+    "startedAt": "2026-10-14T04:21:44.1922955Z",
+    "completedAt": "2026-10-14T04:22:48.5333016Z",
+    "durationSeconds": 59.033,
+    "adbExitCode": 0,
+    "log": "E:\\CODEX\\mirra-watch\\.local\\module05d-native\\instrumentation-final.log",
+    "logSha256": "124f99d192c44e926d00ba694bac1288afb953b322332ea07b5a184b504aa6c7",
+    "history": [
+      {
+        "status": "FAIL",
+        "total": 70,
+        "passed": 69,
+        "failed": 1,
+        "skipped": 0,
+        "assumptions": 0,
+        "durationSeconds": 123.281,
+        "cause": "Old 1000-note fixture expected every non-note table to have one row. It had not distinguished new empty independent wrist table.",
+        "repair": "Assert all seeded legacy non-note tables contain one row and new independent wrist table contains zero; production unchanged.",
+        "log": "E:\\CODEX\\mirra-watch\\.local\\module05d-native\\instrumentation-first.log",
+        "summary": "E:\\CODEX\\mirra-watch\\.local\\module05d-native\\validation-first-result.json"
+      },
+      {
+        "status": "NOT_EXECUTED_STARTUP_ANR",
+        "total": 0,
+        "cause": "ActivityManager BIND APPLICATION ANR before any test case; recorded emulator startup 88% iowait. Retried same unchanged APKs after AVD settled.",
+        "log": "E:\\CODEX\\mirra-watch\\.local\\module05d-native\\instrumentation-startup-anr.log",
+        "diagnostic": "E:\\CODEX\\mirra-watch\\.local\\module05d-native\\final-filtered-runner.log"
+      }
+    ],
+    "classCounts": [
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupDatabaseSnapshotTest",
+        "Total": 14,
+        "Passed": 14,
+        "Failed": 0,
+        "Skipped": 0,
+        "Assumptions": 0
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupFiveCompatibilityTest",
+        "Total": 4,
+        "Passed": 4,
+        "Failed": 0,
+        "Skipped": 0,
+        "Assumptions": 0
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.FullBackupServiceTest",
+        "Total": 14,
+        "Passed": 14,
+        "Failed": 0,
+        "Skipped": 0,
+        "Assumptions": 0
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.RestoreJournalAndroidTest",
+        "Total": 4,
+        "Passed": 4,
+        "Failed": 0,
+        "Skipped": 0,
+        "Assumptions": 0
+      },
+      {
+        "Class": "com.guanyi.mirra.data.MigrationFourToFiveTest",
+        "Total": 2,
+        "Passed": 2,
+        "Failed": 0,
+        "Skipped": 0,
+        "Assumptions": 0
+      },
+      {
+        "Class": "com.guanyi.mirra.data.MigrationOneToFourTest",
+        "Total": 1,
+        "Passed": 1,
+        "Failed": 0,
+        "Skipped": 0,
+        "Assumptions": 0
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableCatalogReaderTest",
+        "Total": 4,
+        "Passed": 4,
+        "Failed": 0,
+        "Skipped": 0,
+        "Assumptions": 0
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableCatalogSettingsTest",
+        "Total": 2,
+        "Passed": 2,
+        "Failed": 0,
+        "Skipped": 0,
+        "Assumptions": 0
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableControlSettingsTest",
+        "Total": 1,
+        "Passed": 1,
+        "Failed": 0,
+        "Skipped": 0,
+        "Assumptions": 0
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableRecordReceiverTest",
+        "Total": 9,
+        "Passed": 9,
+        "Failed": 0,
+        "Skipped": 0,
+        "Assumptions": 0
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableRecordSettingsTest",
+        "Total": 1,
+        "Passed": 1,
+        "Failed": 0,
+        "Skipped": 0,
+        "Assumptions": 0
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableSnapshotReaderTest",
+        "Total": 5,
+        "Passed": 5,
+        "Failed": 0,
+        "Skipped": 0,
+        "Assumptions": 0
+      },
+      {
+        "Class": "com.guanyi.mirra.data.WearableBreakAdmissionRepositoryTest",
+        "Total": 5,
+        "Passed": 5,
+        "Failed": 0,
+        "Skipped": 0,
+        "Assumptions": 0
+      },
+      {
+        "Class": "com.guanyi.mirra.WearableCatalogSettingsUiTest",
+        "Total": 2,
+        "Passed": 2,
+        "Failed": 0,
+        "Skipped": 0,
+        "Assumptions": 0
+      },
+      {
+        "Class": "com.guanyi.mirra.WearableRecordSettingsUiTest",
+        "Total": 2,
+        "Passed": 2,
+        "Failed": 0,
+        "Skipped": 0,
+        "Assumptions": 0
+      }
+    ],
+    "failures": [],
+    "cases": [
+      {
+        "Class": "com.guanyi.mirra.data.MigrationFourToFiveTest",
+        "Test": "addingIndependentRecordTablePreservesExistingBookAndAddsNoForeignKey",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.MigrationFourToFiveTest",
+        "Test": "allHistoricalMigrationsReachFiveWithoutClearingExistingUserRows",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableRecordReceiverTest",
+        "Test": "concurrentIdenticalDeliveriesCommitOneImmutableRow",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableRecordReceiverTest",
+        "Test": "commitRetainsExactRecordAndDuplicateDoesNotWriteAnotherRowOrChangeReceiptTime",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableRecordReceiverTest",
+        "Test": "corruptStoredCanonicalNeverReceivesAlreadyImportedReceipt",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableRecordReceiverTest",
+        "Test": "unfinishedStartupOrExclusiveMaintenanceCannotPersist",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableRecordReceiverTest",
+        "Test": "realSqliteInsertFailureReturnsNoReceiptAndRollbackCanSafelyRetry",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableRecordReceiverTest",
+        "Test": "fileBackedRoomReopenRetainsExactCommittedBytesAndDuplicateReceipt",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableRecordReceiverTest",
+        "Test": "sameStableIdentityWithDifferentValidatedBytesIsConflictAndOriginalIsImmutable",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableRecordReceiverTest",
+        "Test": "retiredReceiverNeverReopensItsCapturedDatabase",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableRecordReceiverTest",
+        "Test": "offerRejectsExtraIdentitySeparatorsBeforeLookingUpARecord",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableRecordSettingsTest",
+        "Test": "recordConsentIsDefaultOffDeviceLocalAndExactOnReopen",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.WearableRecordSettingsUiTest",
+        "Test": "defaultOffAndDisclosureCancellationNeverAuthorizeRecordReception",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.WearableRecordSettingsUiTest",
+        "Test": "explicitConsentPersistsInStoreAndClosingKeepsExistingBusinessRecords",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupFiveCompatibilityTest",
+        "Test": "frozenVersionOneBackupReconstructsInFiveWithNoInventedIndependentRecords",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupFiveCompatibilityTest",
+        "Test": "fullVersionTwoRoundTripPreservesIndependentOriginalBytesAndNullablePage",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupFiveCompatibilityTest",
+        "Test": "corruptIndependentRawBlocksBackupAndDoesNotAlterCurrentFacts",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupFiveCompatibilityTest",
+        "Test": "newStorageOwnerCanReplayOriginalAfterOlderFullBackupRollback",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableCatalogReaderTest",
+        "Test": "invalidLongTitleRejectsWholeCatalogAndNeverMutatesOriginalBook",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableCatalogReaderTest",
+        "Test": "busyOrRetiredGenerationCannotReadOldOrReplacementDatabase",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableCatalogReaderTest",
+        "Test": "actualRoomProjectionSelectsOnlyMainlineAndChosenInProgressWithoutChangingAnyTable",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableCatalogReaderTest",
+        "Test": "unfinishedStartupNeverBecomesAnEmptySuccessfulCatalog",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableCatalogSettingsTest",
+        "Test": "expandedConsentAndBookSelectionAreSeparateNoBackupFilesAndDoNotChangeOldConsent",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableCatalogSettingsTest",
+        "Test": "invalidSelectionNeverOverwritesLastConfirmedLocalSelection",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.WearableCatalogSettingsUiTest",
+        "Test": "newCatalogDataRequiresExplicitDisclosureAndCancellationKeepsOldReadonlyScope",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.WearableCatalogSettingsUiTest",
+        "Test": "mainlineCannotBeDeselectedAndSavingExtraSelectionChangesOnlyLocalSettings",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableSnapshotReaderTest",
+        "Test": "busyAndRetiredOwnerNeverReopenOrReadReplacementDatabase",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableSnapshotReaderTest",
+        "Test": "activePreparationTakesPriorityOverPreviouslyFollowedEndedSession",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableSnapshotReaderTest",
+        "Test": "pendingTimeUsesFrozenBoundaryWithoutAdvancingAnyFact",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableSnapshotReaderTest",
+        "Test": "readAndEveryGoldenOrMalformedRequestLeaveAllTwelveTablesExact",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableSnapshotReaderTest",
+        "Test": "failedStartupAndMissingRelationsNeverBecomeIdle",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.wearable.WearableControlSettingsTest",
+        "Test": "controlConsentDefaultsOffAndPersistsOnlyInIsolatedNoBackupDirectory",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.WearableBreakAdmissionRepositoryTest",
+        "Test": "authorizedBreakUsesOriginalRecoveryTransitionAndPreservesCoverage",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.WearableBreakAdmissionRepositoryTest",
+        "Test": "revokedStartBreakWritesNoSegmentContextOrEvent",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.WearableBreakAdmissionRepositoryTest",
+        "Test": "revokedFinishBreakDoesNotCreateRecoveryFact",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.WearableBreakAdmissionRepositoryTest",
+        "Test": "finishBreakRechecksAdmissionAfterTransactionFactReads",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.WearableBreakAdmissionRepositoryTest",
+        "Test": "startBreakRechecksAdmissionAfterTransactionFactReads",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupDatabaseSnapshotTest",
+        "Test": "unicodeCompatibilityExpansionCannotBypassStagedSearchBudget",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupDatabaseSnapshotTest",
+        "Test": "roundTripCopiesPhoneTablesAndOriginalJpegAndRebuildsChineseSearch",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupDatabaseSnapshotTest",
+        "Test": "pendingCloseoutAndActiveSessionAreBothRejected",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupDatabaseSnapshotTest",
+        "Test": "legacyAbnormalSessionWithoutContextAndZeroProgressArePreserved",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupDatabaseSnapshotTest",
+        "Test": "committedWalRowsAreIncludedWhileSourceDatabaseStaysOpen",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupDatabaseSnapshotTest",
+        "Test": "corruptedJpegAndIncorrectMetadataAreRejectedWithoutDeletingFacts",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupDatabaseSnapshotTest",
+        "Test": "pageZeroAndUnknownEnumsCannotCrossBackupBoundary",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupDatabaseSnapshotTest",
+        "Test": "deletedZeroLengthCloseoutSegmentDoesNotEraseItsBoundaryEvent",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupDatabaseSnapshotTest",
+        "Test": "oversizedRowTextIsRejectedBeforeCursorMaterialization",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupDatabaseSnapshotTest",
+        "Test": "activeIntentIsRejectedWithoutChangingItsState",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupDatabaseSnapshotTest",
+        "Test": "foreignEnumAndCrossSessionSoftReferenceAreRejected",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupDatabaseSnapshotTest",
+        "Test": "unresolvedDndOwnershipIsRejectedRatherThanSilentlyErased",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupDatabaseSnapshotTest",
+        "Test": "foreignTriggerCannotBePublishedEvenWithMatchingManifestHashes",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.BackupDatabaseSnapshotTest",
+        "Test": "missingReferencedImageRejectsSnapshot",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.FullBackupServiceTest",
+        "Test": "realAndroidRoundTripRestoresIdsTextMediaPreferencesAndSearch",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.FullBackupServiceTest",
+        "Test": "previousProcessCleanupFailureCannotPublishAnotherBackup",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.FullBackupServiceTest",
+        "Test": "preparingReclaimsPreviousProcessAndLegacyBackupCopiesOnly",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.FullBackupServiceTest",
+        "Test": "legacyNormalActiveContextRoundTripPreservesFactsWithoutBackfill",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.FullBackupServiceTest",
+        "Test": "priorProcessSymbolicDirectoryFailsClosedWithoutDeletingProtectedResources",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.FullBackupServiceTest",
+        "Test": "activeIntentRefusesWithoutAutomaticallyClosingIt",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.FullBackupServiceTest",
+        "Test": "malformedCloseoutBoundariesRemainRejectedWithoutChangingFacts",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.FullBackupServiceTest",
+        "Test": "cancelledInspectionReturnCannotLeaveAnUnreachableRestoreCandidate",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.FullBackupServiceTest",
+        "Test": "cancelledPrepareReturnCannotLeaveAnUnreachablePrivateBackup",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.FullBackupServiceTest",
+        "Test": "activeSessionAndPendingCloseoutAreNeverAutomaticallyEndedForBackup",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.FullBackupServiceTest",
+        "Test": "inspectingReclaimsPreviousProcessCandidateCopiesWithoutChangingSource",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.FullBackupServiceTest",
+        "Test": "lowSpaceAndUnreadableSafNeverChangeCurrentFacts",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.FullBackupServiceTest",
+        "Test": "sameProcessServicesAndReplacementGenerationDoNotDeleteCurrentHandles",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.FullBackupServiceTest",
+        "Test": "emptyDatabaseRoundTripUsesFormalFormat",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.RestoreJournalAndroidTest",
+        "Test": "everyDurableBoundaryRecoversOneCompleteAndroidGeneration",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.RestoreJournalAndroidTest",
+        "Test": "completedSwitchRetainsCandidateBytesAndClearsDecision",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.RestoreJournalAndroidTest",
+        "Test": "finalValidationFailureRestoresOriginalBytesAndAllUnknownPreferenceTypes",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.backup.RestoreJournalAndroidTest",
+        "Test": "thousandNoteSnapshotArchiveAndJournalRoundTripRetainsAllAuthoritativeTables",
+        "Code": 0,
+        "Result": "PASS"
+      },
+      {
+        "Class": "com.guanyi.mirra.data.MigrationOneToFourTest",
+        "Test": "allMigrationsPreservePhaseOneData",
+        "Code": 0,
+        "Result": "PASS"
+      }
+    ],
+    "emulatorShutdown": {
+      "Serial": "emulator-5580",
+      "Avd": "MirraBand_Module03_API37",
+      "RequestedAt": "2026-10-14T04:23:42.8245879Z",
+      "LauncherPid": 20612,
+      "QemuPid": [
+        22784
+      ],
+      "Reason": "Selected native fixture suite completed with actual70PASS",
+      "NoWipe": true,
+      "AvdRetained": true,
+      "NoClearData": true,
+      "Exited": true,
+      "RemainingOwnProcesses": [],
+      "ExitCheckedAt": "2026-10-14T04:23:57.8384672Z"
+    }
+  },
+  "independentCodeReview": {
+    "findings": 2,
+    "resolved": [
+      "Undefined fail helper: exact negative assertion RED then 8/8 targeted GREEN, full740 rerun and finalRPK rebuilt",
+      "Added real SQLite INSERT ABORT and file-backed close/reopen fixtures; actual native result separate"
+    ],
+    "remainingBlockingFindings": 0,
+    "notChatGPTIndependentAcceptance": true
+  },
+  "notRun": [
+    "05D physical installation/installed public identity preflight",
+    "Real user Room4-to5 upgrade/restore",
+    "Target 9 Pro native SHA256 and wireless durable record ACK",
+    "05D natural-use reliability and Vela pixels",
+    "OEM/long-term durability and verified cross-reboot time",
+    "05E phone history/progress/statistics integration"
+  ],
+  "boundaries": {
+    "wristPrimarySchema": 1,
+    "wristPrimaryBytes": 8192,
+    "maxPending": 8,
+    "archiveBytesPerCopy": 65536,
+    "maxArchiveRecords": 64,
+    "archiveAutoDelete": false,
+    "referenceWallTimeIsEffectiveFocus": false,
+    "phoneRoomSchema": 5,
+    "fullBackupFormat": 2,
+    "legacyFullBackup": "format1/schema4 strict complete restore supported",
+    "phoneOriginalSessionAlgorithms": "unchanged"
+  }
+}

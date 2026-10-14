@@ -17,7 +17,7 @@
 
 ## Users
 
-V1 服务单个 Android 用户，优先满足个人阅读与明确学习内容的长期使用，不包含团队、协作、多账号或跨设备同步。
+V1 服务单个 Android 用户，优先满足个人阅读与明确学习内容的长期使用，不包含团队、协作、多账号或云端多设备同步。已授权的Mirra Band扩展通过本机官方通信通道同步目录及独立完成记录，不依赖服务器。
 
 ## Product Idea
 
@@ -65,17 +65,21 @@ UI → Application / Service → Repository → Room / SQLite + DataStore + App-
 - Android 权限与厂商限制必须提供降级路径。
 - 按 Phase 交付，当前阶段之外的能力不得主动加入。
 
-## Optional Mirra Band Read-only Companion
+## Optional Mirra Band Companion
 
-Mirra Band Module 03 获用户明确授权，在独立 Android 分支 `codex/mirra-band-readonly-bridge` 继承 V1.1 验证交接提交 `1338b9a4e41788082f30bf3894a974c2ff652630`，新增只读通信桥、Mine 中的手环设置与必要的应用生命周期接线。手机 Room 仍是学习事实的唯一来源；腕端仅查看当前书籍、动作、页码、状态与展示时间，不启动、结束或改变真实 Intent / Session。
+Mirra Band使用一份应用级WearableCoordinator、WearTransport与官方Xiaomi SDK监听所有者。v1只读快照、v2经手机原业务准入的有限学习控制、v3真实书籍目录及兼容v4的独立记录同步共用此所有者。手机拥有手机Intent/Session；腕端独立学习拥有自己的Session，两者不同时写入同一学习事实。
 
-伴侣默认关闭。开关通过 `noBackupFilesDir` 下的 AtomicFile 保存，不加入 Room 或 Full Backup v1 的四项便携设置。开启后才延迟创建官方 Xiaomi Wear SDK API；监听由独立应用级 SupervisorJob 管理。读取绑定原数据库与存储代际，维护前取消并排空旧请求，SDK 操作在 Room / 维护锁外执行；监测 coverage、当前可用性、蓝牙连接和快照新鲜度分别表达。
+伴侣、手机控制、目录及记录同步有分别披露的本地许可，默认关闭；许可与选书设置使用`noBackupFilesDir`下AtomicFile，不随Full Backup携带。开启伴侣后才延迟创建SDK。读写源捕获数据库、startup与StorageMaintenanceGate代际，维护期间取消/排空旧请求，退役源不能重新取得新数据库。SDK等待及发送不发生在Room事务内，服务、授权、握手、快照新鲜度与数据持久确认分别表达。
 
-本轮不改学习算法、Room Schema / Migration、备份格式、手机签名身份或用户数据，不新增云服务、账号或保活服务。官方 SDK 已实际编译，不等于目标设备的消息往返或锁屏可达性已通过；真机部分须另有实际证据。完整[合同](https://github.com/cc7279694-debug/mirra-band/blob/codex/module-03-readonly-companion/docs/plans/MIRRA_BAND_MODULE_03_COMPLETE_PLAN.md)与统一[证据目录](https://github.com/cc7279694-debug/mirra-band/tree/codex/module-03-readonly-companion/docs/evidence/module-03)由 Mirra Band 功能分支维护；不在手机仓库复制 checkpoint。
+05D新增独立不可变`wearable_completed_records`表，复合键为稳定installationId/sessionId，保存完整原始canonical、SHA-256、字节数及接收时间。同ID同原字节幂等，不同内容拒绝冲突；事务提交并校验原文后才允许ACK。Room Migration 4→5只增加此表，不注入study_sessions、不占Active Session、不更新书籍页码或统计。
+
+Full Backup format2/schema5包含新表；旧format1/schema4按冻结可信布局完整验证，复制全部旧权威数据到干净v5数据库后再次校验，保留闭库恢复日志与回滚保护。可读JSON/CSV仍只导出原手机业务表并明确排除腕端原文，不能替代完整备份。
+
+腕端保留有界完整档案，每次新握手重新核对，可补回手机旧备份回退后缺失的记录；手机不会把历史接收状态当作当前流保存证明。参考时间不进入已验证有效专注。手机算法、监测、签名与原工作区保持，05E历史/统计整合未实施。新正式安装和真实用户数据库升级/恢复须另行明确授权。统一[05D合同](https://github.com/cc7279694-debug/mirra-band/blob/codex/module-05d-record-sync/docs/plans/MIRRA_BAND_05D_RECORD_SYNC.md)与[证据](https://github.com/cc7279694-debug/mirra-band/tree/codex/module-05d-record-sync/docs/evidence/module-05d)由Band维护。
 
 ## V1 Non-Goals
 
-Mirra Band 05C 为已授权的本地扩展：同一应用级通信 owner 从现有 Room v4 只读投影主线及用户明确选择的进行中书籍，新增目录许可/选择仅存 no-backup 设置。v3 完整分片目录须由腕端持久化确认，之后腕端独立 Session 自己拥有本地学习事实；手机控制 Session 继续由手机权威管理。05C 不上传腕端历史、不合并统计、不改 Room/Full Backup 格式，也不迁移独立实验包中的测试记录。
+Mirra Band目录与原始记录接收是已授权的本地扩展；完整记录留在独立表，05D不导入原手机Session历史、不合并统计、不迁移实验包记录，不改变手机第一步、监测或有效专注算法。
 
 V1 不实现登录、云同步、Supabase、服务器、Web App、iOS、AI、OCR、PDF 阅读器、重型 Block Editor、完整知识图谱、FSRS、游戏化系统、统一注意力评分或无障碍服务式强锁手机。
 

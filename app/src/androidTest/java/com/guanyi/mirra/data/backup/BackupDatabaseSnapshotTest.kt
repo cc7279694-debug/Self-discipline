@@ -37,13 +37,14 @@ class BackupDatabaseSnapshotTest {
     }
     @After fun cleanup() { source.close(); root.deleteRecursively() }
 
-    @Test fun roundTripCopiesTwelveTablesAndOriginalJpegAndRebuildsChineseSearch() = runTest {
+    @Test fun roundTripCopiesPhoneTablesAndOriginalJpegAndRebuildsChineseSearch() = runTest {
         seedAllTables()
         val image = File(root, "images/11223344-5566-7788-99aa-bbccddeeff00.jpg")
         val before = image.readBytes()
         val snapshot = snapshots.capture(source, File(root, "images"), File(root, "snapshot"))
-        assertEquals(12, snapshot.tableCounts.size)
-        assertTrue(snapshot.tableCounts.values.all { it == 1L })
+        assertEquals(13, snapshot.tableCounts.size)
+        assertTrue(LEGACY_AUTHORITATIVE_TABLES.all { snapshot.tableCounts.getValue(it) == 1L })
+        assertEquals(0L, snapshot.tableCounts.getValue("wearable_completed_records"))
         assertArrayEquals(before, File(snapshot.root, "images/${image.name}").readBytes())
         val archive = File(root, "backup.zip")
         BackupArchive().create(snapshot, archive, prefs, 42)

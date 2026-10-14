@@ -1,53 +1,43 @@
 # Current State
 
-更新：2026-10-13（Asia/Shanghai）。
+更新：2026-10-14（Asia/Shanghai）。
 
-## 当前交付
+## 当前阶段与授权
 
-**05C_IMPLEMENTED_AWAITING_NATIVE_AND_DEVICE_VALIDATION**。用户批准真实书籍离线目录和正式腕端整合，选择不迁移独立实验记录。从 `codex/mirra-band-control-bridge` 实际 HEAD `30a8af3fdea225cc96db6a360d71383a85b7ea39` 在 `codex/mirra-band-05c-catalog` 开发；原手机工作区保持不变。统一合同见 Band 仓库 `docs/plans/MIRRA_BAND_05C_OFFLINE_CATALOG.md`；本端实际交付见 [05C Android 记录](evidence/module-05c/README.md)。
+**Mirra Band 05D / DEV_COMPLETE_AWAITING_DEVICE_NATURAL_USE**。双端可靠独立完成记录同步开发、构建、原生隔离验证及产物核验已完成。本授权不包含正式设备安装、真实用户数据库升级/写入/恢复、清数据或不可逆操作，不进入05E、不自动PR或合并main。
 
-## 当前实现
+本隔离树`E:\CODEX\mirra-watch\.local\android-worktree`，分支`codex/mirra-band-05d-record-sync`，基线`6589a19f0305245fe0e63bf77f105f61f27a913e`。Band分支`codex/module-05d-record-sync`，基线`1c2ac537545f4d5cb365dfa7e276cbd24cd2425f`。原手机工作区不修改。合同在Band `docs/plans/MIRRA_BAND_05D_RECORD_SYNC.md`；最终证据在Band `docs/evidence/module-05d/README.md`及artifacts.json/verification.json。本树[05C证据](evidence/module-05c/README.md)保留为历史，不覆盖当前05D范围。
 
-- 复用唯一应用级 WearableCoordinator/SDK 通道，增加兼容 v1/v2 的 v3 BOOK_CATALOG 协商、完整有界分片与当前 owner/context 的持久化 ACK 确认。
-- WearableCatalogReader 捕获 Room/startup/StorageMaintenanceGate 代际，仅只读主线和明确选择的 IN_PROGRESS。FirstActionResolver.resolve 沿用原实现，合法已有动作与实际完成确认分开。
-- 新目录披露许可默认关闭；选择和许可存独立 no-backup AtomicFile，不进入 Room 或 Full Backup。手机设置有明确披露、选书与同步状态。
-- SDK 发送、握手与目录持久化确认分别记录；目录读写失败、断连、撤权、维护、旧 stream/请求或超时不得显示已同步。
-- 实际 APK 1.3.0/code8 已构建和公开验签，位于 `E:\CODEX\mirra-watch\dist\Mirra-1.3.0-band-catalog-debug.apk`。不能据此宣称已经在手机上覆盖安装。
+## 已接受的设备事实
 
-## 数据与继承边界
+用户报告05C真实书籍同步、离线独立使用与保存基本正常。用户已确认正式Mirra Band **0.4.1/code10真机视觉正常**，05C.1记为**USER_REPORTED_PASS — PASS WITH NOTES**；原0.4.0白底浅字失败历史保留。
 
-Room v4/schema 1–4、Migration、Full Backup v1、LearningItemEntity、FirstActionResolver、Intent/Session/监测/Closeout/统计业务、原 SDK gateway 和正式身份不变。新源使用同一门禁，Room 短只读事务完成后才发送 SDK。
+Module03真实IDLE、监测学习中手机锁屏/腕端退出重进及首次NO_DEVICE自动恢复继续继承；05A file路径损坏恢复/覆盖升级/正常重启保留、05B交互与0.1.3跨实例参考计时用户通过也保留。05B.3流畅度改善仍无明确认可，不能由本轮自动化外推。
 
-05B.3 已交付的白色腕端 UI、单次确认开始、双槽/CAS/读回、参考计时、空结束页码与 pending 由 Band 继承；真机流畅度尚未明确反馈，保持待验收。旧独立实验应用与其记录保留，正式包不读取或迁移另一个包的私有文件。05D–05E 记录上传/历史整合/统计合并未实施。
+## 05D当前实现
 
-## 验证进度
+- 唯一应用级WearableCoordinator、OwnedWearTransport与官方SDK owner兼容v1/v2/v3，协商v4 `LOCAL_RECORD_SYNC`。记录披露许可独立、默认关闭，明确原始记录同步范围；仍存no-backup AtomicFile，不随Full Backup携带。
+- OFFER必须再次完整接收原文，NEED→有界PART→COMMIT→ACK；4096字节帧、最多8192字节原文、8片/每片1024字节、固定30秒期限，不因重复/乱序片延长。严格身份、摘要、字节数及client/request/stream归属，不接受迟到回执替代新结果。
+- RoomWearableRecordReceiver捕获startup、Room与StorageMaintenanceGate。完整原文校验、withTransaction提交及原文UTF-8字节核对后才返回保存结果。相同installationId/sessionId与原字节幂等；不同内容冲突、不覆盖，即使摘要相同也不跳过原文核对。SDK send与HELLO不表示持久化成功。
+- OwnedWearTransport仅对严格v4记录帧使用单worker有界队列，最多10条在途/等待、32768字节，每帧重新核对SDK授权；溢出退役代际并清队列。维护、关闭、撤权、监听替换及source退役隔离旧任务，不建立第二连接所有者。
+- 手机状态把当前流确认、数据库条数和历史接收分开；新源/新握手重新核对，不把旧成功状态当作手机备份回退后的完整性证明。腕端每次新握手重放保留档案及pending，缺失行可再次接收。
 
-2026-10-13 最后一次未过滤 `testDebugUnitTest` 实际 `BUILD SUCCESSFUL in 3m 13s`；读取本轮 XML：88 suites、824 tests、0 failures/errors/skipped。其中目录 Coordinator 17 项、协议 9 项。最终 `lintDebug assembleDebug assembleDebugAndroidTest` 实际 `BUILD SUCCESSFUL in 10m 48s`；lint XML 为 0 errors、20 warnings、1 hint，不将其写为零告警。
+## 数据、备份及继承边界
 
-协议缺失能力 RED、早期 ACK 测试失败、独立审查新增的固定总期限/manifest 负例 RED 均已修复。ACK 最终发送与状态发布同锁，固定 30 秒含 source/encoding/send/ACK；实际 App 使用 `SystemClock.elapsedRealtime`，延迟计时任务或回退也不能使过期 ACK 变成功。原本 lint 的 NonObservableLocale 错误通过可观察 LocalLocale 修复，未抑制检查。
+Room **v5**显式Migration4→5仅新增`wearable_completed_records`及receivedAt索引，schemas1–4保留。新表以installationId/sessionId复合主键保存canonical TEXT、SHA-256、字节数及receivedAt，无原业务外键/级联，不注入study_sessions、不占唯一Active Session、不更新书籍进度、监测或统计。手机Intent/Session转换、FirstActionResolver及学习算法保持。
 
-保留两次重负载并发验证中的旧 `ExportWorkspaceTest.concurrentWorkspaceInstancesCanReclaimRepeatedlyWithoutDeletingCurrentOperations` 超时失败历史：`.local/05c-android-full-final.log`、`.local/05c-android-final-verified.log`。没有改动该测试断言、过滤测试或隐藏失败；最后串行低并发、局部 1024m/单 worker 的未过滤全量通过。自动化成功不能外推国行手环响应速度。
+Full Backup **format2/schema5**包含新原始记录表和所有既有数据/媒体。旧**format1/schema4**由冻结可信v4布局严格验证，完整复制旧12个权威表及媒体到干净v5，再校验；不直接迁移不可信incoming库。闭库恢复日志兼容合法v4/v5，恢复及回滚保护保留。可读JSON/CSV仍是原手机业务12表，明确不含腕端原始记录；要保护全部新记录须使用新版完整备份。
 
-APK 16,950,769 bytes；SHA-256 `c95c9bf53634b465fff2039285d697bdf4f2587c72e0ece46caedd39203d2569`。aapt 确认 `com.guanyi.mirra`、1.3.0/code8、min23/target37；apksigner verify exit0、v1/v2，通过的公开证书 SHA-256 `29ded26bea44f1afe4fe383a302e4b507423d16223469d7da3fe578d9a7f83b9` 与实际旧 1.2.0/code7 APK 一致。元数据 `.local/05c-android-apk-metadata.json`。原生Room只读、维护退役、本地设置及Compose披露/选书在自有API37模拟器实际回归19/19通过；不能替代国行手环或配对手机真机证据。
+腕端原Session主schema1、8 pending及8192字节单槽保持；新增双档案每槽65536字节/最多64完整记录，双镜像精确读回后才释放pending，无自动删除。手机旧备份回退后的补传依赖腕端仍保留原文，不能承诺丢失档案恢复。白色Mirra Blue、一次确认开始、参考计时、休息主动继续及nullable结束页码继承；参考值不计入有效专注。独立实验记录不迁移、不操作。
 
-## 已保留的既有证据
+## 当前验证与交付
 
-Module 04 的 1.2.0/code7 和正式腕端 0.3.0/code8 产物、代码及自动化保留。Module 03 正式 IDLE 双端同步、监测学习锁屏/腕端重进与自动恢复既有成功事实保留，不重复定义为未完成。
+最新实际未过滤JVM **849/849 PASS**（91 suites）；最后lint **0 errors / 20 warnings / 1 hint**。Band未过滤Node **740/740 PASS**。自有API37原生 **70/70 PASS**，59.033秒，0skip/assumption，真实迁移/SQLite失败回滚/文件库重开/新旧备份和相关回归均执行；首轮69/1旧fixture计数错误与0case启动ANR历史保留，修正后完整重测，所属AVD已正常关闭。
 
-## 当前未完成与下一步
+实际APK **1.4.0/code9**（17016301字节）与正式腕端 **0.5.0/code11**（87768字节）已构建/验签，沿用`com.guanyi.mirra`与原29ded证书。SHA-256、签名、构建与Git分支由交付证据登记；RPK六页颜色/条件和签名编译包受控同步回归通过。此前05C的824项JVM及API37原生19项保留为历史，不替代本次05D证据。
 
-完成自有模拟器验证和配套正式 RPK 检查后，由任务主执行者提交并普通推送两端当前功能分支，再另取当前真机安装授权。物理设备当前安装版本/证书、本次正式目录同步和离线自然学习尚未验证；不卸载、清数据、降级、转换签名或操作用户原数据库。无 PR/main 合并，不自动进入 05D。
+## Not Run / 当前停止边界
 
-原生收尾：本项目自有MirraBand_Module03_API37 / emulator-5580实际19/19 PASS，8项新增目录/设置/UI与11项既有回归；43.711s，真实Room/SQLite in-memory fixtures及受控SDK，不是目标手环无线/固件证明。自有AVD已核验原1.2.0/code7公开证书后安全覆盖1.3.0/code8，无卸载/清数据/wipe，完成后关闭所属AVD；其他设备未操作。人工截图得到系统Pixel Launcher ANR，未取得产品画面，不能归因Mirra。物理手机/手环版本预检、安装、真实目录和离线自然使用仍Not Run。
+05D原配对手机与国行9Pro正式安装、真实用户Room4→5升级/恢复、设备原生SHA-256及记录消息/确认自然使用：**Not Run**，本轮无此授权。没有操作其他Android设备、用户原数据库、签名转换、卸载或清数据。自有模拟器仅使用隔离fixture，不能外推OEM、无线/固件、真机耗时、电量或长期耐久。
 
-配套正式RPK0.4.0/code9（80245bytes），SHA-256 bd0458ca70e63d815102d7becefe51a3c74644e87a9df29bc261ec98459fd0dc，和APK同com.guanyi.mirra/原29DE…证书。机器结果见本目录artifacts.json、verification.json；真机安装尚待当前同意，停05C。
-
-后续当前事实：本轮安装同意已取得，用户改为自行体验。腕端实拍0.4.0/code9最初APK_RAW_TIMEOUT，随后明确确认“手环已显示正常同步内容”，连接恢复为USER_REPORTED_PASS。底层原因/恢复触发未隔离；手机实际安装版本和公开证书未独立核查。真实目录持久化ACK与离线学习/结束保留未收到确认，不能将连接恢复扩大为05C验收通过。只读ADB仅见无关5596；未操作设备、改代码或构建新包，详细记录见device-acceptance.json。
-
-## Git交付
-
-Android实现c159983919093f031553b9e5e17f245635b5c15e、Band实现502f47a21a6d0b0c8a70b28179425f907ca786ee已普通push且远端SHA一致；Git记录后置文档提交不改源码或产物，停05C。
-
-## 安装授权与当前阻塞
-
-用户已同意先只读预检再安装配套包，不重复询问本轮安装同意。仅见无关模拟器5586/5596，原配对手机尚未连接；等待USB调试、空闲首页和正式腕端版本后预检，不能输出物理SAFE_TO_INSTALL或直接安装。
+新正式安装和真实数据库升级/恢复需另行当前明确同意；交付后停05D，以一次自然使用为主，不强制USB或冗长人工矩阵。05E历史展示/统计合并尚未实施。

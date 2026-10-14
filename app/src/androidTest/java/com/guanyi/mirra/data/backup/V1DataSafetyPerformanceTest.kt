@@ -56,11 +56,11 @@ class V1DataSafetyPerformanceTest {
                 val original = fixture.facts()
                 val images = fixture.imageBytes()
                 val preferences = fixture.owner.backupPreferences.repository.readStrictSnapshot().portable
-                assertEquals(12, original.size)
+                assertEquals(13, original.size)
                 assertEquals(NOTE_COUNT.toLong(), original.getValue("notes").count)
                 assertEquals(IMAGE_COUNT.toLong(), original.getValue("image_assets").count)
                 assertEquals(NOTE_COUNT.toLong(), measured("originalFtsQuery") { fixture.chineseNoteMatches() })
-                emit("scale notes=$NOTE_COUNT images=$IMAGE_COUNT imageEdge=$IMAGE_EDGE tables=12 " +
+                emit("scale notes=$NOTE_COUNT images=$IMAGE_COUNT imageEdge=$IMAGE_EDGE tables=${AUTHORITATIVE_TABLES.size} " +
                     "authoritativeRows=${original.values.sumOf { it.count }} " +
                     "noteUtf8Bytes=${fixture.noteUtf8Bytes} jpegBytes=${images.values.sumOf { it.size.toLong() }} " +
                     "syntheticCacheOnly=true installedStorage=false")
@@ -116,7 +116,7 @@ class V1DataSafetyPerformanceTest {
                 assertEquals(1L, fixture.searchMatches("受控中文主题", "TOPIC"))
                 assertEquals(1L, fixture.searchMatches("受控中文阅读总结", "SESSION"))
                 assertFalse(fixture.journal().hasPendingRecovery())
-                emit("roundtrip all12TableFieldsMatched=true jpegBytesMatched=true portableValuePresenceMatched=true " +
+                emit("roundtrip allAuthoritativeTableFieldsMatched=true jpegBytesMatched=true portableValuePresenceMatched=true " +
                     "chineseFtsMatches=$NOTE_COUNT journalPending=false physicalPowerLoss=false")
             } finally {
                 fixture.close()
@@ -290,7 +290,7 @@ class V1DataSafetyPerformanceTest {
         fun assertJson(file: File) {
             val document = Json.parseToJsonElement(file.readText()).jsonObject
             val tables = document.getValue("tables").jsonObject
-            assertEquals(AUTHORITATIVE_TABLES.toSet(), tables.keys)
+            assertEquals(ReadableExportSchema.tables.map { it.name }.toSet(), tables.keys)
             for (table in ReadableExportSchema.tables) {
                 val actual = tables.getValue(table.name).jsonArray
                 val columns = table.columns.joinToString(",") { "`${it.name}`" }
@@ -306,7 +306,7 @@ class V1DataSafetyPerformanceTest {
         fun assertCsv(file: File) {
             ZipFile(file).use { zip ->
                 val names = zip.entries().asSequence().map { it.name }.toSet()
-                assertEquals(AUTHORITATIVE_TABLES.map { "$it.csv" }.toSet() + setOf("metadata.json", "schema.json", "README.txt"), names)
+                assertEquals(com.guanyi.mirra.data.export.ReadableExportSchema.tables.map { "${it.name}.csv" }.toSet() + setOf("metadata.json", "schema.json", "README.txt"), names)
                 for (table in ReadableExportSchema.tables) {
                     val expected = MessageDigest.getInstance("SHA-256")
                     expected.update((table.columns.joinToString(",") { it.name } + "\r\n").toByteArray(Charsets.UTF_8))

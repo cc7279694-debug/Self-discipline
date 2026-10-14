@@ -23,6 +23,7 @@ fun WearableSettingsScreen(coordinator: WearableCoordinator?, onBack: () -> Unit
     var confirmEnable by remember { mutableStateOf(false) }
     var confirmControl by remember { mutableStateOf(false) }
     var confirmCatalog by remember { mutableStateOf(false) }
+    var confirmRecords by remember { mutableStateOf(false) }
     var selectCatalogBooks by remember { mutableStateOf(false) }
     var draftCatalogIds by remember { mutableStateOf(emptySet<String>()) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
@@ -30,7 +31,7 @@ fun WearableSettingsScreen(coordinator: WearableCoordinator?, onBack: () -> Unit
         TextButton(onClick = onBack) { Text("返回") }
         Text("手环伴侣", style = MaterialTheme.typography.headlineLarge)
         Text("在手腕上看一眼，再回到阅读。", style = MaterialTheme.typography.bodyLarge)
-        Text("只同步当前书籍、第一步动作、页码、学习状态与时间。不读取笔记正文，不上传 Mirra 服务器。")
+        Text("同步阅读状态；书籍目录和腕端完成记录分别由你允许。不读取笔记正文，不上传服务器。")
         if (coordinator == null) { Text("手机数据正在准备，请稍后重新打开。"); return@Column }
         LifecycleStartEffect(coordinator) {
             onStopOrDispose { coordinator.cancelWearAppCheck() }
@@ -39,7 +40,7 @@ fun WearableSettingsScreen(coordinator: WearableCoordinator?, onBack: () -> Unit
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("书籍离线目录", style = MaterialTheme.typography.titleLarge)
-                Text("开启后，将主线及你选择的进行中书籍的名称、页码和已填写的合法第一步传到手环。目录保存后可离线学习；腕端记录目前仅保存在手环，不上传手机历史。")
+                Text("开启后，将主线及你选择的进行中书籍的名称、页码和已填写的合法第一步传到手环。目录保存后可离线学习；接收腕端记录需单独允许。")
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(if (state.catalogEnabled) "已允许同步书籍" else "尚未允许")
                     Switch(checked = state.catalogEnabled, enabled = state.enabled,
@@ -67,6 +68,30 @@ fun WearableSettingsScreen(coordinator: WearableCoordinator?, onBack: () -> Unit
                 state.lastCatalogAt?.let { Text("最近目录确认：${SimpleDateFormat("HH:mm:ss", displayLocale).format(Date(it))}") }
                 state.catalogError?.let { Text(catalogErrorText(it), color = MaterialTheme.colorScheme.error) }
                 Text("书名完整支持 120 字、动作 160 字；超限会明确拒绝整份目录，不截断动作。同步不会改变正在进行的腕端学习快照。")
+            }
+        }
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("接收腕端完成记录", style = MaterialTheme.typography.titleLarge)
+                Text("保存独立学习的原始书籍、动作、页码和学习/休息时间边界。参考时间不计入手机有效专注、原学习历史或书籍进度。完整备份包含这些原始记录。")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(if (state.recordSyncEnabled) "已允许接收" else "尚未允许")
+                    Switch(checked = state.recordSyncEnabled, enabled = state.enabled,
+                        modifier = Modifier.testTag("wearable-record-toggle"),
+                        onCheckedChange = { if (it) confirmRecords = true else coordinator.setRecordSyncEnabledFromUser(false) })
+                }
+                val description = when (state.recordStatus) {
+                    "RECEIVING" -> "正在接收，原始记录仍保留在手环"
+                    "COMMITTING" -> "正在保存，尚未发送确认"
+                    "IMPORTED" -> "手机已持久保存原始记录"
+                    "ERROR" -> "尚未确认，请保留手环记录"
+                    else -> if (state.recordNegotiated) "已协商，等待手环完成记录" else "打开配套腕端后自动协商"
+                }
+                Text(description, Modifier.testTag("wearable-record-status"))
+                Text(state.importedRecordCount?.let { "手机已保存 $it 条原始记录" } ?: "原始记录数量待核对")
+                state.lastRecordAt?.let { Text("最近保存：${SimpleDateFormat("HH:mm:ss", displayLocale).format(Date(it))}") }
+                state.recordError?.let { Text("记录接收未确认（$it）", color = MaterialTheme.colorScheme.error) }
+                Text("手环保留确认后的原始档案，可补传备份回退后缺少的记录。关闭接收不会删除已有记录；许可不随备份迁移。")
             }
         }
         Card(Modifier.fillMaxWidth()) {
@@ -140,10 +165,16 @@ fun WearableSettingsScreen(coordinator: WearableCoordinator?, onBack: () -> Unit
         dismissButton = { TextButton(onClick = { confirmControl = false }) { Text("保持只读") } })
     if (confirmCatalog) AlertDialog(onDismissRequest = { confirmCatalog = false },
         title = { Text("允许同步离线书籍目录") },
-        text = { Text("新增同步范围：主线和所选进行中书籍的稳定编号、完整书名、总页数、当前页码、已填写的合法第一步及主线标记。手环可离线独立学习；本阶段不上传腕端学习记录，不修改手机历史或统计。每次开始仍需在手环实际完成第一步并确认。无需新增系统权限。") },
+        text = { Text("新增同步范围：主线和所选进行中书籍的稳定编号、完整书名、总页数、当前页码、已填写的合法第一步及主线标记。手环可离线独立学习；接收腕端完成记录需单独允许，不修改手机学习历史或统计。每次开始仍需在手环实际完成第一步并确认。无需新增系统权限。") },
         confirmButton = { TextButton(onClick = { confirmCatalog = false; coordinator?.setCatalogEnabledFromUser(true) },
             modifier = Modifier.testTag("wearable-catalog-confirm")) { Text("允许目录同步") } },
         dismissButton = { TextButton(onClick = { confirmCatalog = false }) { Text("暂不开启") } })
+    if (confirmRecords) AlertDialog(onDismissRequest = { confirmRecords = false },
+        title = { Text("允许接收腕端完成记录") },
+        text = { Text("新增接收范围：腕端安装编号、学习编号、书籍和第一步快照、可空结束页码及原始学习/休息时间边界。记录独立保存并进入完整备份，不创建手机学习 Session，不更改进度或统计，墙钟参考值不计为有效专注。手机事务提交后才确认，手环保留原始档案。无需新增系统权限。") },
+        confirmButton = { TextButton(onClick = { confirmRecords = false; coordinator?.setRecordSyncEnabledFromUser(true) },
+            modifier = Modifier.testTag("wearable-record-confirm")) { Text("允许接收原始记录") } },
+        dismissButton = { TextButton(onClick = { confirmRecords = false }) { Text("暂不开启") } })
     if (selectCatalogBooks && coordinator != null) {
         val state by coordinator.state.collectAsStateWithLifecycle()
         AlertDialog(onDismissRequest = { selectCatalogBooks = false },

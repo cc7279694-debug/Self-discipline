@@ -12,10 +12,12 @@ class WearableLocalSettings(context: Context) : WearableSettingsStore {
     private val file = AtomicFile(File(context.noBackupFilesDir, "wearable-companion-enabled"))
     private val controlFile = AtomicFile(File(context.noBackupFilesDir, "wearable-control-enabled"))
     private val catalogFile = AtomicFile(File(context.noBackupFilesDir, "wearable-catalog-enabled"))
+    private val recordFile = AtomicFile(File(context.noBackupFilesDir, "wearable-record-sync-enabled"))
     private val catalogSelectionFile = AtomicFile(File(context.noBackupFilesDir, "wearable-catalog-books-v1"))
     @Volatile private var selected = try { file.openRead().use { it.read() == 1 } } catch (_: Exception) { false }
     @Volatile private var controlSelected = try { controlFile.openRead().use { it.readBytes().contentEquals(byteArrayOf(1)) } } catch (_: Exception) { false }
     @Volatile private var catalogSelected = try { catalogFile.openRead().use { it.readBytes().contentEquals(byteArrayOf(1)) } } catch (_: Exception) { false }
+    @Volatile private var recordsSelected = try { recordFile.openRead().use { it.read() == 1 && it.read() == -1 } } catch (_: Exception) { false }
     @Volatile private var bookIds: List<String> = try {
         catalogSelectionFile.openRead().use { input ->
             val bytes = input.readBytes().also { require(it.size <= 2_048) }
@@ -28,7 +30,18 @@ class WearableLocalSettings(context: Context) : WearableSettingsStore {
     override val enabled get() = selected
     override val controlEnabled get() = controlSelected
     override val catalogEnabled get() = catalogSelected
+    override val recordSyncEnabled get() = recordsSelected
     override val catalogSelectedIds get() = bookIds.toList()
+    @Synchronized override fun setRecordSyncEnabled(value: Boolean) {
+        // Failed opt-in never authorizes a record import in this running owner.
+        recordsSelected = false
+        val output = recordFile.startWrite()
+        try {
+            output.write(if (value) 1 else 0); recordFile.finishWrite(output)
+            check(recordFile.openRead().use { it.read() == (if (value) 1 else 0) && it.read() == -1 })
+            recordsSelected = value
+        } catch (failure: Exception) { recordFile.failWrite(output); throw failure }
+    }
     @Synchronized override fun setCatalogEnabled(value: Boolean) {
         if (!value) catalogSelected = false
         val output = catalogFile.startWrite()

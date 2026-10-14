@@ -24,7 +24,7 @@ class DefaultFullBackupService(
 ) : FullBackupService {
     private val serial = Mutex()
     private val limits = BackupLimits()
-    private val codec = BackupArchive(limits)
+    private val codec = BackupArchive(limits, installedAppVersion(context))
     private val database = BackupDatabaseSnapshot(context, limits)
     private val files = androidDurableFiles()
     private val workspace = ExportWorkspace(workRoot, files)

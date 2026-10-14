@@ -58,7 +58,7 @@ class FullBackupServiceTest {
         try {
             val prepared = fixture.service().prepareBackup()
             val validated = BackupArchive().validateAndExtract(prepared.file, File(fixture.root, "check"))
-            assertEquals(12, validated.metadata.tableCounts.size)
+            assertEquals(13, validated.metadata.tableCounts.size)
             assertTrue(validated.metadata.tableCounts.values.all { it == 0L })
         } finally { fixture.close() }
     }

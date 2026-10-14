@@ -10,6 +10,7 @@ import com.guanyi.mirra.data.local.MirraDatabase
 import com.guanyi.mirra.data.local.MIGRATION_1_2
 import com.guanyi.mirra.data.local.MIGRATION_2_3
 import com.guanyi.mirra.data.local.MIGRATION_3_4
+import com.guanyi.mirra.data.local.MIGRATION_4_5
 import com.guanyi.mirra.platform.focus.MonitoringPlatformRuntime
 import com.guanyi.mirra.data.backup.*
 import com.guanyi.mirra.domain.maintenance.MaintenanceCoordinator
@@ -78,7 +79,7 @@ class MirraApplication : Application(), BackupStorageHost {
         val paths = installedRestoreResources(applicationContext)
         val database = Room.databaseBuilder(applicationContext, MirraDatabase::class.java, paths.database.absolutePath)
             .openHelperFactory(com.guanyi.mirra.data.maintenance.EpochOpenHelperFactory())
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
         generation.database = database
         val preferences = ManagedPreferences(paths.preferences)
         generation.preferences = preferences
@@ -99,7 +100,7 @@ class MirraApplication : Application(), BackupStorageHost {
         val selected = checkNotNull(generation.selected)
         selected.startup.await()
         if (presentation == StoragePresentation.OPEN)
-            selected.wearableSnapshotSource.let { wearableCompanion.bindSource(it, selected.wearableCommandExecutor, selected.wearableCatalogSource) }
+            selected.wearableSnapshotSource.let { wearableCompanion.bindSource(it, selected.wearableCommandExecutor, selected.wearableCatalogSource, selected.wearableRecordReceiver) }
         withContext(Dispatchers.Main.immediate) {
             currentRuntime = checkNotNull(generation.runtime)
             RestoreFileAccess.blocked = false
@@ -160,7 +161,7 @@ class MirraApplication : Application(), BackupStorageHost {
         }
         if (!busy && mutableStorageState.value.phase == StoragePresentation.OPEN) {
             mutableStorageState.value.container?.let { selected ->
-                selected.wearableSnapshotSource?.let { wearableCompanion.bindSource(it, selected.wearableCommandExecutor, selected.wearableCatalogSource) }
+                selected.wearableSnapshotSource?.let { wearableCompanion.bindSource(it, selected.wearableCommandExecutor, selected.wearableCatalogSource, selected.wearableRecordReceiver) }
             }
         }
     }

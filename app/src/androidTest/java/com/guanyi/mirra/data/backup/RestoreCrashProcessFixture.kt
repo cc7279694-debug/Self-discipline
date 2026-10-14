@@ -90,7 +90,7 @@ class RestoreCrashProcessFixture {
         assertFalse(journal.hasPendingRecovery())
         assertEquals("Never expose mixed database/preferences/images", expected, restoreAndroidResourceFrame(fixture.live))
         fixture.assertGeneration(selected)
-        println("MIRRA_4C_PROCESS_RECOVERED run=${request.run} boundary=${request.boundary} preparedPid=$preparedPid assertPid=${Process.myPid()} selected=${selected.token} resources=3 tables=12 recoveryBeforeSandboxStores=true productionBootstrap=false physicalPowerCut=false")
+        println("MIRRA_4C_PROCESS_RECOVERED run=${request.run} boundary=${request.boundary} preparedPid=$preparedPid assertPid=${Process.myPid()} selected=${selected.token} resources=3 tables=${AUTHORITATIVE_TABLES.size} recoveryBeforeSandboxStores=true productionBootstrap=false physicalPowerCut=false")
         fixture.removeSyntheticRoot()
     }
 

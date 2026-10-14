@@ -19,7 +19,7 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import kotlinx.serialization.json.*
 
-class BackupArchive(private val limits: BackupLimits = BackupLimits()) {
+class BackupArchive(private val limits: BackupLimits = BackupLimits(), private val appVersion: String = "0.1.0") {
     fun create(snapshot: BackupSnapshot, outputFile: File, portablePrefs: PortableAppPreferencesSnapshot, createdAt: Long): BackupMetadata = checked {
         val started = System.nanoTime()
         requireBackup(createdAt >= 0, "Invalid creation time")
@@ -44,7 +44,7 @@ class BackupArchive(private val limits: BackupLimits = BackupLimits()) {
             BackupFileRecord(path, file.length(), sha256(file, maximum, started))
         } + BackupFileRecord("preferences.json", preferences.size.toLong(), sha256(preferences))
         requireBackup(records.sumOf { it.bytes } <= limits.expandedBytes, "Snapshot exceeds total limit")
-        val metadata = BackupMetadata(APP_ID, 1, 4, 1, createdAt, LinkedHashMap(snapshot.tableCounts), snapshot.imageCount, records)
+        val metadata = BackupMetadata(APP_ID, 2, 5, 1, createdAt, LinkedHashMap(snapshot.tableCounts), snapshot.imageCount, records, appVersion)
         val metadataBytes = encodeMetadata(metadata).toByteArray(Charsets.UTF_8)
         requireBackup(metadataBytes.size <= limits.metadataBytes, "Metadata exceeds limit")
         requireBackup(!outputFile.exists() && outputFile.parentFile?.isDirectory == true, "Output must be a new file")
@@ -134,8 +134,8 @@ class BackupArchive(private val limits: BackupLimits = BackupLimits()) {
         ValidatedBackup(root, metadata, preferences)
     }
 
-    private fun validateCounts(counts: Map<String, Long>) {
-        requireBackup(counts.keys == AUTHORITATIVE_TABLES.toSet(), "Wrong authoritative table inventory")
+    private fun validateCounts(counts: Map<String, Long>, schemaVersion: Int = 5) {
+        requireBackup(counts.keys == backupTablesForSchema(schemaVersion).toSet(), "Wrong authoritative table inventory")
         requireBackup(counts.values.all { it in 0..limits.rowsPerTable } && counts.values.sum() <= limits.totalRows, "Table rows exceed limit")
     }
 
@@ -150,13 +150,16 @@ class BackupArchive(private val limits: BackupLimits = BackupLimits()) {
 
     private fun decodeMetadata(element: JsonElement): BackupMetadata {
         val value = objectFields(element, setOf("appId", "appVersion", "backupFormatVersion", "roomSchemaVersion", "ownershipNormalizationVersion", "createdAt", "imageCount", "tableCounts", "files"))
-        requireBackup(string(value, "appId") == APP_ID && number(value, "backupFormatVersion") == 1L && number(value, "roomSchemaVersion") == 4L && number(value, "ownershipNormalizationVersion") == 1L, "Unsupported Mirra backup format/schema")
+        val format = number(value, "backupFormatVersion")
+        val schema = number(value, "roomSchemaVersion")
+        requireBackup(string(value, "appId") == APP_ID && (format == 1L && schema == 4L || format == 2L && schema == 5L) &&
+            number(value, "ownershipNormalizationVersion") == 1L, "Unsupported Mirra backup format/schema")
         val version = string(value, "appVersion")
         requireBackup(version.length in 1..128, "Invalid app version")
         val createdAt = number(value, "createdAt")
         requireBackup(createdAt >= 0, "Invalid creation time")
         val counts = (value["tableCounts"] as? JsonObject)?.mapValues { (_, elementValue) -> integer(elementValue) } ?: failBackup("Invalid table counts")
-        validateCounts(counts)
+        validateCounts(counts, schema.toInt())
         val fileArray = value["files"] as? JsonArray ?: failBackup("Invalid files manifest")
         requireBackup(fileArray.size <= limits.entries - 1, "Too many manifest files")
         val files = fileArray.map { fileValue ->
@@ -169,7 +172,7 @@ class BackupArchive(private val limits: BackupLimits = BackupLimits()) {
         val imageCount = number(value, "imageCount")
         requireBackup(imageCount in 0..(limits.entries - 3).toLong() && imageCount == files.count { it.path.startsWith("images/") }.toLong() && imageCount == counts.getValue("image_assets"), "Image count disagreement")
         requireBackup(files.sumOf { it.bytes } <= limits.expandedBytes, "Manifest exceeds total limit")
-        return BackupMetadata(APP_ID, 1, 4, 1, createdAt, counts, imageCount.toInt(), files, version)
+        return BackupMetadata(APP_ID, format.toInt(), schema.toInt(), 1, createdAt, counts, imageCount.toInt(), files, version)
     }
 
     private fun encodePreferences(preferences: PortableAppPreferencesSnapshot): String {
@@ -351,4 +354,10 @@ private class DuplicateKeyGuard(private val source: String) {
     private fun take(character: Char): Boolean = if (source.getOrNull(index) == character) { index++; true } else false
 }
 
-internal val AUTHORITATIVE_TABLES = listOf("learning_items", "study_intents", "study_sessions", "notes", "image_assets", "topics", "note_topic_cross_refs", "risk_apps", "session_focus_contexts", "session_risk_app_snapshots", "session_segments", "focus_events")
+internal val LEGACY_AUTHORITATIVE_TABLES = listOf("learning_items", "study_intents", "study_sessions", "notes", "image_assets", "topics", "note_topic_cross_refs", "risk_apps", "session_focus_contexts", "session_risk_app_snapshots", "session_segments", "focus_events")
+internal val AUTHORITATIVE_TABLES = LEGACY_AUTHORITATIVE_TABLES + "wearable_completed_records"
+internal fun backupTablesForSchema(version: Int): List<String> = when (version) {
+    4 -> LEGACY_AUTHORITATIVE_TABLES
+    5 -> AUTHORITATIVE_TABLES
+    else -> throw BackupValidationException("Unsupported Room schema version")
+}

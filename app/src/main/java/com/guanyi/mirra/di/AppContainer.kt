@@ -121,6 +121,7 @@ interface AppContainer {
     val wearableSnapshotSource: com.guanyi.mirra.domain.wearable.WearableSnapshotSource? get() = null
     val wearableCommandExecutor: com.guanyi.mirra.domain.wearable.WearableCommandExecutor? get() = null
     val wearableCatalogSource: com.guanyi.mirra.domain.wearable.WearableCatalogSource? get() = null
+    val wearableRecordReceiver: com.guanyi.mirra.domain.wearable.WearableRecordReceiver? get() = null
     val fullBackupService: com.guanyi.mirra.domain.backup.FullBackupService? get() = null
     val dataExportService: com.guanyi.mirra.domain.backup.DataExportService? get() = null
     val pendingEdits: PendingEditRegistry? get() = null
@@ -295,6 +296,7 @@ class DefaultAppContainer(
         },
     )
     override val wearableCatalogSource = com.guanyi.mirra.data.wearable.WearableCatalogReader(database, storageGate, startup)
+    override val wearableRecordReceiver = com.guanyi.mirra.data.wearable.RoomWearableRecordReceiver(database, storageGate, startup)
     override val wearableCommandExecutor = com.guanyi.mirra.domain.wearable.DefaultWearableCommandExecutor(
         source = wearableSnapshotSource,
         start = { expected, authorized -> sessionStartCoordinator.startConfirmedMonitored(expected, authorized) },
