@@ -2,6 +2,8 @@
 
 ## Mirra Band 05D 当前授权范围
 
+2026-10-14后续用户明确同意先备份后自行覆盖05D APK1.4.0/code9与正式RPK0.5.0/code11，允许APK自身Room4→5升级、手动允许记录接收及一次自然体验。仅记录USER_SELF_INSTALL_AUTHORIZED/等待反馈，不推定已安装、备份完成或真机PASS；不重复询问该授权，不要求USB、不由Codex自动操作真实设备。真实DB直接写入/恢复、卸载/清数据/降级/改签名与05E仍不授权。下方安装未授权描述为原开发授权边界，此项是后续窄例外。
+
 2026-10-14用户授权05D方案、隔离开发和自动化，统一合同在Band docs/plans/MIRRA_BAND_05D_RECORD_SYNC.md；本树基线6589a19，分支codex/mirra-band-05d-record-sync，原手机工作区不改。05C.1视觉USER_REPORTED_PASS — PASS WITH NOTES继承。
 
 允许Room4→5专用不可变腕端完成记录表及Full Backup2/schema5，并严格兼容旧1/schema4和闭库恢复日志。不写真实用户DB，不安装设备、不清数据/破坏性迁移。复用既有Coordinator/SDK/gate，完整原始事实和精确字节去重，事务返回后ACK。档案在腕端有界保留，新握手重放，不新增手机restore epoch或第二SDK owner。手机Session/Intent/监测/学习算法/进度/统计不变，05E未授权；普通当前分支commit/push允许，无PR/main合并。本条明确替代下方旧05C的Room4/备份1不变约束。

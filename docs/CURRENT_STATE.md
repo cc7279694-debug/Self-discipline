@@ -4,7 +4,7 @@
 
 ## 当前阶段与授权
 
-**Mirra Band 05D / DEV_COMPLETE_AWAITING_DEVICE_NATURAL_USE**。双端可靠独立完成记录同步开发、构建、原生隔离验证及产物核验已完成。本授权不包含正式设备安装、真实用户数据库升级/写入/恢复、清数据或不可逆操作，不进入05E、不自动PR或合并main。
+**Mirra Band 05D / DEV_COMPLETE_AWAITING_DEVICE_NATURAL_USE**。双端可靠独立完成记录同步开发、构建、原生隔离验证及产物核验已完成。用户后续已授权先备份后自行覆盖配套包（含APK正常Room升级）并体验，实际结果尚未反馈；Codex直接操作真实设备/数据库及恢复、清数据等不在此同意范围。不进入05E、不自动PR或合并main。
 
 本隔离树`E:\CODEX\mirra-watch\.local\android-worktree`，分支`codex/mirra-band-05d-record-sync`，基线`6589a19f0305245fe0e63bf77f105f61f27a913e`。Band分支`codex/module-05d-record-sync`，基线`1c2ac537545f4d5cb365dfa7e276cbd24cd2425f`。原手机工作区不修改。合同在Band `docs/plans/MIRRA_BAND_05D_RECORD_SYNC.md`；最终证据在Band `docs/evidence/module-05d/README.md`及artifacts.json/verification.json。本树[05C证据](evidence/module-05c/README.md)保留为历史，不覆盖当前05D范围。
 
@@ -38,6 +38,6 @@ Full Backup **format2/schema5**包含新原始记录表和所有既有数据/媒
 
 ## Not Run / 当前停止边界
 
-05D原配对手机与国行9Pro正式安装、真实用户Room4→5升级/恢复、设备原生SHA-256及记录消息/确认自然使用：**Not Run**，本轮无此授权。没有操作其他Android设备、用户原数据库、签名转换、卸载或清数据。自有模拟器仅使用隔离fixture，不能外推OEM、无线/固件、真机耗时、电量或长期耐久。
+05D原配对手机与国行9Pro正式安装、实际Room4→5升级、设备原生SHA及记录确认自然使用：**未收到实际反馈**。用户已同意先备份后自行覆盖配套包并体验，记录USER_SELF_INSTALL_AUTHORIZED，不推定已备份/安装/升级或PASS。Codex没有操作真实手机/用户数据库或其他设备；恢复、直接DB操作、签名转换、卸载/清数据/降级不在此同意范围。隔离模拟器证据不能外推OEM、无线/固件、真机耗时、电量或长期耐久。
 
-新正式安装和真实数据库升级/恢复需另行当前明确同意；交付后停05D，以一次自然使用为主，不强制USB或冗长人工矩阵。05E历史展示/统计合并尚未实施。
+本次用户自行覆盖APK1.4.0/code9及RPK0.5.0/code11、APK正常Room升级、开启「接收腕端完成记录」与自然体验已获同意；不重复请求同一授权，等待实际反馈，见device-acceptance.json。停05D，不强制USB或冗长人工矩阵，05E历史展示/统计合并尚未实施。
