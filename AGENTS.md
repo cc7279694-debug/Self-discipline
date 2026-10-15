@@ -1,12 +1,20 @@
 # Repository Collaboration Guide
 
-## Mirra Band 05D 当前授权范围
+## Mirra Band 05E-0 当前授权范围
 
-2026-10-14后续用户明确同意先备份后自行覆盖05D APK1.4.0/code9与正式RPK0.5.0/code11，允许APK自身Room4→5升级、手动允许记录接收及一次自然体验。仅记录USER_SELF_INSTALL_AUTHORIZED/等待反馈，不推定已安装、备份完成或真机PASS；不重复询问该授权，不要求USB、不由Codex自动操作真实设备。真实DB直接写入/恢复、卸载/清数据/降级/改签名与05E仍不授权。下方安装未授权描述为原开发授权边界，此项是后续窄例外。
+2026-10-15用户已冻结05E Product Baseline V1（ACCEPTED / FROZEN）：两端原始记录分别保留，通过来源复合身份的只读投影统一历史；采用方案A，手环合理FOCUS仅为参考阅读、排除BREAK，合格且可比较的双端区间取并集，不计入有效专注，不改变手机Start / Maintain / Recover、速度、剩余时间和节奏口径。未知结束时间不得以receivedAt替代；合法页码仅在安全准入后按max(currentPage,endPage)推进。
+
+当前只授权05E-0方案设计、双仓库只读核查、合成模型推演及ChatGPT架构审查；不实施05E-1～5，不改生产代码、Room v5 / Schema / 索引 / Full Backup、协议、产物或真实数据，不构建/安装新包、不自动PR或合并main。技术架构已获ChatGPT独立PASS WITH NOTES，后续生产门槛未验证，不把产品冻结等同于功能PASS或发布批准。本隔离分支codex/mirra-band-05e-0-review，基线8ae37f67ca7bba523d23f5198fddb8820f7066f7；Band审查分支codex/module-05e-0-product-baseline，基线42714a8919799238cbd295636b5c57a4c8fb6092，统一合同与审查证据由Band仓库维护。原手机工作区不修改。
+
+05D开发证据与既有真机通过保留；05D实际Room4→5升级、真实无线记录同步和重进保留仍待用户自然反馈。用户先备份后自行覆盖安装的授权继续有效，不重复要求USB或安装同意，不推定备份、安装、数据库升级或无线验收已完成。ChatGPT外部审查状态由Band evidence登记，Codex内部审查不能代替；涉及真实数据/恢复、Schema演进、正式安装或归档清理须相应独立安全审查和授权。
+
+## Mirra Band 05D 阶段授权范围（继承）
+
+2026-10-14后续用户明确同意先备份后自行覆盖05D APK1.4.0/code9与正式RPK0.5.0/code11，允许APK自身Room4→5升级、手动允许记录接收及一次自然体验。仅记录USER_SELF_INSTALL_AUTHORIZED/等待反馈，不推定已安装、备份完成或真机PASS；不重复询问该授权，不要求USB、不由Codex自动操作真实设备。真实DB直接写入/恢复、卸载/清数据/降级/改签名与05E-1～5实施仍不授权。下方安装未授权描述为原开发授权边界，此项是后续窄例外。
 
 2026-10-14用户授权05D方案、隔离开发和自动化，统一合同在Band docs/plans/MIRRA_BAND_05D_RECORD_SYNC.md；本树基线6589a19，分支codex/mirra-band-05d-record-sync，原手机工作区不改。05C.1视觉USER_REPORTED_PASS — PASS WITH NOTES继承。
 
-允许Room4→5专用不可变腕端完成记录表及Full Backup2/schema5，并严格兼容旧1/schema4和闭库恢复日志。不写真实用户DB，不安装设备、不清数据/破坏性迁移。复用既有Coordinator/SDK/gate，完整原始事实和精确字节去重，事务返回后ACK。档案在腕端有界保留，新握手重放，不新增手机restore epoch或第二SDK owner。手机Session/Intent/监测/学习算法/进度/统计不变，05E未授权；普通当前分支commit/push允许，无PR/main合并。本条明确替代下方旧05C的Room4/备份1不变约束。
+允许Room4→5专用不可变腕端完成记录表及Full Backup2/schema5，并严格兼容旧1/schema4和闭库恢复日志。不写真实用户DB，不安装设备、不清数据/破坏性迁移。复用既有Coordinator/SDK/gate，完整原始事实和精确字节去重，事务返回后ACK。档案在腕端有界保留，新握手重放，不新增手机restore epoch或第二SDK owner。手机Session/Intent/监测/学习算法/进度/统计不变，不实施05E-1～5；普通当前分支commit/push允许，无PR/main合并。本条明确替代下方旧05C的Room4/备份1不变约束。
 
 ## Mirra Band 05C 当前授权范围
 
