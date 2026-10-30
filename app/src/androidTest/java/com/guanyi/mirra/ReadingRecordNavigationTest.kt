@@ -112,7 +112,8 @@ class ReadingRecordNavigationTest {
         }
         rule.setContent { MirraTheme { MirraApp(diagnosticContainer, TopLevelDestination.Start, {}) } }
         await("继续学习"); rule.onNodeWithText("继续学习").performClick()
-        await("结束本次阅读"); rule.onNodeWithText("结束本次阅读").performScrollTo().performClick()
+        rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("session-end-action")).fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("session-end-action").performScrollTo().performClick()
         await("结束本次阅读？"); rule.onNodeWithTag("confirm-session-finish").performClick()
         try { await("本次阅读已保存") }
         catch (failure: Throwable) {
@@ -165,7 +166,8 @@ class ReadingRecordNavigationTest {
         try {
             rule.setContent { MirraTheme { MirraApp(delayedContainer, TopLevelDestination.Start, {}) } }
             await("继续学习"); rule.onNodeWithText("继续学习").performClick()
-            await("结束本次阅读"); rule.onNodeWithText("结束本次阅读").performScrollTo().performClick()
+            rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("session-end-action")).fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("session-end-action").performScrollTo().performClick()
             await("结束本次阅读？"); rule.onNodeWithTag("confirm-session-finish").performClick()
             await("本次阅读已保存")
             val completed = runBlocking { container.database.sessionDao().get(session.id) }!!
@@ -185,7 +187,7 @@ class ReadingRecordNavigationTest {
             rule.onNodeWithText("本次阅读已保存").assertExists()
             rule.onNodeWithText("阅读已结束").assertDoesNotExist()
             rule.onNodeWithText("正在阅读").assertDoesNotExist()
-            rule.onNodeWithText("结束本次阅读").assertDoesNotExist()
+            rule.onNodeWithTag("session-end-action").assertDoesNotExist()
             assertNull(runBlocking { container.studyWorkflowRepository.observeActiveSession().first() })
             assertEquals(completed, runBlocking { container.database.sessionDao().get(session.id) })
             assertEquals(context, runBlocking { container.database.focusDao().getContext(session.id) })

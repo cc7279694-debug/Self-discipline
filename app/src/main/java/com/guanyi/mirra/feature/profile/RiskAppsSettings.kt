@@ -85,6 +85,8 @@ fun RiskAppsSettings(repository: FocusRepository, modifier: Modifier = Modifier)
     }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("风险 App", style = MaterialTheme.typography.titleLarge)
+        Text("名单长期保存，不需要每次重新设置。",
+            style = MaterialTheme.typography.bodySmall, color = MirraTheme.colors.textSecondary)
         Text("修改影响下一次学习，本次仍使用开始时的选择。",
             style = MaterialTheme.typography.bodySmall, color = MirraTheme.colors.textSecondary)
         if (saved.loaded && saved.apps.isEmpty()) Text("还没有选择风险 App", color = MirraTheme.colors.textSecondary)

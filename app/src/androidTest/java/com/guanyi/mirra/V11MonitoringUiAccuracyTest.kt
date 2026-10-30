@@ -3,7 +3,9 @@ package com.guanyi.mirra
 import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -67,7 +69,7 @@ class V11MonitoringUiAccuracyTest {
             MirraTheme { ProfileScreen(vm, riskRepository = container.focusRepository) }
         }
 
-        rule.onNodeWithText("短视频测试").assertExists()
+        rule.onNodeWithText("短视频测试", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("选择风险 App").assertDoesNotExist()
     }
 
@@ -96,7 +98,7 @@ class V11MonitoringUiAccuracyTest {
         } }
         rule.waitUntil(5_000) { vm.session.value != null && vm.isReadingQualified }
 
-        rule.onNodeWithText("本次未开启分心监测").assertExists()
+        rule.onNodeWithText("本次未开启监测").assertExists()
         rule.onNodeWithText("检查学习保护").performClick()
         assertEquals(1, repairRequests)
     }

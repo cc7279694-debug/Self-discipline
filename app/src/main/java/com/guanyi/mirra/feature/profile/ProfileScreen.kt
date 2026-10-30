@@ -164,11 +164,24 @@ fun ProfileSummaryContent(state: ProfileUiState, modifier: Modifier = Modifier, 
         state.trendsError?.let { Text(it, color = MirraTheme.colors.danger) }
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            WeeklyAuxiliary("开始转化率", start?.conversion?.value?.takeIf { it.isFinite() }?.let {
-                "${(it * 100).roundToInt()}%"
-            } ?: if (state.trendsError != null) "暂无可确认数据" else "数据积累中", start?.let {
-                "${it.conversion.denominator} 次已结束计划，${it.convertedCount} 次真正开始"
-            } ?: "暂无可确认数据", "weekly-start")
+            Column(Modifier.widthIn(min = 100.dp, max = 260.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("启动记录", color = MirraTheme.colors.textSecondary, style = MaterialTheme.typography.bodyMedium)
+                Text(start?.let { "成功开始 ${it.convertedCount} 次" } ?: "暂无可确认数据",
+                    style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.testTag("weekly-start-count"), color = MirraTheme.colors.accentStrong)
+                if (start != null) Text("已结束计划 ${start.conversion.denominator} 次",
+                    style = MaterialTheme.typography.bodyMedium, color = MirraTheme.colors.textSecondary,
+                    modifier = Modifier.testTag("weekly-resolved-count"))
+                Text("开始转化率", style = MaterialTheme.typography.bodySmall, color = MirraTheme.colors.textSecondary)
+                Text(when {
+                    start == null -> "暂无可确认数据"
+                    start.conversion.denominator == 0L -> "数据积累中"
+                    else -> start.conversion.value?.takeIf { it.isFinite() }?.let {
+                        "${(it * 100).roundToInt()}%"
+                    } ?: "暂无可确认数据"
+                }, style = MaterialTheme.typography.bodySmall, color = MirraTheme.colors.textSecondary,
+                    modifier = Modifier.testTag("weekly-start"))
+            }
             WeeklyAuxiliary("分心后恢复", when {
                 recover == null -> "暂无可确认数据"
                 recover.attemptCount == 0L && (maintain?.trustedSessionCount ?: 0L) == 0L -> "暂无可确认数据"

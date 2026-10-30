@@ -74,6 +74,7 @@ class InstalledBackupJourneyFixture {
                 "prepare" -> prepare(application, root, request)
                 "mutate" -> mutate(application, root, request)
                 "assert" -> assertRestored(application, root, request)
+                "assert_prepared" -> assertPrepared(application, root, request)
                 "restore_baseline" -> restoreBaseline(application, root, base, request)
             }
         }
@@ -116,7 +117,11 @@ class InstalledBackupJourneyFixture {
             frame(owner)
         }
         AUTHORITATIVE_TABLES.forEach { table ->
-            assertEquals("Exactly one synthetic row must be added to $table", baseline.counts.getValue(table) + 1, expected.counts.getValue(table))
+            // This legacy fixture seeds phone facts only. Still snapshot/check all 13 tables:
+            // unrelated wrist originals must remain byte-identical, not acquire a fake row.
+            val addedRows = if (table in LEGACY_AUTHORITATIVE_TABLES) 1L else 0L
+            assertEquals("Only explicitly seeded tables may change: $table",
+                baseline.counts.getValue(table) + addedRows, expected.counts.getValue(table))
             marker.setProperty("expected.count.$table", expected.counts.getValue(table).toString())
         }
         marker.setProperty("expected.digest", expected.digest)
@@ -169,6 +174,25 @@ class InstalledBackupJourneyFixture {
         marker.setProperty("stage", "mutated")
         writeMarker(root, marker)
         report("MUTATED", mutated)
+    }
+
+    /** Read-only canonical comparison for a cover install before the existing mutation/restore journey. */
+    private suspend fun assertPrepared(application: MirraApplication, root: File, request: Request) {
+        val marker = readMarker(root, request)
+        check(marker.getProperty("stage") == "prepared") { "Prepared comparison requires its saved original baseline" }
+        val owner = selectedOwner(application)
+        val actual = exclusive(application, owner) {
+            val current = frame(owner)
+            assertEquals("Cover install changed authoritative facts, JPEG bytes or preference presence",
+                marker.digest("expected"), current.digest)
+            AUTHORITATIVE_TABLES.forEach { table ->
+                assertEquals(marker.getProperty("expected.count.$table").toLong(), current.counts.getValue(table))
+            }
+            assertSyntheticReferences(owner, marker)
+            assertEquals(marker.getProperty("expected.imageSha256"), hashFile(imageFile(owner, marker)))
+            current
+        }
+        report("PREPARED_UNCHANGED_ASSERTED", actual)
     }
 
     private suspend fun assertRestored(application: MirraApplication, root: File, request: Request) {
@@ -477,7 +501,7 @@ class InstalledBackupJourneyFixture {
         val arguments = InstrumentationRegistry.getArguments()
         val stage = arguments.getString("mirra4cJourneyStage")
         assumeTrue("Explicit installed SAF journey stage required", stage != null)
-        require(stage in setOf("prepare", "mutate", "assert", "restore_baseline"))
+        require(stage in setOf("prepare", "assert_prepared", "mutate", "assert", "restore_baseline"))
         require(arguments.getString("mirra4cJourneyDedicatedAvd") == "true") { "Explicit dedicated emulator confirmation required" }
         require(Build.VERSION.SDK_INT == 37 && (Build.HARDWARE in setOf("ranchu", "goldfish") || Build.FINGERPRINT.contains("emulator"))) {
             "Fixture is restricted to the dedicated API 37 emulator"

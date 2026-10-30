@@ -43,6 +43,7 @@ class SessionFocusUiTest {
         try {
             rule.setContent { MirraTheme { SessionScreen(vm, {}, {}, {}) } }
             rule.waitUntil(5_000) { vm.currentPageText == "40" }
+            rule.onNodeWithTag("session-page-action").performScrollTo().performClick()
             rule.onNode(hasSetTextAction() and hasText("当前页码")).performTextClearance()
             rule.onNode(hasSetTextAction() and hasText("当前页码")).performTextInput("4")
             rule.runOnIdle { assertEquals("4", vm.currentPageText) }
@@ -50,6 +51,7 @@ class SessionFocusUiTest {
             rule.onNode(hasSetTextAction() and hasText("当前页码")).performTextClearance()
             rule.onNode(hasSetTextAction() and hasText("当前页码")).performTextInput("42")
             rule.waitUntil(5_000) { vm.session.value?.currentPage == 42 }
+            rule.onNodeWithText("完成").performClick()
             rule.runOnIdle { vm.changePage("35"); vm.changeContent("回看旧页") }
             rule.waitUntil(5_000) { vm.savedMessage == "已自动保存" }
             assertEquals(35, runBlocking { container.noteRepository.observeForSession(session.id).first() }.single().pageNumber)

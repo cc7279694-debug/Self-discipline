@@ -67,7 +67,16 @@ class DataExportServiceTest {
             service.saveExport(prepared, Uri.fromFile(output))
             ZipFile(output).use { zip ->
                 val names = zip.entries().asSequence().map { it.name }.toList()
-                AUTHORITATIVE_TABLES.forEach { assertTrue(names.contains("$it.csv")) }
+                // Backup protects all 13 tables; readable export intentionally exposes only
+                // these 12 phone tables. Keep the independent whitelist and source hash guard.
+                val expectedCsv = setOf("learning_items", "study_intents", "study_sessions",
+                    "notes", "image_assets", "topics", "note_topic_cross_refs", "risk_apps",
+                    "session_focus_contexts", "session_risk_app_snapshots", "session_segments",
+                    "focus_events").map { "$it.csv" }.toSet()
+                assertEquals(12, expectedCsv.size)
+                assertEquals(12, names.count { it.endsWith(".csv") })
+                assertEquals(expectedCsv, names.filter { it.endsWith(".csv") }.toSet())
+                assertFalse(names.contains("wearable_completed_records.csv"))
                 assertTrue(names.contains("metadata.json"))
                 assertFalse(names.any { it.endsWith(".jpg") || it.endsWith(".sqlite") || it.contains("preferences") })
                 val notes = zip.getInputStream(zip.getEntry("notes.csv")).reader(Charsets.UTF_8).readText()

@@ -7,6 +7,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.guanyi.mirra.domain.FirstActionResolver
@@ -17,17 +21,23 @@ fun FirstActionInput(
     onValueChange: (String) -> Unit,
     currentPage: Int,
     enabled: Boolean = true,
+    compactHelp: Boolean = false,
 ) {
     val error = FirstActionResolver.validationError(value).takeIf { value.isNotBlank() }
+    var helpExpanded by rememberSaveable { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("写一个现在就能完成的小动作，例如把书放到桌上，读第一段。不要写“今天读 30 页”等目标。",
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (!compactHelp || helpExpanded) {
+            Text("写一个现在就能完成的小动作，例如把书放到桌上，读第一段。不要写“今天读 30 页”等目标。",
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
             label = { Text("第一步动作") },
             isError = error != null,
-            supportingText = { Text(error ?: "每次准备开始时会展示这一步，确认开始阅读前可以修改。") },
+            supportingText = if (compactHelp && error == null) null else {
+                { Text(error ?: "每次准备开始时会展示这一步，确认开始阅读前可以修改。") }
+            },
             minLines = 2,
             maxLines = 4,
             enabled = enabled,
@@ -40,6 +50,11 @@ fun FirstActionInput(
                 enabled = enabled,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("使用建议动作") }
+        }
+        if (compactHelp) {
+            MirraTextAction(onClick = { helpExpanded = !helpExpanded }, enabled = enabled) {
+                Text(if (helpExpanded) "收起说明" else "怎样写第一步")
+            }
         }
     }
 }

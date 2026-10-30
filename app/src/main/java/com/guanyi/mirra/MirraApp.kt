@@ -7,6 +7,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -101,7 +102,9 @@ fun MirraApp(
     val debugMonitoring = if (appContext.isMirraDebuggable())
         monitoring else null
     val backStack = rememberNavBackStack(TopLevelDestination.Start)
-    var selectedDestination by remember { mutableStateOf(TopLevelDestination.Start) }
+    var selectedDestination by rememberSaveable { mutableStateOf(TopLevelDestination.Start) }
+    var userHasNavigated by rememberSaveable { mutableStateOf(false) }
+    var focusedSessionSurface by remember { mutableStateOf<String?>(null) }
     var externalRequest by remember { mutableStateOf<InterventionNavigationRequest?>(null) }
     val pendingCloseoutId by remember(container) {
         container.studyWorkflowRepository.observeActiveSession().flatMapLatest { occupied ->
@@ -113,14 +116,16 @@ fun MirraApp(
     }.collectAsStateWithLifecycle(initialValue = null)
 
     fun open(route: NavKey) {
+        userHasNavigated = true
         backStack.add(route)
     }
 
     fun back() {
-        if (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+        if (backStack.size > 1) { userHasNavigated = true; backStack.removeAt(backStack.lastIndex) }
     }
 
     fun select(destination: TopLevelDestination, persist: Boolean) {
+        if (persist) userHasNavigated = true
         selectedDestination = destination
         backStack.clear()
         backStack.add(destination)
@@ -128,7 +133,9 @@ fun MirraApp(
     }
 
     LaunchedEffect(restoredDestination) {
-        if (pendingCloseoutId == null) select(restoredDestination, persist = false)
+        // A late initial preference may select a tab, but must never replace a user's/restored reading route.
+        if (!userHasNavigated && pendingCloseoutId == null && backStack.lastOrNull() is TopLevelDestination)
+            select(restoredDestination, persist = false)
     }
     LaunchedEffect(pendingCloseoutId) {
         pendingCloseoutId?.let { id ->
@@ -138,6 +145,7 @@ fun MirraApp(
                 if (container.studyWorkflowRepository.getCloseoutState(id) != FocusCloseoutState.PENDING)
                     return@LaunchedEffect
                 if (backStack.lastOrNull() == SessionSummaryRoute(id)) return@LaunchedEffect
+                userHasNavigated = true
                 backStack.clear(); backStack.add(SessionRoute(id))
             }
         }
@@ -154,6 +162,7 @@ fun MirraApp(
                         ClockSample(System.currentTimeMillis(), SystemClock.elapsedRealtime()))
                 }
                 externalRequest = request
+                userHasNavigated = true
                 backStack.clear()
                 backStack.add(SessionRoute(request.sessionId))
             }
@@ -163,7 +172,8 @@ fun MirraApp(
     val isTopLevel = backStack.lastOrNull() is TopLevelDestination
     StorageImageCacheScope(container) {
     Scaffold(
-        containerColor = MirraTheme.colors.background,
+        containerColor = if ((backStack.lastOrNull() as? SessionRoute)?.sessionId?.let { it == focusedSessionSurface } == true)
+            androidx.compose.ui.graphics.Color(0xFF101216) else MirraTheme.colors.background,
         bottomBar = {
             if (isTopLevel) {
                 MirraBottomNavigation(
@@ -444,6 +454,9 @@ fun MirraApp(
                     )
                 }
                 entry<PreparationRoute> { route ->
+                    val preparationCapabilities by remember(monitoring) {
+                        monitoring?.capabilities?.state ?: flowOf(null)
+                    }.collectAsStateWithLifecycle(initialValue = null)
                     PreparationScreen(
                         viewModel = viewModel(
                             key = route.intentId,
@@ -462,6 +475,12 @@ fun MirraApp(
                         },
                         onAbandoned = { select(TopLevelDestination.Start, persist = true) },
                         onBack = ::back,
+                        monitoringPermissionGranted = when (preparationCapabilities?.usage) {
+                            com.guanyi.mirra.platform.focus.CapabilityStatus.AVAILABLE -> true
+                            com.guanyi.mirra.platform.focus.CapabilityStatus.NEEDS_USER_ACTION,
+                            com.guanyi.mirra.platform.focus.CapabilityStatus.UNAVAILABLE -> false
+                            else -> null
+                        },
                     )
                 }
                 entry<SessionRoute> { route ->
@@ -489,6 +508,12 @@ fun MirraApp(
                         externalRequest = externalRequest?.takeIf { it.sessionId == route.sessionId },
                         onExternalRequestHandled = { externalRequest = null },
                         onOpenLearningProtection = { open(LearningProtectionRoute) },
+                        monitoringRuntime = monitoring,
+                        readingRecordRepository = container.readingRecordRepository,
+                        onFocusSurfaceChanged = { visible ->
+                            if (visible && backStack.lastOrNull() == route) focusedSessionSurface = route.sessionId
+                            else if (!visible && focusedSessionSurface == route.sessionId) focusedSessionSurface = null
+                        },
                         onPromptComposed = { prompt -> (appContext as? MirraApplication)?.monitoringPlatform
                             ?.interventionChannels?.inAppComposed(prompt) },
                     )

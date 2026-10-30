@@ -2,14 +2,20 @@ package com.guanyi.mirra
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isEnabled
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
@@ -54,23 +60,29 @@ class PhaseOneLearningLoopTest {
         composeRule.onNode(hasText("创建") and hasClickAction()).performClick()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("今天继续")).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText("开始准备").performClick()
-        composeRule.onNodeWithText("我已完成这一步，开始阅读").performClick()
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("快速笔记")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("我已完成，开始阅读").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasTestTag("session-note-action")).fetchSemanticsNodes().isNotEmpty() }
 
-        composeRule.onNodeWithText("摘录").performClick()
-        composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performTextInput("损失厌恶比收益更强")
-        composeRule.onNode(hasText("笔记页码（可选）") and hasSetTextAction()).performTextReplacement("12")
+        composeRule.onNodeWithTag("session-note-action").performScrollTo().performClick()
+        composeRule.onNodeWithText("摘录").performScrollTo().performClick()
+        composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performScrollTo().performTextInput("损失厌恶比收益更强")
+        composeRule.onNode(hasText("笔记页码（可选）") and hasSetTextAction()).performScrollTo().performTextReplacement("12")
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("已自动保存")).fetchSemanticsNodes().isNotEmpty() }
-        composeRule.onNodeWithText("保存并记下一条").performClick()
-        composeRule.onNodeWithText("问题").performClick()
-        composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performTextInput("这个结论适用于长期选择吗？")
-        composeRule.onNodeWithText("保存并记下一条").performClick()
+        composeRule.onNodeWithText("保存并记下一条").performScrollTo().performClick()
+        awaitNextEditableDraft()
+        composeRule.onNodeWithText("问题", useUnmergedTree = true).performScrollTo().assertIsDisplayed().performClick()
+        composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performScrollTo().performTextInput("这个结论适用于长期选择吗？")
+        composeRule.onNodeWithText("保存并记下一条").performScrollTo().performClick()
+        awaitNextEditableDraft()
+        composeRule.onNodeWithText("收起笔记").performScrollTo().performClick()
+        composeRule.onNodeWithTag("session-page-action").performScrollTo().performClick()
         composeRule.onNode(hasText("当前页码") and hasSetTextAction()).performTextReplacement("25")
         // Confirmation defaults to durable progress, not an in-flight text edit.
         composeRule.waitUntil(5_000) {
             runBlocking { container.database.sessionDao().getActive()?.currentPage == 25 }
         }
-        composeRule.onNodeWithText("结束本次阅读").performClick()
+        composeRule.onNodeWithText("完成").performClick()
+        composeRule.onNodeWithTag("session-end-action").performScrollTo().performClick()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasTestTag("confirm-session-finish")).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNode(hasText("结束页码") and hasSetTextAction()).assertTextContains("25")
         composeRule.onNodeWithTag("confirm-session-finish").performClick()
@@ -90,5 +102,14 @@ class PhaseOneLearningLoopTest {
         }
         composeRule.onNodeWithText("当前第 25 页，共 300 页").assertExists()
         composeRule.onNodeWithText("上次总结：本次阅读 10–25 页，用时不足 1 分钟，共记录 2 条笔记。").assertExists()
+    }
+
+    private fun awaitNextEditableDraft() {
+        // The existing asynchronous save must finish before the next user edit, not just a redraw.
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(hasSetTextAction() and hasText("写下摘录或想法") and isEnabled() and
+                SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("")))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
     }
 }

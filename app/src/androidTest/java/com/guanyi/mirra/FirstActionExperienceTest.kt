@@ -121,12 +121,12 @@ class FirstActionExperienceTest {
         assertNull(runBlocking { container.studyWorkflowRepository.observeActiveSession().first() })
         rule.onNodeWithText("使用建议动作").performClick()
         rule.onNodeWithText("确认动作，开始准备").performClick()
-        await("我已完成这一步，开始阅读")
+        await("我已完成，开始阅读")
         val intent = runBlocking { container.studyWorkflowRepository.observeActiveIntent().first() }
         assertTrue(intent != null)
         assertNull(runBlocking { container.studyWorkflowRepository.observeActiveSession().first() })
         rule.onNodeWithText("翻到第 8 页，读这一页的第一段。").assertExists()
-        rule.onNodeWithText("我已完成这一步，开始阅读").performScrollTo().performClick()
+        rule.onNodeWithText("我已完成，开始阅读").performScrollTo().performClick()
         rule.waitUntil(5_000) { runBlocking { container.studyWorkflowRepository.observeActiveSession().first() } != null }
         assertEquals(intent?.id, runBlocking { container.studyWorkflowRepository.observeActiveSession().first() }?.intentId)
         assertEquals(1, runBlocking { container.database.sessionDao().listAll().size })
@@ -144,13 +144,13 @@ class FirstActionExperienceTest {
         rule.waitUntil(5_000) { runBlocking { container.learningItemRepository.get(item.id) }?.firstAction == updated }
         assertNull(runBlocking { container.studyWorkflowRepository.observeActiveIntent().first() })
         rule.onNodeWithText("开始准备").performScrollTo().performClick()
-        await("我已完成这一步，开始阅读")
+        await("我已完成，开始阅读")
         rule.onNodeWithText(updated).assertExists()
         val first = runBlocking { container.studyWorkflowRepository.observeActiveIntent().first() }
         rule.onNodeWithText("取消本次启动").performScrollTo().performClick()
         await("开始准备")
         rule.onNodeWithText("开始准备").performScrollTo().performClick()
-        await("我已完成这一步，开始阅读")
+        await("我已完成，开始阅读")
         rule.onNodeWithText(updated).assertExists()
         assertTrue(first?.id != runBlocking { container.studyWorkflowRepository.observeActiveIntent().first() }?.id)
         assertEquals(updated, runBlocking { container.learningItemRepository.get(item.id) }?.firstAction)
@@ -183,7 +183,7 @@ class FirstActionExperienceTest {
         rule.setContent { MirraTheme { PreparationScreen(vm, {}, {}, {}) } }
         rule.waitUntil(5_000) { vm.uiState.value.intent != null }
         rule.onNodeWithText("编辑第一步").performScrollTo().assertIsNotEnabled()
-        rule.onNodeWithText("我已完成这一步，开始阅读").performScrollTo().assertIsEnabled().performClick()
+        rule.onNodeWithText("我已完成，开始阅读").performScrollTo().assertIsEnabled().performClick()
         rule.waitUntil(5_000) {
             runBlocking { container.database.intentDao().get(intent.id) }?.outcome == IntentOutcome.TIMEOUT
         }
@@ -234,8 +234,8 @@ class FirstActionExperienceTest {
         val vm = PreparationViewModel(intent.id, container.studyWorkflowRepository, container.learningItemRepository,
             container.sessionStartCoordinator).also(scopes::add)
         rule.setContent { MirraTheme { PreparationScreen(vm, {}, {}, {}) } }
-        await("我已完成这一步，开始阅读")
-        rule.onNodeWithText("我已完成这一步，开始阅读").performScrollTo().assertIsNotEnabled()
+        await("我已完成，开始阅读")
+        rule.onNodeWithText("我已完成，开始阅读").performScrollTo().assertIsNotEnabled()
         assertNull(runBlocking { container.studyWorkflowRepository.observeActiveSession().first() })
         assertEquals(action, runBlocking { container.learningItemRepository.get(item.id) }?.firstAction)
         rule.onNodeWithText("确定第一步").performScrollTo().performClick()
@@ -250,7 +250,7 @@ class FirstActionExperienceTest {
         assertNull(transitioned?.outcome)
         assertNull(runBlocking { container.studyWorkflowRepository.observeActiveSession().first() })
         rule.onNodeWithText(chosen).performScrollTo().assertExists()
-        rule.onNodeWithText("我已完成这一步，开始阅读").performScrollTo().performClick()
+        rule.onNodeWithText("我已完成，开始阅读").performScrollTo().performClick()
         rule.waitUntil(5_000) { runBlocking { container.studyWorkflowRepository.observeActiveSession().first() } != null }
         assertEquals(intent.createdAt, runBlocking { container.database.intentDao().get(intent.id) }?.createdAt)
         assertEquals(1, runBlocking { container.database.sessionDao().listAll().size })
@@ -273,7 +273,7 @@ class FirstActionExperienceTest {
         assertEquals(originalIntent, runBlocking { container.database.intentDao().get(intent.id) })
         assertNull(runBlocking { container.studyWorkflowRepository.observeActiveSession().first() })
         rule.onNodeWithText(edited).performScrollTo().assertExists()
-        rule.onNodeWithText("我已完成这一步，开始阅读").performScrollTo().performClick()
+        rule.onNodeWithText("我已完成，开始阅读").performScrollTo().performClick()
         rule.waitUntil(5_000) { runBlocking { container.studyWorkflowRepository.observeActiveSession().first() } != null }
         assertEquals(intent.id, runBlocking { container.studyWorkflowRepository.observeActiveSession().first() }?.intentId)
     }
@@ -290,12 +290,12 @@ class FirstActionExperienceTest {
                 PreparationScreen(vm, {}, {}, { backs++ })
             } }
         } }
-        await("我已完成这一步，开始阅读")
+        await("我已完成，开始阅读")
         rule.waitUntil(5_000) { vm.uiState.value.item != null }
         rule.onNodeWithText(item.firstAction).performScrollTo().assertExists()
         assertNull(runBlocking { container.studyWorkflowRepository.observeActiveSession().first() })
         if (capture) { rule.waitForIdle(); captureReadingRecordEvidence("v1-experience-preparation") }
-        rule.onNodeWithText("我已完成这一步，开始阅读").performScrollTo().assertExists()
+        rule.onNodeWithText("我已完成，开始阅读").performScrollTo().assertExists()
         rule.onNodeWithText("稍后再说").performScrollTo().performClick()
         assertEquals(1, backs)
         assertEquals(intent.id, runBlocking { container.studyWorkflowRepository.observeActiveIntent().first() }?.id)

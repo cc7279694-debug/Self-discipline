@@ -13,6 +13,7 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.lifecycle.Lifecycle
@@ -70,14 +71,19 @@ class PhaseOneCorrectionTest {
         launchAtSession(currentPage = 10)
         val typeChip = SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected)
 
+        composeRule.onNodeWithTag("session-note-action").performScrollTo().performClick()
         composeRule.onNode(hasText("笔记页码（可选）") and hasSetTextAction()).assertTextContains("10")
+        composeRule.onNodeWithText("收起笔记").performScrollTo().performClick()
+        composeRule.onNodeWithTag("session-page-action").performScrollTo().performClick()
         composeRule.onNode(hasText("当前页码") and hasSetTextAction()).performTextReplacement("25")
-        composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performTextInput("为什么？")
+        composeRule.onNodeWithText("完成").performClick()
+        composeRule.onNodeWithTag("session-note-action").performScrollTo().performClick()
+        composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performScrollTo().performTextInput("为什么？")
         composeRule.onNode(hasText("问题") and typeChip).assertIsSelected()
-        composeRule.onNode(hasText("摘录") and typeChip).performClick()
-        composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performTextReplacement("改完以后仍是问题？")
+        composeRule.onNode(hasText("摘录") and typeChip).performScrollTo().performClick()
+        composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performScrollTo().performTextReplacement("改完以后仍是问题？")
         composeRule.onNode(hasText("摘录") and typeChip).assertIsSelected()
-        composeRule.onNodeWithText("保存并记下一条").performClick()
+        composeRule.onNodeWithText("保存并记下一条").performScrollTo().performClick()
 
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodes(hasText("改完以后仍是问题？")).fetchSemanticsNodes().isNotEmpty()
@@ -92,7 +98,8 @@ class PhaseOneCorrectionTest {
     fun backgroundFlushesDraftBeforeDebounce() {
         launchAtSession(currentPage = 10)
         val sessionId = activeSessionId()
-        composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performTextInput("切到后台也要保存")
+        composeRule.onNodeWithTag("session-note-action").performScrollTo().performClick()
+        composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performScrollTo().performTextInput("切到后台也要保存")
 
         composeRule.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
 
@@ -109,8 +116,10 @@ class PhaseOneCorrectionTest {
     fun leavingSessionFlushesDraftBeforeNavigatingAway() {
         launchAtSession(currentPage = 10)
         val sessionId = activeSessionId()
-        composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performTextInput("离开页面前保存")
+        composeRule.onNodeWithTag("session-note-action").performScrollTo().performClick()
+        composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performScrollTo().performTextInput("离开页面前保存")
 
+        composeRule.onNodeWithText("收起笔记").performScrollTo().performClick()
         composeRule.activity.onBackPressedDispatcher.onBackPressed()
 
         composeRule.waitUntil(5_000) {
@@ -124,8 +133,10 @@ class PhaseOneCorrectionTest {
     fun finishingImmediatelyFlushesDraft() {
         launchAtSession(currentPage = 10)
         val sessionId = activeSessionId()
-        composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performTextInput("最后一笔")
-        composeRule.onNodeWithText("结束本次阅读").performClick()
+        composeRule.onNodeWithTag("session-note-action").performScrollTo().performClick()
+        composeRule.onNode(hasText("写下摘录或想法") and hasSetTextAction()).performScrollTo().performTextInput("最后一笔")
+        composeRule.onNodeWithText("收起笔记").performScrollTo().performClick()
+        composeRule.onNodeWithTag("session-end-action").performScrollTo().performClick()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasTestTag("confirm-session-finish")).fetchSemanticsNodes().isNotEmpty() }
 
         composeRule.onNodeWithTag("confirm-session-finish").performClick()
@@ -161,9 +172,9 @@ class PhaseOneCorrectionTest {
     private fun launchAtSession(currentPage: Int) {
         composeRule.setContent { MirraApp(container, TopLevelDestination.Start, onDestinationChanged = {}) }
         createBookAndOpenPreparation(currentPage)
-        composeRule.onNodeWithText("我已完成这一步，开始阅读").performClick()
+        composeRule.onNodeWithText("我已完成，开始阅读").performClick()
         composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(hasText("快速笔记")).fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(hasTestTag("session-note-action")).fetchSemanticsNodes().isNotEmpty()
         }
     }
 

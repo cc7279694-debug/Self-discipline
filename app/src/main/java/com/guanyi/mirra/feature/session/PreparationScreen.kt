@@ -45,7 +45,6 @@ import kotlinx.coroutines.isActive
 import com.guanyi.mirra.ui.components.MirraPrimaryButton
 import com.guanyi.mirra.ui.components.MirraSecondaryButton
 import com.guanyi.mirra.ui.components.MirraTextAction
-import com.guanyi.mirra.ui.components.MirraFocusCard
 import com.guanyi.mirra.ui.components.FirstActionInput
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
@@ -182,39 +181,71 @@ fun PreparationScreen(
     onStarted: (String) -> Unit,
     onAbandoned: () -> Unit,
     onBack: () -> Unit,
+    monitoringPermissionGranted: Boolean? = null,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val item = state.item
     val busy = viewModel.starting || viewModel.abandoning || viewModel.savingFirstAction
+    val pageUpdate = item?.let(FirstActionResolver::currentPageUpdate)
+    var keepOriginal by rememberSaveable(item?.id, item?.firstAction, item?.currentPage) { mutableStateOf(false) }
+    var applyingPageUpdate by rememberSaveable(item?.id, state.intent?.id) { mutableStateOf(false) }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(28.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        Column {
-            Text("启动准备", style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(20.dp))
-            Text("先做完下面这一步，再确认开始阅读。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(10.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("开始准备", style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(item?.name ?: "正在读取…", style = MaterialTheme.typography.titleLarge)
+            item?.let {
+                Text("第 ${it.currentPage} / ${it.totalPages} 页", style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             if (state.intent != null) {
                 Text("已等待 ${state.waitingMillis / 60_000} 分 ${(state.waitingMillis / 1_000) % 60} 秒",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(10.dp))
             }
-            MirraFocusCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("第一步", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(if (item == null) "正在读取…" else state.firstAction.ifEmpty { "先确定一个现在就能完成的小动作。" },
-                        style = MaterialTheme.typography.headlineSmall)
-                    MirraTextAction(onClick = viewModel::editFirstAction,
-                        enabled = state.intent != null && item != null && !busy && !state.isExpired) {
-                        Text(if (state.firstAction.isEmpty()) "确定第一步" else "编辑第一步")
-                    }
-                }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("本次第一步", style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (item == null) "正在读取…" else state.firstAction.ifEmpty { "先确定一个现在就能完成的小动作。" },
+                style = MaterialTheme.typography.headlineMedium)
+            MirraTextAction(onClick = {
+                applyingPageUpdate = false
+                viewModel.editFirstAction()
+            }, enabled = state.intent != null && item != null && !busy && !state.isExpired) {
+                Text(if (state.firstAction.isEmpty()) "确定第一步" else "编辑第一步")
             }
-            if (state.isExpired) Text("准备已超时，确认会结束本次启动；你也可以取消后重新准备。",
-                color = MaterialTheme.colorScheme.error)
+            if (pageUpdate != null && !keepOriginal) {
+                Text("当前读到第 ${item?.currentPage} 页，可更新这一步。",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                MirraSecondaryButton(onClick = {
+                    applyingPageUpdate = true
+                    viewModel.editFirstAction()
+                    viewModel.saveFirstAction(pageUpdate)
+                }, enabled = !busy && !state.isExpired && state.intent != null,
+                    modifier = Modifier.fillMaxWidth()) { Text("使用当前页码") }
+                MirraTextAction(onClick = { keepOriginal = true }, enabled = !busy,
+                    modifier = Modifier.fillMaxWidth()) { Text("保留原动作") }
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(when (monitoringPermissionGranted) {
+                true -> "监测权限已授权，开始后将检查监测服务。"
+                false -> "未授权分心监测，仍可开始阅读。"
+                null -> "开始后将检查监测服务。"
+            }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (state.isExpired) {
+                Text("准备已超时，确认会结束本次启动；你也可以取消后重新准备。",
+                    color = MaterialTheme.colorScheme.error)
+            }
             if (viewModel.starting) Text("正在准备本次学习…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (viewModel.savingFirstAction && applyingPageUpdate) {
+                Text("正在更新第一步…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             viewModel.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
         Column {
@@ -225,7 +256,7 @@ fun PreparationScreen(
                 } },
                 enabled = state.canConfirm && !busy && !viewModel.editingFirstAction,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-            ) { Text("我已完成这一步，开始阅读") }
+            ) { Text("我已完成，开始阅读") }
             Spacer(Modifier.height(10.dp))
             MirraSecondaryButton(onClick = onBack, enabled = !busy,
                 modifier = Modifier.fillMaxWidth()) { Text("稍后再说") }
@@ -237,7 +268,8 @@ fun PreparationScreen(
             ) { Text("取消本次启动") }
         }
     }
-    if (viewModel.editingFirstAction && item != null) {
+    if (viewModel.editingFirstAction && item != null &&
+        (!applyingPageUpdate || (!viewModel.savingFirstAction && viewModel.error != null))) {
         var edited by rememberSaveable(item.id, state.intent?.id, viewModel.editingFirstAction) {
             mutableStateOf(state.firstAction)
         }
@@ -247,13 +279,16 @@ fun PreparationScreen(
             text = {
                 Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(item.name, style = MaterialTheme.typography.titleMedium)
-                    FirstActionInput(edited, { edited = it }, item.currentPage, enabled = !viewModel.savingFirstAction)
+                    FirstActionInput(edited, { edited = it }, item.currentPage,
+                        enabled = !viewModel.savingFirstAction, compactHelp = true)
                     viewModel.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.saveFirstAction(edited) },
+                TextButton(onClick = {
+                    applyingPageUpdate = false
+                    viewModel.saveFirstAction(edited)
+                },
                     enabled = !viewModel.savingFirstAction && FirstActionResolver.validationError(edited) == null) {
                     Text(if (viewModel.savingFirstAction) "正在保存…" else "保存动作")
                 }

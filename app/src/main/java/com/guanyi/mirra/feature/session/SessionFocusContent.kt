@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import com.guanyi.mirra.data.local.entity.*
 import com.guanyi.mirra.domain.monitoring.FocusStatusUiModel
@@ -11,7 +12,8 @@ import com.guanyi.mirra.ui.components.MirraTextAction
 
 @Composable
 fun SessionFocusContent(status: FocusStatusUiModel, onBreak: () -> Unit, onFinishBreak: () -> Unit,
-    onFinishAllowance: () -> Unit, onExtendAllowance: () -> Unit) {
+    onFinishAllowance: () -> Unit, onExtendAllowance: () -> Unit, showBreakAction: Boolean = true,
+    centered: Boolean = false) {
     var extendConfirmation by remember(status.segmentId) { mutableStateOf(false) }
     val title = when (status.type) {
         SessionSegmentType.FOCUS, SessionSegmentType.DEEP_FOCUS -> "阅读中"
@@ -22,7 +24,7 @@ fun SessionFocusContent(status: FocusStatusUiModel, onBreak: () -> Unit, onFinis
         SessionSegmentType.UNMONITORED -> if (status.coverage == MonitoringCoverage.PARTIAL) "监测已中断" else "本次未开启分心监测"
         null -> "阅读中"
     }
-    Column(Modifier.fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         when (status.type) {
             SessionSegmentType.BREAK -> MirraTextAction(onFinishBreak) { Text("提前结束休息") }
@@ -30,7 +32,7 @@ fun SessionFocusContent(status: FocusStatusUiModel, onBreak: () -> Unit, onFinis
                 MirraTextAction(onFinishAllowance) { Text("提前结束") }
                 if (status.canExtend) MirraTextAction({ extendConfirmation = true }) { Text("延长 2 分钟") }
             }
-            else -> MirraTextAction(onBreak, enabled = status.segmentId != null) { Text("休息") }
+            else -> if (showBreakAction) MirraTextAction(onBreak, enabled = status.segmentId != null) { Text("休息") }
         }
     }
     if (extendConfirmation && status.canExtend && status.type == SessionSegmentType.TEMPORARY_ALLOWANCE) {

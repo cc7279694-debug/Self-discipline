@@ -50,11 +50,14 @@ class WearableProtocolV2GoldenFixturesTest {
         invalid.forEach { assertThrows(WearableProtocolException::class.java) { WearableProtocol.decodeMessage(it.toByteArray()) } }
     }
     @Test fun `v2 reply fields are required and unknown or duplicate fields cannot be defaulted away`() {
-        val snapshot = String(fixture("idle"), Charsets.UTF_8)
+        // Test mutations use LF delimiters; Windows checkouts may give the resource CRLF.
+        // Do not normalize production wire bytes or the shared golden fixture itself.
+        val snapshot = String(fixture("idle"), Charsets.UTF_8).replace("\r\n", "\n")
         listOf(snapshot.replace("    \"allowedActions\": [],\n", ""),
             snapshot.replace("    \"intentId\": null,\n", ""),
             snapshot.replace("\"protocolVersion\": 2", "\"protocolVersion\": 2,\"protocolVersion\":1"),
             snapshot.dropLast(2) + ",\"sql\":\"delete\"}\n").forEach {
+            assertNotEquals("Fixture mutation must change input", snapshot, it)
             assertThrows(WearableProtocolException::class.java) { WearableProtocol.decodeMessage(it.toByteArray()) }
         }
     }

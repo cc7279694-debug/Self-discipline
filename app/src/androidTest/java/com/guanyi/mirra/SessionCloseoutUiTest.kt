@@ -54,7 +54,7 @@ class SessionCloseoutUiTest {
             rule.setContent { MirraTheme { SessionScreen(vm, {}, {}, {}) } }
             rule.waitUntil(5_000) { vm.currentPageText == "40" }
             rule.runOnIdle { vm.changeContent("确认前的最后一笔") }
-            rule.onNodeWithText("结束本次阅读").performScrollTo().performClick()
+            rule.onNodeWithTag("session-end-action").performScrollTo().performClick()
             rule.onNodeWithText("结束本次阅读？").assertExists()
             assertEquals(FocusCloseoutState.ACTIVE, runBlocking { c.studyWorkflowRepository.getCloseoutState(s.id) })
             assertTrue(runBlocking { c.noteRepository.observeForSession(s.id).first() }.isEmpty())
@@ -85,11 +85,13 @@ class SessionCloseoutUiTest {
         try {
             rule.setContent { MirraTheme { SessionScreen(vm, { completed = true }, {}, {}) } }
             rule.waitUntil(5_000) { vm.currentPageText == "40" }
+            rule.onNodeWithTag("session-page-action").performScrollTo().performClick()
             rule.onNode(hasSetTextAction() and hasText("当前页码")).performTextReplacement("42")
             rule.waitUntil(5_000) { pageWriteStarted.isCompleted }
             assertEquals(40, runBlocking { c.database.sessionDao().get(s.id) }!!.currentPage)
+            rule.onNodeWithText("完成").performClick()
 
-            rule.onNodeWithText("结束本次阅读").performScrollTo().performClick()
+            rule.onNodeWithTag("session-end-action").performScrollTo().performClick()
             rule.waitUntil(5_000) { vm.finishUi.value == SessionFinishUiState.Confirming("40") }
             rule.onNode(hasSetTextAction() and hasText("结束页码")).assertTextContains("40")
             rule.onNodeWithTag("confirm-session-finish").performClick()
@@ -214,7 +216,7 @@ class SessionCloseoutUiTest {
         try {
             rule.setContent { MirraTheme { SessionScreen(vm, { completed = true }, {}, {}) } }
             rule.waitUntil(5_000) { vm.currentPageText == "40" }
-            rule.onNodeWithText("结束本次阅读").performScrollTo().performClick()
+            rule.onNodeWithTag("session-end-action").performScrollTo().performClick()
             rule.onNode(hasSetTextAction() and hasText("结束页码")).performTextReplacement("35")
             rule.onNodeWithTag("confirm-session-finish").performClick()
             rule.onNodeWithText("不能低于已经记录的阅读位置").assertExists()
@@ -252,14 +254,14 @@ class SessionCloseoutUiTest {
         try {
             rule.setContent { MirraTheme { SessionScreen(vm, { completed = true }, {}, {}) } }
             rule.waitUntil(5_000) { vm.currentPageText == "40" }
-            rule.onNodeWithText("结束本次阅读").performScrollTo().performClick()
+            rule.onNodeWithTag("session-end-action").performScrollTo().performClick()
             rule.onNodeWithTag("confirm-session-finish").performClick()
             rule.waitUntil(5_000) { beforeBegin.isCompleted }
             assertEquals(FocusCloseoutState.ACTIVE, runBlocking { c.studyWorkflowRepository.getCloseoutState(s.id) })
             assertNull(runBlocking { c.database.sessionDao().get(s.id) }!!.endedAt)
             rule.onNodeWithText("正在保存本次阅读…").assertExists()
             rule.onNodeWithText("阅读已结束").assertDoesNotExist()
-            rule.onNodeWithText("快速笔记").assertDoesNotExist()
+            rule.onNodeWithTag("session-note-action").assertDoesNotExist()
             rule.runOnIdle { assertFalse(completed) }
             allowBegin.complete(Unit)
             rule.waitUntil(5_000) { completed }
@@ -282,7 +284,7 @@ class SessionCloseoutUiTest {
             }
             rule.onNodeWithText("阅读已结束").assertExists()
             rule.onNodeWithText("重试保存").assertExists()
-            rule.onNodeWithText("快速笔记").assertDoesNotExist()
+            rule.onNodeWithTag("session-note-action").assertDoesNotExist()
             rule.runOnIdle { rule.activity.onBackPressedDispatcher.onBackPressed() }
             rule.runOnIdle { assertFalse(left) }
             assertEquals(snapshot, vm.closeoutSnapshot)
@@ -301,7 +303,7 @@ class SessionCloseoutUiTest {
             rule.runOnIdle { restored = TopLevelDestination.Knowledge }
             rule.onNodeWithText("阅读已结束").assertExists()
             rule.onNodeWithText("重试保存").assertExists()
-            rule.onNodeWithText("快速笔记").assertDoesNotExist()
+            rule.onNodeWithTag("session-note-action").assertDoesNotExist()
             assertEquals(FocusCloseoutState.PENDING, runBlocking { c.studyWorkflowRepository.getCloseoutState(s.id) })
         } finally { rule.activityRule.scenario.close(); c.close() }
     }
@@ -319,7 +321,7 @@ class SessionCloseoutUiTest {
             rule.setContent { MirraTheme { SessionScreen(vm, { completed = true }, {}, {}) } }
             rule.waitUntil(5_000) { vm.currentPageText == "40" && vm.draftPage == "40" }
             rule.runOnIdle { vm.changeContent("首条笔记继承当前页") }
-            rule.onNodeWithText("结束本次阅读").performScrollTo().performClick()
+            rule.onNodeWithTag("session-end-action").performScrollTo().performClick()
             rule.waitUntil(5_000) { rule.onAllNodes(hasTestTag("confirm-session-finish")).fetchSemanticsNodes().isNotEmpty() }
             rule.onNodeWithTag("confirm-session-finish").performClick()
             rule.waitUntil(5_000) { completed }

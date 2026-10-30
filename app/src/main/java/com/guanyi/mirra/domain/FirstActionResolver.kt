@@ -19,6 +19,18 @@ object FirstActionResolver {
     /** A suggestion is not a choice: callers must wait for the user to explicitly select it. */
     fun suggestionFor(currentPage: Int): String = "翻到第 $currentPage 页，读这一页的第一段。"
 
+    /** Only exact known numeric templates qualify; this offer neither writes nor admits a Session. */
+    fun currentPageUpdate(item: LearningItemEntity): String? {
+        if (item.currentPage <= 0) return null
+        val action = item.firstAction
+        val pageText = numericSuggestion.matchEntire(action)?.groupValues?.get(1)
+            ?: Regex("拿起《${Regex.escape(item.name.trim())}》，翻到第 ([1-9][0-9]*) 页。")
+                .matchEntire(action)?.groupValues?.get(1)
+            ?: return null
+        val oldPage = pageText.toIntOrNull() ?: return null
+        return suggestionFor(item.currentPage).takeIf { oldPage != item.currentPage }
+    }
+
     fun defaultFor(name: String, currentPage: Int): String =
         "拿起《${name.trim()}》，翻到第 $currentPage 页。"
 
@@ -47,6 +59,8 @@ object FirstActionResolver {
 
     private fun isLegacyGenerated(action: String): Boolean =
         Regex("^拿起《[^》]+》，翻到第\\s*\\d+\\s*页。?$").matches(action)
+
+    private val numericSuggestion = Regex("翻到第 ([1-9][0-9]*) 页，读这一页的第一段。")
 
     // A bounded guard for obvious goal statements, not semantic proof of every free-text action.
     private val obviousGoal = Regex(

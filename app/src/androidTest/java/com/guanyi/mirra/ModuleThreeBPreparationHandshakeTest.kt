@@ -55,10 +55,10 @@ class ModuleThreeBPreparationHandshakeTest {
             PreparationScreen(viewModel, onStarted = { started.set(it) }, onAbandoned = {}, onBack = {})
         }
         composeRule.waitUntil(5_000) { viewModel.uiState.value.item != null }
-        composeRule.onNodeWithText("我已完成这一步，开始阅读").performClick()
+        composeRule.onNodeWithText("我已完成，开始阅读").performClick()
         composeRule.waitUntil(5_000) { viewModel.starting }
         composeRule.onNodeWithText("正在准备本次学习…").assertExists()
-        composeRule.onNodeWithText("我已完成这一步，开始阅读").assertIsNotEnabled()
+        composeRule.onNodeWithText("我已完成，开始阅读").assertIsNotEnabled()
         viewModel.start { _, _ -> }
         assertEquals(1, starts)
 

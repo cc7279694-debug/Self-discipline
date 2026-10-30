@@ -104,8 +104,17 @@ private fun LazyListScope.facts(snapshot: TrendsSnapshot, expanded: Map<String, 
     val unavailable = if (noEndedSessions) ACCUMULATING else UNAVAILABLE
 
     heading("启动", "start", "按学习意图创建日期统计")
+    item("start-counts") {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("成功开始 ${start.convertedCount} 次", style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.SemiBold, color = MirraTheme.colors.accentStrong,
+                modifier = Modifier.testTag("trend-start-count"))
+            Text("已结束计划 ${start.conversion.denominator} 次", style = MaterialTheme.typography.bodyLarge,
+                color = MirraTheme.colors.textSecondary, modifier = Modifier.testTag("trend-resolved-count"))
+        }
+    }
     metric("开始转化", fraction(start.conversion, if (noResolvedIntents) ACCUMULATING else UNAVAILABLE), "conversion",
-        if (comparison == null) null else percentagePointChange(comparison.conversionPercentagePointDelta, previous), prominent = true)
+        if (comparison == null) null else percentagePointChange(comparison.conversionPercentagePointDelta, previous))
     detailsToggle("启动", "start", expanded, onToggle)
     if (expanded["start"] == true) {
     metric("学习意图", "${start.conversion.denominator + start.openCount} 次", "intents")
