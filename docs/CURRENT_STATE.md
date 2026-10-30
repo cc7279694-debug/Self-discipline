@@ -1,8 +1,24 @@
 # Current State
 
-更新：2026-10-15（Asia/Shanghai）。
+更新：2026-10-30（Asia/Shanghai）。
 
 ## 当前阶段与授权
+
+**Mirra 1.4.1 / MIRRA_1_4_1_INTEGRATED_ANDROID_GATE_BLOCKED**。代码整合完成，完整Android/实际UI门槛受环境阻塞，等待独立审查，不是accepted/frozen。本轮以 V1.4 `14d428481a5671f1d0cc4c41eec4ad38350a0710` 为基线，选择性移入受保护的 V1.1.1 阅读体验增量 `27676027464eca0689447ac9e9cc9ace99c54416`；不是回退到旧 Room4 工程。实现与测试提交 **`04c7fb1cd6d5cb522704b4ee07d1a40f0f01be73`**。独立分支 `codex/mirra-v1-4-1-focus-integration`，工作区 `E:\CODEX\Mirra-v1.4.1-focus-integration`。原两条工作线、APK、录屏与历史证据保留；共用 Git 目录已核实在 E:。
+
+准备页、秒级本次阅读计时、笔记面板、准确监测状态、常亮专注显示及生命周期清理、结束保存错误闪现修正、旧第一动作页码的明确更新建议、小样本计数展示已移入。原 Logo/Mirra Blue、手环入口及唯一 owner 保留。版本提升为 **1.4.1/code10**；实体手机只读核对为1.4.0/code9，公开证书与原 V1.4 交付及既有构建证书相同，未安装、启动或修改手机。
+
+Room **v5**、schemas1–5、Migration1→5、腕端原始记录、协议1–4、事务后ACK、Full Backup format2/schema5及合法format1/schema4导入、JSON/CSV原12手机表边界均继承不变。腕端记录不进入普通手机Session或有效专注统计。05E-1～5、V2、main合并、Release均未授权且未开始。
+
+当前实际证据：定向 JVM **321/321 PASS**；最后测试修正后的fresh未过滤 JVM **879/879 PASS，0 failure/error/skipped**；lint **0 errors/13 warnings/1 hint**；Debug/Test APK构建PASS。专用新API37 AVD上原版1.4.0/code9→**install-r**新版1.4.1/code10，完整13表/腕端原文身份摘要与receivedAt/JPEG/四偏好presence/FTS保留校验及正式format2/schema5 roundtrip各1/1 PASS。迁移/腕端receiver/备份兼容/导出native专项 **25/25 PASS**，包括旧format1/schema4兼容；不冒称实际安装旧v4 APK升级。A的CRLF RED、closeout2项RED、lint本地配置及缓存报告失败、CSV误用13表清单的native24PASS/1FAIL全部保留，修正不改变协议/导出等生产核心。
+
+实际离线阅读opt-in **1 FAIL / ENVIRONMENT_BLOCKED**：准备/阅读/常亮截图明确出现SystemUI无响应模态弹窗；后续Espresso根窗口失焦，不能当作键盘或Mirra业务缺陷，也不绕过驱动/增加timeout求绿。完整未过滤connected、干净笔记/页码/结束/生命周期UI、最终320/360/411dp与fontScale1/2执行均 **NOT RUN/unfinished**。局部截图不算干净PASS。已正式恢复并验证原13表/图片/偏好基线，临时Usage/POST权限及网络恢复并回读；无Active学习/残留Mirra monitoring FGS/干预通知。只正常关闭新专用AVD，保留userdata；旧故障AVD及实体手机未操作。不得据此宣布可携带不可替代数据正式覆盖安装。
+
+试验包：`E:\CODEX\Mirra-deliverables\Mirra-1.4.1-focus-integrated-debug.apk`，17,079,758bytes，SHA-256 `AC283690CC5C4BB38F09905513A8323D2F06FB0E01963BAB98AFBF23FB9F2E93`。签名实际核对一致。详情及有环境遮挡的真实截图见[脱敏证据](evidence/v1-4-1-focus-integration/README.md)。API23–36/full OEM/实体兼容/TalkBack/release/真实无线等保持NOT RUN。下一步只补健康隔离Android完整门槛，不进入05E-1/V2。
+
+进度及安全边界以[1.4.1整合checkpoint](checkpoints/2026-10-30-mirra-v1-4-1-focus-integration.md)持续更新。用户允许普通提交及Push本功能分支，验证受阻须如实记录；本阶段最终等待独立验收，不自行accepted/frozen。
+
+## 继承的手环05E-0架构审查与05D状态（不是本轮开发授权）
 
 **Mirra Band 05E-0 / ARCHITECTURE_REVIEW_COMPLETE_PASS_WITH_NOTES**。用户已确认05E Product Baseline V1为ACCEPTED / FROZEN，仅授权方案、双仓库只读代码核查、合成模型推演和ChatGPT架构审查。本阶段不实施05E-1～5，不修改生产代码、Room v5 / 索引 / 备份 / 协议 / 产物，不操作真实数据或构建安装新包，不自动PR或合并main。ChatGPT外部审查已实际返回PASS WITH NOTES（仅架构），Band 33/33 MODEL_ONLY通过；原文与摘要/节选边界在Band docs/evidence/module-05e-0登记。产品冻结及架构通过不等于功能完成、真机或发布许可。
 
