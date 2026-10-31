@@ -1,10 +1,12 @@
 # Current State
 
-更新：2026-10-30（Asia/Shanghai）。
+更新：2026-10-31（Asia/Shanghai）。
 
 ## 当前阶段与授权
 
-**Mirra 1.4.1 / MIRRA_1_4_1_INTEGRATED_ANDROID_GATE_BLOCKED**。代码整合完成，完整Android/实际UI门槛受环境阻塞，等待独立审查，不是accepted/frozen。本轮以 V1.4 `14d428481a5671f1d0cc4c41eec4ad38350a0710` 为基线，选择性移入受保护的 V1.1.1 阅读体验增量 `27676027464eca0689447ac9e9cc9ace99c54416`；不是回退到旧 Room4 工程。实现与测试提交 **`04c7fb1cd6d5cb522704b4ee07d1a40f0f01be73`**。独立分支 `codex/mirra-v1-4-1-focus-integration`，工作区 `E:\CODEX\Mirra-v1.4.1-focus-integration`。原两条工作线、APK、录屏与历史证据保留；共用 Git 目录已核实在 E:。
+**Mirra 1.4.1 / MIRRA_1_4_1_ANDROID_GATE_ENVIRONMENT_BLOCKED**。代码整合完成，完整Android/实际UI门槛仍受环境阻塞，等待独立审查，不是accepted/frozen。整合轮以 V1.4 `14d428481a5671f1d0cc4c41eec4ad38350a0710` 为基线，选择性移入受保护的 V1.1.1 阅读体验增量 `27676027464eca0689447ac9e9cc9ace99c54416`；不是回退到旧 Room4 工程。实现与测试提交 **`04c7fb1cd6d5cb522704b4ee07d1a40f0f01be73`**。独立分支 `codex/mirra-v1-4-1-focus-integration`，工作区 `E:\CODEX\Mirra-v1.4.1-focus-integration`。原两条工作线、APK、录屏与历史证据保留；共用 Git 目录已核实在 E:。
+
+2026-10-31仅补Android准入检查：本地/远程起点`eb92d49fef59415f6f4c2a0fd28a13ffc863b9da`及原APK摘要一致。宿主可用内存先为0.60GiB，后自行回升并连续3次稳定在约5.2GiB，才创建、启动一次全新E:隔离API37 AVD，未重启旧故障AVD。新环境boot完成、Launcher持有焦点、输入法已加载/绑定，实际桌面和lastanr未见ANR；但启动后宿主内存持续仅947–1042MiB，完整UI/Gradle回归无可靠余量。没有已连接的独立远程Android宿主或已配置云环境，故停止准入，未安装Mirra、未运行Gradle/业务测试、未改权限/网络/设置或操作实体设备。只正常关闭新AVD并保留userdata，内存回升至6027MiB。源码和APK未变；以下879/879及25/25等为上轮执行证据，本轮未重跑。干净阅读旅程、真实常亮生命周期/结束验证、录屏及单次完整connected继续NOT RUN。详见原checkpoint末尾，本轮不宣称新ANR、产品缺陷、accepted/frozen或正式安装批准。
 
 准备页、秒级本次阅读计时、笔记面板、准确监测状态、常亮专注显示及生命周期清理、结束保存错误闪现修正、旧第一动作页码的明确更新建议、小样本计数展示已移入。原 Logo/Mirra Blue、手环入口及唯一 owner 保留。版本提升为 **1.4.1/code10**；实体手机只读核对为1.4.0/code9，公开证书与原 V1.4 交付及既有构建证书相同，未安装、启动或修改手机。
 

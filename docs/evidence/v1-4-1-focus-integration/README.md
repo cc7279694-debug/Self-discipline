@@ -1,6 +1,6 @@
 # Mirra 1.4.1 focus integration — bounded execution evidence
 
-Status: **MIRRA_1_4_1_INTEGRATED_ANDROID_GATE_BLOCKED**. This is an integration trial artifact, not approval for a phone containing irreplaceable data, OEM compatibility, a Release, or 05E-1 implementation.
+Latest status (2026-10-31): **MIRRA_1_4_1_ANDROID_GATE_ENVIRONMENT_BLOCKED**. This is an integration trial artifact, not approval for a phone containing irreplaceable data, OEM compatibility, a Release, or 05E-1 implementation. Prior results and failures remain below, not new execution.
 
 Implementation: `04c7fb1cd6d5cb522704b4ee07d1a40f0f01be73`, directly based on V1.4 `14d428481a5671f1d0cc4c41eec4ad38350a0710`. Protected V1.1.1 local WIP: `27676027464eca0689447ac9e9cc9ace99c54416` (local protection commit, not claimed as an independently pushed branch).
 
@@ -12,7 +12,17 @@ Implementation: `04c7fb1cd6d5cb522704b4ee07d1a40f0f01be73`, directly based on V1
 - Public certificate SHA-256: `29DED26BEA44F1AFE4FE383A302E4B507423D16223469D7DA3FE578D9A7F83B9`; verified equal to original V1.4 APK, existing signing identity and read-only installed-phone APK metadata. Phone was1.4.0/code9 at that query; no phone launch/install/data/settings operation.
 - Room **5**, schemas1–5 byte hashes unchanged from A; migration1→5 unchanged. Full Backup **2/schema5**, legal format1/schema4 input retained. JSON/CSV remain12phone tables, explicitly excluding wrist originals. No new permission/dependency or resource/Logo change.
 
-## Actual gates, not combined into a fictional full PASS
+## 2026-10-31 Android preflight — no Mirra test admitted
+
+Starting local/remote HEAD `eb92d49fef59415f6f4c2a0fd28a13ffc863b9da`, clean tree and original APK hash verified. Initial host available RAM0.60GiB recovered without intervention; three later samples5427/5422/5379MiB satisfied the existing4GiB pre-boot gate. Created and booted **one new** isolated E:-drive API37 google_apis x86_64 AVD from the existing official image(2CPU/2048MiB/SwiftShader/headless/no snapshots). No old ANR-affected AVD was started or reset.
+
+Identity/API/boot verified; SystemUI and Launcher present, Launcher held actual window focus, LatinIME configured and session bound. Personally inspected real home-screen capture and last-ANR reports showed **no ANR at those observations**. Interactive typing was not exercised. After boot the host had only978/1005/1016MiB available RAM, later947MiB, before Mirra, screenrecord or Gradle. This did not establish reliable headroom for the existing1GiB Gradle heap plus driver/native/UI work. Stopped before installing or testing Mirra; this is a resource blocker, **not** a new Mirra assertion failure or observed fresh-AVD ANR.
+
+Alternative-host inventory:7 registered projects, all local;0 saved cloud environments; WSL only docker-desktop, not a verified independent Android host. No available independent Android environment was found through current connections, none was provisioned, and no data was uploaded. Normal identity-checked shutdown left0 owned emulator processes, retained new userdata and6027MiB free RAM. No physical-device-targeted command, permission/network/settings change, user-program closure, Mirra install or data mutation. No controls needed restoration because none were changed. Existing AVDs and original app data remained untouched.
+
+Current-attempt Android business tests executed **0**. Clean reading, focus-window lifecycle/finish, recording and complete unfiltered connected: **NOT RUN / ENVIRONMENT_BLOCKED**. No new full-suite discovered/passed/failed/skipped counts exist. Earlier879/879JVM and25/25native remain historical evidence only. Startup/health logs, screenshot and resource snapshots stay local-only under `.local/validation/android-gate-20261031/`; no full dumps or device identifiers are committed. Do not repeat this startup without a materially different adequate environment.
+
+## Prior actual gates (2026-10-30), not rerun or combined into a fictional full PASS
 
 | Execution | Actual result |
 | --- | --- |
